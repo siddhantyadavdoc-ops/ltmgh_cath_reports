@@ -1621,6 +1621,52 @@ function vesselProse(cag, key, dg) {
 }
 
 /* ---------- Rentrop collaterals ---------- */
+/* Which main vessels (LAD / LCx / RCA) carry a total or near-total occlusion
+   — the ones collaterals would fill. PDA / PLV count with their owner. */
+function occludedMains(cag) {
+  cag = cag || {};
+  const out = {};
+  function severe(V) {
+    return !!V && !V.normal && (V.lesions || []).some(function (L) {
+      const pct = parseFloat(String(L.percent || "").replace(/[^\d.]/g, ""));
+      return (pct >= 99) || (L.chars || []).indexOf("Occlusion") >= 0;
+    });
+  }
+  if (severe(cag.lad) || severe(cag.d1)) out.lad = true;
+  if (severe(cag.lcx) || severe(cag.om) || severe(cag.ramus)) out.lcx = true;
+  if (severe(cag.rca)) out.rca = true;
+  ["pda", "plv"].forEach(function (pk) { if (severe(cag[pk])) out[posteriorOwner(cag, pk)] = true; });
+  return out;
+}
+/* The scanner's "to" / "from" reading checked against the lesions: the vessel
+   receiving collaterals is normally the occluded one, the supplier is patent.
+   Returns "" when it looks right (or there is nothing to compare), otherwise a
+   sentence for the review screen. */
+function rentropWarning(cag) {
+  const r = (cag || {}).rentrop || {};
+  const to = ["Lad", "Lcx", "Rca"].filter(function (v) { return r["to" + v]; });
+  const from = ["Lad", "Lcx", "Rca"].filter(function (v) { return r["from" + v]; });
+  if (!to.length && !from.length) return "";
+  const name = { Lad: "LAD", Lcx: "LCx", Rca: "RCA" };
+  const same = to.filter(function (v) { return from.indexOf(v) >= 0; });
+  if (same.length) return "Rentrop: " + same.map(function (v) { return name[v]; }).join(", ") + " is marked both \u201cto\u201d and \u201cfrom\u201d \u2014 collaterals run from a patent vessel to an occluded one, so check the sheet.";
+  const occ = occludedMains(cag);
+  const toPatent = to.filter(function (v) { return !occ[v.toLowerCase()]; });
+  const fromOccluded = from.filter(function (v) { return occ[v.toLowerCase()]; });
+  if (toPatent.length && fromOccluded.length)
+    return "Rentrop looks reversed: " + fromOccluded.map(function (v) { return name[v]; }).join(", ") + " carries the occlusion on the earlier sheets but is marked as the supplier, while " + toPatent.map(function (v) { return name[v]; }).join(", ") + " is marked as receiving. Collaterals fill the occluded vessel \u2014 check the sheet (Swap reverses to/from).";
+  if (toPatent.length && Object.keys(occ).length)
+    return "Rentrop: collaterals are marked to " + toPatent.map(function (v) { return name[v]; }).join(", ") + ", which has no occlusion on the earlier sheets (" + Object.keys(occ).map(function (k) { return name[k[0].toUpperCase() + k.slice(1)]; }).join(", ") + " does) \u2014 check the sheet.";
+  return "";
+}
+function rentropSwap() {
+  const r = ((S.D || {}).cag || {}).rentrop;
+  if (!r) return;
+  ["Lad", "Lcx", "Rca"].forEach(function (v) {
+    const t = !!r["to" + v]; r["to" + v] = !!r["from" + v]; r["from" + v] = t;
+  });
+  render();
+}
 function rentropText(cag) {
   const r = (cag || {}).rentrop || {};
   // The sheet offers the same three vessels on both sides of the line:
@@ -5452,16 +5498,17 @@ ${A_COMMON}
 PDA, PLV and Ramus are branch blocks with Major / Minor / Normal and no segment names.
 
 Also read:
-- rentrop — grade is "0", "1", "2" or "3". The line below the grades reads "to LAD ☐ LCX ☐ RCA ☐   from LAD ☐ LCX ☐ RCA ☐": set toLad / toLcx / toRca for the three boxes after "to", and fromLad / fromLcx / fromRca for the three after "from". The same vessel appears on both sides, so match each box to the word immediately before it. note is any handwriting on the rule under that line.
+- rentrop — the line reads "Rentrop Collaterals: ☐ Grade 0 ☐ Grade 1 ☐ Grade 2 ☐ Grade 3," and below it "to ☐ LAD ☐ LCX ☐ RCA   from ☐ LAD ☐ LCX ☐ RCA". As everywhere on this form, EACH BOX SITS BEFORE ITS WORD: the box between "Grade 2" and "Grade 3" is Grade 3's box; the box right after the word "to" is LAD's; the box right after "from" is LAD's. Read the tick, then name the word to its RIGHT. grade is "0", "1", "2" or "3" — the grade whose word follows the ticked box. toLad / toLcx / toRca are the three boxes after "to" (the vessel RECEIVING the collaterals — normally the occluded one), fromLad / fromLcx / fromRca the three after "from" (the vessel SUPPLYING them). A vessel is never both "to" and "from" on the same sheet; if your reading gives that, you have shifted by one box — re-read with the box-before-word rule. Omit the whole "rentrop" object when nothing on these two lines is ticked or written. note is any handwriting on the rule under that line.
 - grafts — limaNormal and rimaNormal for the "LIMA: Normal" and "RIMA: Normal" boxes; note for handwriting on the Grafts line.
 - renalL / renalR — the Left and Right renal arteries. These may be printed as one combined "Renals :" line or as two separate lines beginning "Left Renal:" and "Right Renal:" — handle either. Each reads: Normal, Ostial, ____% stenosis, Stent. Set normal:true when its "Normal" box is ticked; otherwise record the stenosis as a lesion in the usual shape (set segment "Ostial" when the Ostial box is ticked, else leave segment empty), and set stent:true on that lesion if the renal Stent box is ticked. Omit a renal artery entirely if its line is absent or nothing on it is marked.
-- finalDx — the row of vessel boxes on the Final Diagnosis line: LM, LAD, D1, LCX, OM, RCA, PDA, PLV, Ramus (keys lm, lad, d1, lcx, om, rca, pda, plv, ramus). Ramus is the last box on that row, after PLV. Newer printings add a "Non obstructive CAD" box and, beside it, a "Non-anginal chest pain" box on the line just below that row: return finalDx.nonObstructive: true and finalDx.nacp: true when ticked (these two are on the Final Diagnosis line, separate from the Clinical Diagnosis boxes of sheet 1).
-- plan — mmm; ptcaTo (any of LM, LAD, D1, LCX, OM, RCA, Ramus — the Ramus box is the last one on the "PTCA to" row, after RCA); ivus; rota; cabg; cmm (Continued Medical Management); riskControl (Aggressive control of risk factors).
+- finalDx — the row of vessel boxes on the Final Diagnosis line: "Final Diagnosis : ☐ LM ☐ LAD ☐ D1, ☐ LCX ☐ OM, ☐ RCA, ☐ PDA, ☐ PLV, ☐ Ramus" (keys lm, lad, d1, lcx, om, rca, pda, plv, ramus). Ramus is the last box on that row, after PLV. Return ONLY the boxes with a pen mark in them — on a typical sheet one to three are ticked and the rest are empty printed boxes. Never tick a vessel because it was diseased elsewhere, and never return them all. Newer printings add a "Non obstructive CAD" box and, beside it, a "Non-anginal chest pain" box on the line just below that row: return finalDx.nonObstructive: true and finalDx.nacp: true when ticked (these two are on the Final Diagnosis line, separate from the Clinical Diagnosis boxes of sheet 1).
+- plan — the Plan block is three printed lines: "Plan : ☐ MMM , PTCA to ☐ LM ☐ LAD ☐ D1, ☐ LCX ☐ OM, ☐ RCA, ☐ Ramus", then "with ☐ IVUS ☐ Rota ☐ CABG", then the two printed sentences "Continued Medical Management" and "Aggressive control of risk factors" (each may have a handwritten tick before it). Keys: mmm; ptcaTo (any of LM, LAD, D1, LCX, OM, RCA, Ramus — the Ramus box is the last one on the "PTCA to" row, after RCA); ivus, rota, cabg (the three boxes on the "with" line — CABG is the LAST box on that line, right after Rota, and is ticked on its own when surgery is planned); cmm (Continued Medical Management); riskControl (Aggressive control of risk factors). Return only what is ticked; a Plan line with nothing ticked gives no keys.
 - ptcaTo comes ONLY from the boxes on the "Plan : ☐ MMM , PTCA to …" row itself. The Final Diagnosis row above it has the same vessel boxes and is a different thing — a vessel ticked there is NOT a PTCA target. Never infer a target from the vessel findings on the sheets (a plaque or a lesion in a vessel does not make it a target). When no box on the Plan row is marked, return ptcaTo as an empty list.
 - finalDiagnosisExtra — any other handwriting on the Final Diagnosis line.
 
-Shape:
-{"cag":{"pda":{"involved":true,"grade":"Major","lesions":[{"percent":"80","chars":["Calcific"]}]},"plv":{"involved":true,"grade":"Minor","normal":true,"lesions":[]},"ramus":{"involved":true,"grade":"Major","lesions":[{"percent":"70","chars":["Discrete"]}],"note":""},"rentrop":{"grade":"2","toLad":true,"toLcx":false,"toRca":false,"fromLad":false,"fromLcx":false,"fromRca":true,"note":""},"grafts":{"limaNormal":true,"rimaNormal":true,"note":""},"renalL":{"normal":true,"lesions":[]},"renalR":{"involved":true,"lesions":[{"segment":"Ostial","percent":"70","chars":["Discrete"]}]},"finalDx":{"lm":true,"lad":true,"d1":true,"lcx":true,"om":true,"rca":true,"pda":true,"plv":true,"ramus":true,"nonObstructive":true,"nacp":true},"plan":{"mmm":true,"ptcaTo":["LAD","Ramus"],"ivus":true,"rota":true,"cabg":true,"cmm":true,"riskControl":true},"finalDiagnosisExtra":""}}`;
+Shape (the keys and their types only — the values here are placeholders for ONE imaginary sheet, not what you should return; every sheet differs, and most boxes on a real sheet are empty):
+{"cag":{"pda":{"involved":true,"grade":"Major","lesions":[{"percent":"80","chars":["Calcific"]}]},"plv":{"involved":true,"grade":"Minor","normal":true,"lesions":[]},"ramus":{"involved":true,"grade":"Major","lesions":[{"percent":"70","chars":["Discrete"]}],"note":""},"rentrop":{"grade":"3","toRca":true,"fromLad":true,"note":""},"grafts":{"limaNormal":true,"rimaNormal":true,"note":""},"renalL":{"normal":true,"lesions":[]},"renalR":{"involved":true,"lesions":[{"segment":"Ostial","percent":"70","chars":["Discrete"]}]},"finalDx":{"lad":true,"rca":true},"plan":{"ptcaTo":["LAD"],"cabg":true,"cmm":true,"riskControl":true},"finalDiagnosisExtra":""}}
+Every boolean key you return must correspond to a visible pen mark on this photo. finalDx and plan in particular: list only the ticked boxes (finalDx may be {} and plan may be {"ptcaTo":[]}).`;
 
 /* ============================ sheet 5 — the coronary diagram ============================ */
 const PROMPT_D = `You are reading a photograph of the CORONARY DIAGRAM SHEET (printed footer "Coronary Diagram — Page 5 of 5") that goes with the coronary angiography proforma of the Department of Cardiology, LTMG Hospital, Sion, Mumbai. The sheet is PRE-PRINTED; the operator draws and writes on it by hand. Only handwriting and hand-drawn pen marks are data — never return printed text, printed letters or the printed drawing itself as a finding.
@@ -9135,7 +9182,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.29", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.30", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -9791,6 +9838,7 @@ function viewReview() {
      <p class="hint">Supplied from</p>
      <div class="chips">${CK("from LAD", "cag.rentrop.fromLad")}${CK("from LCx", "cag.rentrop.fromLcx")}${CK("from RCA", "cag.rentrop.fromRca")}</div>` +
     ROW(F("Collateral note", "cag.rentrop.note", "1 1 100%")) +
+    (rentropWarning(D.cag) ? `<div class="warn" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1 1 240px">${esc2(rentropWarning(D.cag))}</span><button class="b" style="padding:6px 10px;font-size:12.5px" type="button" onclick="rentropSwap()">Swap to/from</button></div>` : "") +
     (rentropText(D.cag) ? `<div class="preview"><span>Prints as</span><b>${esc2(rentropText(D.cag))}</b></div>` : "") +
     `<p class="hint">Arterial conduits</p>
      <div class="chips">${CK("LIMA normal", "cag.grafts.limaNormal")}${CK("RIMA normal", "cag.grafts.rimaNormal")}</div>` +
@@ -10676,7 +10724,7 @@ window.addEventListener("error", function (ev) {
 });
 
 /* expose for inline handlers */
-Object.assign(window,{editLocalCase,editSharedCase,closeEdit,openOtherCopy,beginEdit,editingCase,editBanner,editDirty,editClashOk,caseIdentity,idKey,clearScanSession,scanSessionHasContent,caseJsonKey,downloadSelf,S,render,setPath,getPath,toggle,setSeg,setSegStr,toggleIn,pickFile,pickPdf,pickPool,otOpen,otMove,seroPositive,boxesMissing,potassiumOf,checklistText,CHECKLIST,uploadAllToSheet,testSheet,sheetUrlProblem,openRegistry,loadShared,removeShared,shareLink,openOt,loadOt,setOtDate,otAdd,otSet,otRemove,copyOt,tomorrowIso,todayIso,localIso,otFlush,otReady,renderList,regListHtml,otPickHtml,sheetApi,allCases,searchCases,suggestedType,modelPicker,slotModel,openCamera,closeCamera,snapCamera,retryCamera,removePoolItem,pickForSlot,rotateSlot,sortAgain,startOver,sortPool,autoAssign,normalizeSort,uprightTurn,SORT_PROMPT,CAM,scanOne,scanRemaining,buildReport,clearSlot,scannedCount,photoCount,newPatient,downloadDocx,downloadCaseXlsx,downloadRegistry,addToRegistry,removeCase,exportRegistryJson,importRegistryJson,addLesion,delLesion,setLesion,togLesion,cancelExtract,togLesionChar,setLesionSeg,setDominance,setDominanceArg,BLANK,saveCfg,loadLocal,retryFailed,buildDocx,buildXlsx,buildRegistryXlsx,caseRecord,mergeInto,VESSELS,posteriorOwner,dominanceLabel,rentropText,renalText,graftText,originText,dominanceWord,vesselProse,ramusProse,lesionSentence,vesselDiseaseText,diseasedVessels,withDesignation,WALL_CHARS,cuspName,efPhrase,rwmaText,diagnosisText,finalDiagnosisLines,has,
+Object.assign(window,{editLocalCase,editSharedCase,closeEdit,openOtherCopy,beginEdit,editingCase,editBanner,editDirty,editClashOk,caseIdentity,idKey,clearScanSession,scanSessionHasContent,caseJsonKey,downloadSelf,S,render,setPath,getPath,toggle,setSeg,setSegStr,toggleIn,pickFile,pickPdf,pickPool,otOpen,otMove,seroPositive,boxesMissing,potassiumOf,checklistText,CHECKLIST,uploadAllToSheet,testSheet,sheetUrlProblem,openRegistry,loadShared,removeShared,shareLink,openOt,loadOt,setOtDate,otAdd,otSet,otRemove,copyOt,tomorrowIso,todayIso,localIso,otFlush,otReady,renderList,regListHtml,otPickHtml,sheetApi,allCases,searchCases,suggestedType,modelPicker,slotModel,openCamera,closeCamera,snapCamera,retryCamera,removePoolItem,pickForSlot,rotateSlot,sortAgain,startOver,sortPool,autoAssign,normalizeSort,uprightTurn,SORT_PROMPT,CAM,scanOne,scanRemaining,buildReport,clearSlot,scannedCount,photoCount,newPatient,downloadDocx,downloadCaseXlsx,downloadRegistry,addToRegistry,removeCase,exportRegistryJson,importRegistryJson,addLesion,delLesion,setLesion,togLesion,cancelExtract,togLesionChar,setLesionSeg,setDominance,setDominanceArg,BLANK,saveCfg,loadLocal,retryFailed,buildDocx,buildXlsx,buildRegistryXlsx,caseRecord,mergeInto,VESSELS,posteriorOwner,dominanceLabel,rentropText,renalText,graftText,originText,dominanceWord,rentropWarning,rentropSwap,occludedMains,vesselProse,ramusProse,lesionSentence,vesselDiseaseText,diseasedVessels,withDesignation,WALL_CHARS,cuspName,efPhrase,rwmaText,diagnosisText,finalDiagnosisLines,has,
 diagramPanel,diagramConflicts,diagramLesionNotes,dominanceConflict,applyDiagramValue,dismissDiagramConflict,removeDiagram,toggleDiagBig,downloadDiagramJpeg,diagramForRegistry,normalizeDiagramResult,blankDiagram,pairLesions,pctInfo,samePct,pctLabel,proseRuns,blueNote,stripMarks,isDiagramSlot,diagramSlotFor,slotDef,currentDiagramImage,diagramVesselHint,diagramDominanceText,diagramConflictSummary,noteDiagramUrl,setRecField,syncToSheet,appendPayload,diagramLink,quickHash,diagramToLesion,addDiagramFinding,adoptDiagramFindings,SHEET_VESSELS,stentConditionClause,lesionSentence,blankLesion,PROMPT_D,DIAGRAM_PX,BLUE_OPEN,BLUE_CLOSE,UNREAD,UNREAD_IN,SLOTS,page2Xml,documentXml,vesselLesionSentences,
 setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
 PTCA_REVIEWERS,PROMPT_Q4,PROMPT_U,UTIL_VESSELS,blankUtilGrid,blankUtilCol,PTCA_SEG_GROUPS,PTCA_TO_TOKENS,segSiteInfo,segRangePhrase,segGroupOf,ptcaToVessels,splitDevices,deviceDia,stentParts,utilLookup,utilBalloonsOf,utilAllBalloons,utilStentsOf,pickPodBalloon,deriveTargets,prdMapText,podMapText,stentMapText,techniqueSentences,togUtilCol,rebuildPlan,stripWirePrefix,lcFirst,stentLabel,lesionSiteOf,
