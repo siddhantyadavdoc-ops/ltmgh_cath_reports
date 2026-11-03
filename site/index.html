@@ -38,6 +38,14 @@ section h3{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:va
 .fld.unread input{border-bottom:1.5px solid #c00000;background:#fff5f5}
 .fld.unread>span{color:#c00000}
 .fld.unread input::placeholder{color:#c00000;opacity:.65;font-style:italic}
+.fld.unsure input{border-bottom:2px solid #d9960f;background:#fff8e6}
+.fld.unsure>span{color:#8a6a12}
+.ck.unsure{box-shadow:0 0 0 2px #e8b63a inset;background:#fff8e6}
+.seg.unsure .segbtns{box-shadow:0 0 0 2px #e8b63a;border-radius:7px}
+.lesion.unsure{box-shadow:0 0 0 2px #e8b63a;border-radius:8px}
+.warn.amber{background:#fff5dc;border-color:#e0b64a;color:#6b5110}
+.unsureList{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.unsureList span{background:#fff;border:1px solid #e0b64a;border-radius:12px;padding:2px 9px;font-size:12px}
 textarea{width:100%;border:1px solid var(--hair);border-radius:6px;padding:10px;
   font:14px/1.4 inherit;font-family:inherit;color:var(--ink);outline:none;resize:vertical}
 .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
@@ -2293,6 +2301,7 @@ function buildRegistryXlsx(cases) {
 function caseRecord(D) {
   const fields = patientRecord(D);
   if (has(S.cfg.userName)) fields.push(["Saved by", String(S.cfg.userName).trim()]);
+  fields.push(["Unsure fields", unsureColumn(D)]);
   return {
     type: "CAG",
     cagNo: String(D.cagNo || "").trim(),
@@ -3093,6 +3102,7 @@ function downloadDiagramJpeg() {
 
 function BLANK() {
   return {
+    unsure: [],
     name: "", cagNo: "", date: "", age: "", sex: "", ipdOpdNo: "", height: "", weight: "",
     // The current form has ONE shared date for the whole diagnosis line
     // (dxDate) rather than one date per diagnosis tick.
@@ -3214,6 +3224,7 @@ function blankTarget() {
 
 function PBLANK() {
   return {
+    unsure: [],
     ptype: "PTCA",
     name: "", ptcaNo: "", cagNo: "", date: "", age: "", sex: "", ipdOpdNo: "", height: "", weight: "",
     dx: { awmi: false, iw: false, pw: false, rv: false, ua: false, csa: false, nstemi: false, nacp: false,
@@ -4669,6 +4680,7 @@ function ptcaRecord(P) {
     ["Recommendations extra", P.recommendationsExtra || ""]
   );
   if (has(S.cfg.userName)) fields.push(["Saved by", String(S.cfg.userName).trim()]);
+  fields.push(["Unsure fields", unsureColumn(P)]);
   return {
     type: "PTCA",
     cagNo: String(P.cagNo || "").trim(),
@@ -5346,6 +5358,13 @@ function editBanner() {
 }
 
 /* ============================ prompts ============================ */
+const UNSURE_RULE = `
+WHAT YOU WERE UNSURE OF
+- Besides the fields, return "unsure": a list of the fields you read only tentatively — where a careful reader would want to look at the sheet again. Flag a field when: a tick sits between two boxes or could be the tail of a tick from the row above or below; a mark is faint or partial and may be a smudge, fold or printing artefact rather than ink; a box lies in a scribbled-out or corrected area; a handwritten figure has two plausible readings (6 / 0, 7 / 1, 70 / 90) and you chose the likelier; a word or name you could read only in part; the area is blurred, cut off, at an angle or under glare.
+- Each entry is the dotted path of that field in your JSON, from the root of your answer, arrays by index from 0 in square brackets — e.g. "cag.lad.lesions[1].percent", "cag.rentrop.grade", "cag.plan.cabg", "dx.awmi", "echo.lvef", "blood.hb". A field you flag is still returned the way you read it (a box you read as unticked is simply left out); "unsure" only says where to look again.
+- Flag only what was genuinely doubtful: on a clean sheet the list is short or absent. Omit "unsure" altogether when nothing was doubtful. It never replaces "?" for a value you could not read at all.
+`;
+
 const A_COMMON = `The sheet is PRE-PRINTED with checkboxes. Only handwriting and tick marks are data.
 
 TICK RULES & PDF ARTIFACTS
@@ -5375,7 +5394,7 @@ UNREADABLE HANDWRITING
 - Branch blocks (Diagonal, OM, PDA, PLV, Ramus) start with "☐ Major ☐ Minor, ☐ Normal". Major / Minor is the vessel's size — put it in "grade" ("Major" or "Minor"). The Normal box is separate — return "normal": true when it is ticked. Both are often ticked together (a major vessel that is normal): return both. Never put "Normal" in "grade". Their lesions have no segment name, so leave segment empty. The "____% Lesion" blank on these lines is usually EMPTY when only Plaque is ticked — then omit percent altogether; an empty blank is never "?" (reserve "?" for a figure that was written but cannot be read).
 - timi is "I", "II" or "III"; Type is "I", "II" or "III".
 - ORIGIN: each main vessel row has "Normal origin" and "Anomalous origin from ____". Set originNormal:true when the normal box is ticked. When the anomalous box is ticked, put ONLY the cusp code in anomalousFrom — "LCC" (left coronary cusp), "RCC" (right coronary cusp) or "NCC" (non-coronary cusp). Handwriting may read LCC, LCS, RCC, NCC or just L / R / N; normalise it to LCC, RCC or NCC. If the handwriting names something else entirely, put it verbatim in "origin" instead.
-
+${UNSURE_RULE}
 Return ONLY minified JSON, no fences, no commentary.`;
 
 const PROMPT_P1 = `You are reading a photograph of a CORONARY ANGIOGRAPHY REPORT proforma from the Department of Cardiology, LTMG Hospital, Sion, Mumbai.
@@ -5443,7 +5462,7 @@ FREE-TEXT ECHO NOTE — RIGHT OF THE VALVE TABLE
 - In the empty space to the RIGHT of that valve table there are two ruled lines with no printed label. They are for any further echocardiogram finding written in longhand — e.g. "dilated LA", "no LV clot", "trivial pericardial effusion".
 - Read whatever is handwritten on those two lines as ONE note, joining the two lines with a single space, and return it in "doppler". Omit "doppler" when both lines are blank.
 - Those two lines are echo findings only: never move anything into "doppler" from the valve table, the RWMA row beneath it, or the echo value table above it.
-
+${UNSURE_RULE}
 Return ONLY minified JSON, no fences, no commentary. OMIT any key that is false, null, empty or absent.
 
 Shape:
@@ -5587,7 +5606,7 @@ BOXED FIELDS (combs)
 
 UNREADABLE HANDWRITING
 - If a field is clearly filled in but you cannot read it with confidence, return the single character "?" as that field's value. Never guess a number, a device size or a name. A field simply left blank is omitted entirely, not returned as "?".
-
+${UNSURE_RULE}
 Return ONLY minified JSON, no fences, no commentary.`;
 
 const PROMPT_Q1 = `You are reading a photograph of the FIRST page (front page) of the PTCA & STENTING PROFORMA, Department of Cardiology, LTMG Hospital, Sion, Mumbai. The printed footer reads "PTCA — Page 1 of 4".
@@ -5761,6 +5780,12 @@ function mergeInto(base, patch) {
   Object.keys(patch).forEach(function (k) {
     const v = patch[k];
     if (v == null) return;
+    if (k === "unsure") {
+      // the fields the model flagged as doubtful: a union across sheets,
+      // kept only on a case root (BLANK / PBLANK carry the key)
+      if (Array.isArray(base.unsure) || base === S.D || base === S.P) base.unsure = unsureUnion(base.unsure, v);
+      return;
+    }
     if (Array.isArray(v)) {
       if (k === "lesions" && Array.isArray(base[k])) {
         // sections straddle sheets, so the same lesion can be read twice.
@@ -5780,6 +5805,71 @@ function mergeInto(base, patch) {
     else base[k] = v;
   });
   return base;
+}
+
+/* ---------- the fields the scanner flagged as doubtful ----------
+   Each sheet's JSON may carry "unsure": paths like cag.lad.lesions[1].percent.
+   They are kept on the case (D.unsure / P.unsure) in the app's own dotted
+   form (cag.lad.lesions.1.percent), shown amber on the review screen, and
+   cleared one by one as the resident edits those fields. */
+function unsureNorm(p) {
+  return String(p || "").trim().replace(/\[(\d+)\]/g, ".$1").replace(/^\.+|\.+$/g, "").replace(/^P\./, "");
+}
+function unsureUnion(a, b) {
+  const out = [];
+  [].concat(Array.isArray(a) ? a : [], Array.isArray(b) ? b : []).forEach(function (p) {
+    const n = unsureNorm(p);
+    if (n && out.indexOf(n) < 0) out.push(n);
+  });
+  return out;
+}
+function unsureRoot() { return S.step === "ptcaReview" || (S.batchCase && S.batchCase.type === "PTCA" && S.step !== "review") ? S.P : S.D; }
+function unsureList() { const r = unsureRoot(); return (r && Array.isArray(r.unsure)) ? r.unsure : []; }
+function isUnsure(path) { const n = unsureNorm(path); return unsureList().indexOf(n) >= 0; }
+/* any flagged path under this prefix (a whole lesion, a chips row) */
+function unsureUnder(prefix) { const n = unsureNorm(prefix) + "."; return unsureList().some(function (p) { return p.indexOf(n) === 0; }); }
+function unsureClear(path) {
+  const r = unsureRoot(); if (!r || !Array.isArray(r.unsure) || !r.unsure.length) return;
+  const n = unsureNorm(path);
+  r.unsure = r.unsure.filter(function (p) { return p !== n && p.indexOf(n + ".") !== 0; });
+}
+function unsureClearAll() { const r = unsureRoot(); if (r) r.unsure = []; render(); }
+const UNSURE_WORDS = { cag: "", lm: "LM", lad: "LAD", d1: "D1", lcx: "LCx", om: "OM", rca: "RCA", pda: "PDA", plv: "PLV", ramus: "Ramus", renalL: "Left renal", renalR: "Right renal",
+  lesions: "lesion", percent: "%", chars: "characteristics", segment: "segment", stent: "stent", stentType: "stent type", isr: "ISR %", nih: "NIH", thrombosis: "stent thrombosis", thrombosisPct: "thrombosis %", note: "note",
+  grade: "grade", normal: "Normal", involved: "involved", timi: "TIMI", type: "Type", dominance: "dominance", originNormal: "normal origin", anomalousFrom: "anomalous origin",
+  rentrop: "Rentrop", toLad: "to LAD", toLcx: "to LCx", toRca: "to RCA", fromLad: "from LAD", fromLcx: "from LCx", fromRca: "from RCA", grafts: "grafts", limaNormal: "LIMA normal", rimaNormal: "RIMA normal",
+  finalDx: "Final diagnosis", nonObstructive: "Non obstructive CAD", nacp: "Non-anginal chest pain", plan: "Plan", mmm: "MMM", ptcaTo: "PTCA to", ivus: "IVUS", rota: "Rota", cabg: "CABG", cmm: "CMM", riskControl: "risk-factor control", finalDiagnosisExtra: "final diagnosis line",
+  dx: "Clinical diagnosis", awmi: "AWMI", iw: "IW", pw: "PW", rv: "RV", ua: "UA", csa: "CSA", nstemi: "NSTEMI", dxDate: "date", thrombolysed: "thrombolysed", agent: "agent",
+  past: "Past history", rf: "Risk factors", htn: "HTN", dm: "DM", dyslipidaemia: "dyslipidaemia", smoking: "smoking", tobacco: "tobacco", others: "others", exam: "Examination", pulse: "pulse", bp: "BP",
+  ecg: "ECG", hr: "HR", rhythm: "rhythm", stElev: "ST elevation", stElevLeads: "ST elevation leads", qWaves: "Q waves", qWavesLeads: "Q wave leads", tInv: "T inversion", tInvLeads: "T inversion leads", stDep: "ST depression", stDepLeads: "ST depression leads", cst: "CST",
+  echo: "Echo", la: "LA", aorta: "aorta", pasp: "PASP", ivsdd: "IVSDd", pwdd: "PWDd", raRv: "RA/RV", lvidd: "LVIDd", lvids: "LVIDs", lvef: "LVEF", lvef2: "revised LVEF", ddGrade: "DD grade", avpg: "AVPG",
+  valves: "Valves", mr: "MR", ms: "MS", mva: "MVA", as: "AS", ar: "AR", tr: "TR", rwma: "RWMA", no: "No", aAlAs: "A/AL/AS", iIlIs: "I/IL/IS", glvh: "GLVH", apical: "apical", doppler: "echo note",
+  blood: "Bloods", hb: "Hb", tlc: "TLC", platelets: "platelets", tc: "TC", bun: "BUN", srCreat: "Sr. creatinine", srNaK: "Na/K", tg: "TG", ldl: "LDL", hiv: "HIV", hbsag: "HBsAg", hcv: "HCV", rbsFbs: "RBS/FBS",
+  checklist: "margin checklist", name: "Name", cagNo: "CAG No.", ptcaNo: "PTCA No.", date: "Date", age: "Age", sex: "Sex", ipdOpdNo: "IPD/OPD No.", height: "Height", weight: "Weight", chestPainSince: "chest pain since", doeAoeSince: "DOE/AOE since",
+  proc: "Procedure", targets: "target", hardware: "Hardware", quick: "strip", cagr: "CAG findings", approvalAmount: "approval amount", ncStatus: "NC status" };
+/* the registry column: what the scanner flagged and was (or was not yet) checked */
+function unsureColumn(root) {
+  const list = (root && Array.isArray(root.unsure)) ? root.unsure : [];
+  return list.length ? list.length + " still flagged: " + list.map(unsureLabel).join("; ") : "";
+}
+function unsureLabel(p) {
+  const parts = unsureNorm(p).split(".");
+  const words = [];
+  for (let i = 0; i < parts.length; i++) {
+    const k = parts[i];
+    if (/^\d+$/.test(k)) { if (words.length) words[words.length - 1] += " " + (Number(k) + 1); continue; }
+    const w = UNSURE_WORDS.hasOwnProperty(k) ? UNSURE_WORDS[k] : k;
+    if (w) words.push(w);
+  }
+  return words.join(" \u203a ") || unsureNorm(p);
+}
+/* the amber summary at the top of a review screen */
+function unsurePanel() {
+  const list = unsureList();
+  if (!list.length) return "";
+  return `<div class="warn amber"><b>The scanner was unsure about ${list.length} field${list.length === 1 ? "" : "s"}</b> — they are outlined amber below; check each against the sheet (editing a field clears its flag).
+    <div class="unsureList">${list.map(function (p) { return `<span>${esc2(unsureLabel(p))}</span>`; }).join("")}</div>
+    <div class="btns" style="margin-top:6px"><button class="b" type="button" onclick="unsureClearAll()">All checked — clear the flags</button></div></div>`;
 }
 
 /* ============================ state ============================ */
@@ -5948,6 +6038,7 @@ function getPath(p) {
   return r[1].split(".").reduce(function (o, k) { return o == null ? o : o[k]; }, r[0]);
 }
 function setPath(p, v) {
+  unsureClear(p);
   const r = pathRoot(p);
   const ks = r[1].split("."); let o = r[0];
   for (let i = 0; i < ks.length - 1; i++) o = o[ks[i]];
@@ -7968,7 +8059,7 @@ async function uploadAllToSheet() {
 
 /* ============================ view helpers ============================ */
 const F = (label, path, flex) =>
-  `<label class="fld" style="flex:${flex || "1 1 140px"}"><span>${esc2(label)}</span>` +
+  `<label class="fld${isUnsure(path) ? " unsure" : ""}" style="flex:${flex || "1 1 140px"}"><span>${esc2(label)}</span>` +
   `<input value="${esc2(getPath(path))}" oninput="setPath('${path}',this.value)"></label>`;
 
 /* Date field: the free-text box (unchanged behaviour — still shows exactly
@@ -7983,7 +8074,7 @@ function FD(label, path, flex) {
   const issue = dateIssue(raw);
   const shown = isUnread(raw) ? "" : raw;
   const ph = isUnread(raw) ? ` placeholder="not read — enter date"` : "";
-  return `<label class="fld${issue ? " unread" : ""}" style="flex:${flex || "1 1 150px"}">` +
+  return `<label class="fld${issue ? " unread" : ""}${isUnsure(path) ? " unsure" : ""}" style="flex:${flex || "1 1 150px"}">` +
     `<span>${esc2(label)}</span>` +
     `<div style="display:flex;gap:5px;align-items:center">` +
     `<input style="flex:1 1 auto" value="${esc2(shown)}"${ph} ` +
@@ -7996,13 +8087,13 @@ function FD(label, path, flex) {
 }
 
 const CK = (label, path) =>
-  `<button class="ck${getPath(path) ? " on" : ""}" onclick="toggle('${path}')"><i></i>${esc2(label)}</button>`;
+  `<button class="ck${getPath(path) ? " on" : ""}${isUnsure(path) ? " unsure" : ""}" onclick="toggle('${path}')"><i></i>${esc2(label)}</button>`;
 const CKA = (label, path, val) => {
   const on = (getPath(path) || []).indexOf(val) >= 0;
-  return `<button class="ck${on ? " on" : ""}" onclick="toggleIn('${path}','${esc2(val)}')"><i></i>${esc2(label)}</button>`;
+  return `<button class="ck${on ? " on" : ""}${isUnsure(path) ? " unsure" : ""}" onclick="toggleIn('${path}','${esc2(val)}')"><i></i>${esc2(label)}</button>`;
 };
 const SEGB = (label, path, opts, fn) =>
-  `<div class="seg"><span class="lbl">${esc2(label)}</span><div class="segbtns">` +
+  `<div class="seg${isUnsure(path) ? " unsure" : ""}"><span class="lbl">${esc2(label)}</span><div class="segbtns">` +
   opts.map(function (o) {
     return `<button class="${getPath(path) === o.v ? "on" : ""}" ` +
       `onclick="${fn || "setSegStr"}('${path}','${esc2(o.v)}')">${esc2(o.t)}</button>`;
@@ -8016,15 +8107,17 @@ function addLesion(vk) {
   S.D.cag[vk].involved = true; render();
 }
 function delLesion(vk, i) { S.D.cag[vk].lesions.splice(i, 1); render(); }
-function setLesion(vk, i, k, v) { S.D.cag[vk].lesions[i][k] = v; }
-function togLesion(vk, i, k) { S.D.cag[vk].lesions[i][k] = !S.D.cag[vk].lesions[i][k]; render(); }
+function setLesion(vk, i, k, v) { unsureClear("cag." + vk + ".lesions." + i + "." + k); S.D.cag[vk].lesions[i][k] = v; }
+function togLesion(vk, i, k) { unsureClear("cag." + vk + ".lesions." + i + "." + k); S.D.cag[vk].lesions[i][k] = !S.D.cag[vk].lesions[i][k]; render(); }
 function togLesionChar(vk, i, c) {
+  unsureClear("cag." + vk + ".lesions." + i + ".chars");
   const L = S.D.cag[vk].lesions[i];
   if (!Array.isArray(L.chars)) L.chars = [];
   L.chars = L.chars.indexOf(c) >= 0 ? L.chars.filter(function (x) { return x !== c; }) : L.chars.concat([c]);
   render();
 }
 function setLesionSeg(vk, i, sg) {
+  unsureClear("cag." + vk + ".lesions." + i + ".segment");
   const L = S.D.cag[vk].lesions[i];
   L.segment = L.segment === sg ? "" : sg; render();
 }
@@ -8096,13 +8189,14 @@ function vesselBlock(v) {
   if (v.kind === "renal") h += `<div class="chips">${CK("Normal", p + ".normal")}</div>`;
 
   V.lesions.forEach(function (L, i) {
-    h += `<div class="lesion">`;
+    const lp = "cag." + v.key + ".lesions." + i;
+    h += `<div class="lesion${isUnsure(lp) || unsureUnder(lp) ? " unsure" : ""}">`;
     if (v.segs.length) {
       h += `<div class="chips">` + v.segs.map(function (sg) {
         return `<button class="ck${L.segment === sg ? " on" : ""}" onclick="setLesionSeg('${v.key}',${i},'${sg}')"><i></i>${sg}</button>`;
       }).join("") + `</div>`;
     }
-    h += ROW(`<label class="fld${fldCls(L.percent)}" style="flex:1 1 110px"><span>Stenosis %</span>
+    h += ROW(`<label class="fld${fldCls(L.percent)}${isUnsure(lp + ".percent") ? " unsure" : ""}" style="flex:1 1 110px"><span>Stenosis %</span>
       <input value="${esc2(fldVal(L.percent))}" ${isUnread(L.percent) ? `placeholder="?"` : ""}
         oninput="setLesion('${v.key}',${i},'percent',this.value)"></label>`);
     h += `<div class="chips">` + LESION_CHARS.map(function (c) {
@@ -9182,7 +9276,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.31", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.32", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -9740,6 +9834,7 @@ function viewReview() {
   h += editBanner();
   h += batchPanel();
   h += `<div class="warn">Check every value against the sheet before issuing. Handwriting recognition can misread digits.</div>`;
+  h += unsurePanel();
   h += diagramPanel(D);
 
   h += SECT("Patient",
@@ -10010,6 +10105,7 @@ function viewPtcaReview() {
   h += editBanner();
   h += batchPanel();
   h += `<div class="warn">PTCA & stenting report. Check every value against the sheet before issuing — handwriting recognition can misread digits.</div>`;
+  h += unsurePanel();
 
   h += SECT("Patient",
     ROW(F("Name", "P.name", "1 1 100%")) +
