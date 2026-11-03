@@ -109,7 +109,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.30: no script change (page-4 reading fixes are in the app)
+var SCRIPT_VERSION = 13;   // 13.31: a PDF page is read from its own scan image, one page per request, like a phone scan
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -1269,7 +1269,7 @@ function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
       else if (!c.cagNo && (hdr.cagNo || hdr.ptcaNo)) c.cagNo = String(hdr.ptcaNo || hdr.cagNo);
       // a page that failed on an earlier run and has now been read: its old error goes
       c.errors = (c.errors || []).filter(function (e) { return e.slot !== slot; });
-      batchNote_(c, runId, m.label, "reading " + BATCH_SLOT_WORD[slot], "ok", (slot === "p1" || slot === "q1" ? (c.name + (c.cagNo ? " · " + (slot === "q1" ? "PTCA " : "CAG ") + c.cagNo : "")) : "") + (rr.via ? " (via " + rr.via + ")" : ""));
+      batchNote_(c, runId, m.label, "reading " + BATCH_SLOT_WORD[slot], "ok", (slot === "p1" || slot === "q1" ? (c.name + (c.cagNo ? " · " + (slot === "q1" ? "PTCA " : "CAG ") + c.cagNo : "")) : "") + (rr.via ? " (via " + rr.via + ")" : "") + (item.isPdf ? " · " + (rr.asImage || "whole PDF") : ""));
     }
     batchWriteRow_(c);
     pause();
@@ -1468,17 +1468,183 @@ function batchReadPrompt_(prompt, isPdf, pdfPage) {
   return "The attached PDF has several pages. Read ONLY page " + pdfPage + " (counting from 1). Ignore every other page entirely — " +
     "nothing from any other page may appear in your answer.\n\n" + prompt;
 }
+// the wrapper above, taken off again when the page goes as its own image
+var BATCH_PDF_WRAP_RE = /^The attached PDF has several pages\. Read ONLY page \d+ \(counting from 1\)\. Ignore every other page entirely — nothing from any other page may appear in your answer\.\n\n/;
 
-/* ---- one Gemini request ----
-   Returns { ok, json } or { ok:false, reason, retry, quota }. The reason is
-   written in plain words because it ends up in the app's log. */
+/* ---- one page of an uploaded PDF on its own ----
+   Sending Gemini the whole PDF and asking for "page N" gives it that page
+   rendered by Google with three other pages to look at, and it reads worse
+   than the phone, which sends one page as one image. So each page is cut out
+   of the PDF first:
+   - a page that is exactly one upright JPEG (a phone-scanner PDF) goes as
+     that JPEG, the way the phone sends it;
+   - any other page (rotated scan, typed form, drawn page) goes as a one-page
+     PDF holding just that page's objects, copied verbatim, so Google renders
+     it upright as before but alone.
+   Returns an array by page (index = page − 1) of { bytes, mime, how } or null
+   where the parser could not follow the file (object streams, odd structure);
+   a null page is sent as the whole PDF, as before. */
+function batchPdfPages_(bytes) {
+  var s;
+  try { s = Utilities.newBlob(bytes).getDataAsString("ISO-8859-1"); } catch (e) { return []; }
+  if (!s || s.length !== bytes.length) return [];
+  var objs = {}, starts = [], re = /(\d+)\s+(\d+)\s+obj\b/g, m;
+  while ((m = re.exec(s))) starts.push({ num: Number(m[1]), hdr: m.index + m[0].length });
+  for (var i = 0; i < starts.length; i++) {
+    var end = s.indexOf("endobj", starts[i].hdr); if (end < 0) end = s.length;
+    objs[starts[i].num] = { at: starts[i].hdr, end: end };   // a later definition (incremental save) wins
+  }
+  function dict(num) {
+    var o = objs[num]; if (!o) return "";
+    var st = s.indexOf("stream", o.at);
+    return s.slice(o.at, st >= 0 && st < o.end ? st : o.end);
+  }
+  function length(d) {
+    var lm = d.match(/\/Length\s+(\d+)(\s+\d+\s+R)?/); if (!lm) return -1;
+    return lm[2] ? Number((dict(Number(lm[1])).match(/\d+/) || [-1])[0]) : Number(lm[1]);
+  }
+  /* an object's pieces: dict text, and for a stream its byte range */
+  function piece(num) {
+    var o = objs[num]; if (!o) return null;
+    var d = dict(num);
+    var st = s.indexOf("stream", o.at);
+    if (st < 0 || st > o.end) return { d: d.trim(), from: -1, to: -1 };
+    var p0 = st + 6;
+    if (s.charCodeAt(p0) === 13) p0++;
+    if (s.charCodeAt(p0) === 10) p0++;
+    var len = length(d);
+    if (len < 0) {                                   // no usable Length: measure to endstream
+      var e = s.indexOf("endstream", p0); if (e < 0) return null;
+      len = e - p0; while (len > 0 && (s.charCodeAt(p0 + len - 1) === 10 || s.charCodeAt(p0 + len - 1) === 13)) len--;
+    }
+    if (p0 + len > s.length) return null;
+    return { d: d.trim(), from: p0, to: p0 + len };
+  }
+  function kids(num, depth, out) {
+    if (depth > 10 || !objs[num]) return;
+    var d = dict(num);
+    if (/\/Type\s*\/Pages\b/.test(d)) {
+      var km = d.match(/\/Kids\s*\[([^\]]*)\]/); if (!km) return;
+      var kr = /(\d+)\s+\d+\s+R/g, k;
+      while ((k = kr.exec(km[1]))) kids(Number(k[1]), depth + 1, out);
+    } else if (/\/Type\s*\/Page\b/.test(d)) out.push(num);
+  }
+  var order = [], rootNum = null;
+  var trailer = s.lastIndexOf("/Root");
+  var cm = trailer >= 0 ? s.slice(trailer).match(/^\/Root\s+(\d+)\s+\d+\s+R/) : null;
+  if (cm) { var pm = dict(Number(cm[1])).match(/\/Pages\s+(\d+)\s+\d+\s+R/); if (pm) rootNum = Number(pm[1]); }
+  if (rootNum !== null) kids(rootNum, 0, order);
+  if (!order.length) starts.forEach(function (x) { if (/\/Type\s*\/Page\b/.test(dict(x.num)) && order.indexOf(x.num) < 0) order.push(x.num); });
+  if (!order.length) return [];
+
+  /* the page as its own JPEG, when it is one upright image and nothing else */
+  function asJpeg(pnum) {
+    var d = dict(pnum);
+    var rr = d.match(/\/Resources\s+(\d+)\s+\d+\s+R/), rd = rr ? dict(Number(rr[1])) : "";
+    function xobjects(dd) {
+      var inl = dd.match(/\/XObject\s*<<([^>]*)>>/); if (inl) return inl[1];
+      var ref = dd.match(/\/XObject\s+(\d+)\s+\d+\s+R/); return ref ? dict(Number(ref[1])) : "";
+    }
+    var xs = xobjects(d) || (rd ? xobjects(rd) : "");
+    if (!xs) return null;
+    var refs = [], rx = /(\d+)\s+\d+\s+R/g, q;
+    while ((q = rx.exec(xs))) if (refs.indexOf(Number(q[1])) < 0) refs.push(Number(q[1]));
+    var imgs = refs.filter(function (n) { return /\/Subtype\s*\/Image\b/.test(dict(n)); });
+    if (imgs.length !== 1) return null;
+    var id = dict(imgs[0]);
+    if (!/\/Filter\s*(\/DCTDecode\b|\[\s*\/DCTDecode\s*\])/.test(id)) return null;
+    var wm = id.match(/\/Width\s+(\d+)/), hm = id.match(/\/Height\s+(\d+)/);
+    if (!wm || !hm || Number(wm[1]) < 800 || Number(hm[1]) < 800) return null;   // a crest or a thumbnail, not a page
+    if (/\/Rotate\s+(?!0\b)\d+/.test(d)) return null;
+    // the image must be drawn upright: its content stream, readable only when
+    // uncompressed, places it with "a b c d e f cm" — upright means b = c = 0
+    var cref = d.match(/\/Contents\s+(\d+)\s+\d+\s+R/); if (!cref) return null;
+    var cp = piece(Number(cref[1])); if (!cp || cp.from < 0 || /\/Filter/.test(cp.d)) return null;
+    var content = s.slice(cp.from, cp.to);
+    var place = content.match(/(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+cm\s+(?:[^Q]*?\s)?\/\w+\s+Do/);
+    if (!place) return null;
+    var a = Number(place[1]), b = Number(place[2]), c = Number(place[3]), dd = Number(place[4]);
+    if (!(a > 0 && dd > 0 && Math.abs(b) < 1 && Math.abs(c) < 1)) return null;
+    var ip = piece(imgs[0]); if (!ip || ip.from < 0) return null;
+    if ((s.charCodeAt(ip.from) & 255) !== 0xFF || (s.charCodeAt(ip.from + 1) & 255) !== 0xD8) return null;
+    return { bytes: bytes.slice(ip.from, ip.to), mime: "image/jpeg", how: "page image" };
+  }
+
+  /* the page as a one-page PDF: the page object and everything it refers to,
+     copied verbatim and renumbered, under a fresh catalog */
+  function asPdf(pnum) {
+    var map = {}, list = [], queue = [pnum];
+    map[pnum] = 3; list.push(pnum);
+    var next = 4;
+    function strip(d, isPage) {
+      // links to the rest of the document that a lone page does not need
+      d = d.replace(/\/(Annots|AF|StructParents|Metadata|PieceInfo|Group|Tabs|B|Thumb)\s*(\[[^\]]*\]|\d+\s+\d+\s+R|\d+|\/\w+)/g, "");
+      if (isPage) d = d.replace(/\/Parent\s+\d+\s+\d+\s+R/, "/Parent 2 0 R");
+      return d;
+    }
+    while (queue.length) {
+      var n = queue.shift();
+      var pc = piece(n); if (!pc) return null;
+      var d = strip(pc.d, n === pnum);
+      var rx = /(\d+)\s+(\d+)\s+R\b/g, q;
+      while ((q = rx.exec(d))) {
+        var ref = Number(q[1]);
+        if (n === pnum && /\/Parent\s+2\s+0\s+R$/.test(d.slice(0, q.index + q[0].length))) continue;
+        if (!objs[ref]) return null;
+        if (!(ref in map)) { map[ref] = next++; list.push(ref); queue.push(ref); }
+      }
+    }
+    var segs = [], offs = [], pos = 0;
+    function text(t) { segs.push(t); pos += t.length; }
+    function raw(from, to) { segs.push([from, to]); pos += to - from; }
+    text("%PDF-1.4\n%âãÏÓ\n");
+    offs[1] = pos; text("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+    offs[2] = pos; text("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+    for (var i = 0; i < list.length; i++) {
+      var old = list[i], nn = map[old], pc2 = piece(old);
+      var d2 = strip(pc2.d, old === pnum).replace(/(\d+)\s+(\d+)\s+R\b/g, function (all, a) {
+        return old === pnum && all === "2 0 R" ? all : (map[Number(a)] + " 0 R");
+      });
+      if (old === pnum) d2 = d2.replace(/\/Parent\s+\d+\s+0\s+R/, "/Parent 2 0 R");
+      offs[nn] = pos;
+      if (pc2.from < 0) text(nn + " 0 obj\n" + d2 + "\nendobj\n");
+      else {
+        d2 = d2.replace(/\/Length\s+\d+(\s+\d+\s+R)?/, "/Length " + (pc2.to - pc2.from));
+        if (!/\/Length\s/.test(d2)) d2 = d2.replace(/>>\s*$/, " /Length " + (pc2.to - pc2.from) + " >>");
+        text(nn + " 0 obj\n" + d2 + "\nstream\n"); raw(pc2.from, pc2.to); text("\nendstream\nendobj\n");
+      }
+    }
+    var xref = pos, count = next;
+    var xr = "xref\n0 " + count + "\n0000000000 65535 f \n";
+    for (var k = 1; k < count; k++) xr += ("0000000000" + offs[k]).slice(-10) + " 00000 n \n";
+    text(xr + "trailer\n<< /Size " + count + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+    var out = [];
+    segs.forEach(function (sg) {
+      if (typeof sg === "string") { for (var j = 0; j < sg.length; j++) { var cc = sg.charCodeAt(j) & 255; out.push(cc > 127 ? cc - 256 : cc); } }
+      else for (var q2 = sg[0]; q2 < sg[1]; q2++) out.push(bytes[q2]);
+    });
+    return { bytes: out, mime: "application/pdf", how: "own page" };
+  }
+  return order.map(function (pnum) {
+    try { return asJpeg(pnum) || asPdf(pnum); } catch (e) { return null; }
+  });
+}
 function batchGemini_(key, model, prompt, item, pdfPage) {
-  var bytes;
-  try { bytes = item.file.getBlob().getBytes(); }
-  catch (e) { return { ok: false, reason: "could not read " + item.name + " from Drive: " + String(e && e.message || e), retry: true }; }
+  // the file's bytes, read from Drive once per run
+  if (!item.bytes) {
+    try { item.bytes = item.file.getBlob().getBytes(); }
+    catch (e) { return { ok: false, reason: "could not read " + item.name + " from Drive: " + String(e && e.message || e), retry: true }; }
+  }
+  var bytes = item.bytes, mime = item.mime, asImage = "";
+  if (pdfPage && item.isPdf) {
+    // one page of a scanned PDF goes as its own JPEG, the way a phone sends it
+    if (!item.pageImgs) { try { item.pageImgs = batchPdfPages_(item.bytes); } catch (e) { item.pageImgs = []; } }
+    var pi = item.pageImgs[pdfPage - 1];
+    if (pi && pi.bytes && pi.bytes.length) { bytes = pi.bytes; mime = pi.mime; asImage = pi.how; prompt = prompt.replace(BATCH_PDF_WRAP_RE, ""); }
+  }
   var body = {
     contents: [{ role: "user", parts: [
-      { inline_data: { mime_type: item.mime, data: Utilities.base64Encode(bytes) } },
+      { inline_data: { mime_type: mime, data: Utilities.base64Encode(bytes) } },
       { text: prompt }
     ] }],
     generationConfig: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json" }
@@ -1526,7 +1692,7 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
   if (fin === "SAFETY" || fin === "RECITATION") return { ok: false, reason: "the model stopped (" + fin + ")", retry: false };
   var parsed = batchParseJson_(out);
   if (parsed === undefined) return { ok: false, reason: "the model's answer was not valid JSON (it wrote text instead of the form's fields)", retry: true };
-  return { ok: true, json: parsed };
+  return { ok: true, json: parsed, asImage: asImage };
 }
 function batchParseJson_(s) {
   s = String(s == null ? "" : s).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");

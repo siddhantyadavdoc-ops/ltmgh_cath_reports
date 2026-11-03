@@ -5372,7 +5372,7 @@ LESIONS
 UNREADABLE HANDWRITING
 - If a field is clearly filled in but you cannot read it with confidence, return the single character "?" as that field's value. Never guess a number, a stent type or a name.
 - Use "?" only for handwriting you genuinely cannot make out. A field that was simply left blank must be omitted entirely, not returned as "?".
-- Branch blocks (Diagonal, OM, PDA, PLV, Ramus) start with "☐ Major ☐ Minor, ☐ Normal". Major / Minor is the vessel's size — put it in "grade" ("Major" or "Minor"). The Normal box is separate — return "normal": true when it is ticked. Both are often ticked together (a major vessel that is normal): return both. Never put "Normal" in "grade". Their lesions have no segment name, so leave segment empty.
+- Branch blocks (Diagonal, OM, PDA, PLV, Ramus) start with "☐ Major ☐ Minor, ☐ Normal". Major / Minor is the vessel's size — put it in "grade" ("Major" or "Minor"). The Normal box is separate — return "normal": true when it is ticked. Both are often ticked together (a major vessel that is normal): return both. Never put "Normal" in "grade". Their lesions have no segment name, so leave segment empty. The "____% Lesion" blank on these lines is usually EMPTY when only Plaque is ticked — then omit percent altogether; an empty blank is never "?" (reserve "?" for a figure that was written but cannot be read).
 - timi is "I", "II" or "III"; Type is "I", "II" or "III".
 - ORIGIN: each main vessel row has "Normal origin" and "Anomalous origin from ____". Set originNormal:true when the normal box is ticked. When the anomalous box is ticked, put ONLY the cusp code in anomalousFrom — "LCC" (left coronary cusp), "RCC" (right coronary cusp) or "NCC" (non-coronary cusp). Handwriting may read LCC, LCS, RCC, NCC or just L / R / N; normalise it to LCC, RCC or NCC. If the handwriting names something else entirely, put it verbatim in "origin" instead.
 
@@ -9182,7 +9182,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.30", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.31", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
