@@ -109,7 +109,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.32: no script change ("unsure" field flags live in the app and its prompts)
+var SCRIPT_VERSION = 13;   // 13.33: a failed "file vanished" case is dismissed when the same CAG No is scanned again
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -1355,7 +1355,32 @@ function batchFinish_(c, f, runId, status, why) {
     });
   } catch (e) { batchNote_(c, runId, "", "move files", "failed", String(e && e.message || e)); }
   batchWriteRow_(c);
+  if (status === "scanned") batchSupersede_(c, runId);
   return status;
+}
+/* A resident who deletes or renames an upload and puts it back leaves a
+   failed case behind ("the file … is no longer in the inbox") beside the new
+   one. When the new upload is scanned, an earlier failed case of the same
+   type whose only problems were vanished files, carrying the same CAG No
+   (or, with no CAG No read, the same name), is dismissed as superseded. */
+function batchSupersede_(c, runId) {
+  try {
+    var key = String(c.cagNo || "").replace(/\D/g, "");
+    var nm = String(c.name || "").toLowerCase().replace(/[^a-z]/g, "");
+    if (!key && !nm) return;
+    var tab = batchTabRows_();
+    tab.rows.forEach(function (r) {
+      if (r.caseId === c.caseId || r.status !== "failed" || batchType_(r.type) !== batchType_(c.type)) return;
+      var errs = r.errors || [];
+      if (!errs.length || !errs.every(function (e) { return e.step === "file" && /no longer in the inbox/.test(e.reason || ""); })) return;
+      var rk = String(r.cagNo || "").replace(/\D/g, ""), rn = String(r.name || "").toLowerCase().replace(/[^a-z]/g, "");
+      var same = key && rk ? key === rk : (nm && rn && nm === rn);
+      if (!same) return;
+      r.status = "dismissed";
+      batchNote_(r, runId, "", "superseded", "dismissed", "its file had gone from the inbox; the same case was uploaded again as " + (c.files || []).join(", ") + " and scanned");
+      batchWriteRow_(r);
+    });
+  } catch (e) { batchNote_(c, runId, "", "supersede", "failed", String(e && e.message || e)); }
 }
 
 /* ---- prompts ----
