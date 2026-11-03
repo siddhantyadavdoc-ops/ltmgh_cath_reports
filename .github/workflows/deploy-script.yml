@@ -1,0 +1,50 @@
+name: Deploy Apps Script
+
+# Runs when the script in apps-script/ changes (or by hand from the Actions tab).
+# Replaces the .gs code in the Google project, keeps its manifest, then publishes a
+# new version to every web-app deployment listed in the DEPLOYMENT_IDS secret.
+on:
+  push:
+    branches: [main]
+    paths: ["apps-script/**"]
+  workflow_dispatch:
+
+concurrency: apps-script-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install clasp
+        run: npm install -g @google/clasp
+      - name: Log in
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+      - name: Fetch the live project (keeps appsscript.json and any non-.gs files)
+        env:
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+        run: |
+          mkdir work && cd work
+          clasp clone "$SCRIPT_ID"
+          ls -la
+      - name: Swap in the new code
+        run: |
+          cd work
+          rm -f ./*.gs
+          cp ../apps-script/*.gs .
+          ls -la
+      - name: Push and deploy
+        env:
+          DEPLOYMENT_IDS: ${{ secrets.DEPLOYMENT_IDS }}
+        run: |
+          cd work
+          clasp push --force
+          msg="GitHub ${GITHUB_SHA::7}: $(git -C .. log -1 --pretty=%s)"
+          for id in $DEPLOYMENT_IDS; do
+            clasp deploy --deploymentId "$id" --description "$msg"
+          done
