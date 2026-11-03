@@ -35,7 +35,7 @@ jobs:
       - name: Swap in the new code
         run: |
           cd work
-          rm -f ./*.gs
+          rm -f ./*.gs ./*.js
           cp ../apps-script/*.gs .
           ls -la
       - name: Push and deploy
