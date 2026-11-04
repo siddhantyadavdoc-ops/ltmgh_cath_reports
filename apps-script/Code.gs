@@ -109,7 +109,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.33: a failed "file vanished" case is dismissed when the same CAG No is scanned again
+var SCRIPT_VERSION = 13;   // 13.34: a model that hit its daily limit rests until Google's reset (midnight Pacific), not just an hour
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -1747,8 +1747,18 @@ function batch429Kind_(text) {
   if (dm) delay = Math.ceil(Number(dm[1]) * 1000);
   var tokens = /token/i.test(t) && !/requests/i.test(t);
   if (perMin && !perDay) return { word: tokens ? "per-minute token limit" : "per-minute limit", restMs: Math.max(BATCH_REST_MIN_MS, delay + 5000), restWord: "a minute or two" };
-  if (perDay) return { word: "daily limit", restMs: BATCH_REST_MS, restWord: "an hour" };
+  if (perDay) { var r = batchPacificReset_(); return { word: "daily limit", restMs: r.ms, restWord: "Google's daily reset at " + r.local + " (midnight Pacific time)" }; }
   return { word: "limit", restMs: delay ? Math.max(BATCH_REST_MIN_MS, delay + 5000) : BATCH_REST_MS, restWord: delay ? "a minute or two" : "an hour" };
+}
+/* Google's free-tier daily counters reset at midnight Pacific time: how long
+   until the next one, and that moment on the sheet's own clock */
+function batchPacificReset_() {
+  var now = new Date();
+  var hms = Utilities.formatDate(now, "America/Los_Angeles", "HH:mm:ss").split(":");
+  var secIn = Number(hms[0]) * 3600 + Number(hms[1]) * 60 + Number(hms[2]);
+  var ms = (86400 - secIn) * 1000 + 2 * 60000;          // two minutes' grace
+  var at = new Date(now.getTime() + ms);
+  return { ms: ms, local: Utilities.formatDate(at, Session.getScriptTimeZone(), "HH:mm"), at: at };
 }
 function batchUsage_() {
   var u = null;

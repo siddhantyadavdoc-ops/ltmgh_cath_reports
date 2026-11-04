@@ -168,6 +168,12 @@ a.b{text-decoration:none;display:inline-block}
 .mcbox li.off b{color:var(--steel);font-weight:600}
 .mcnote{display:flex;gap:8px 12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 /* ---- shared registry and OT list ---- */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 6px}
+.tab{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;border:1px solid var(--hair);background:var(--panel);font:13.5px inherit;cursor:pointer;color:var(--ink)}
+.tab .n{font-size:11.5px;color:var(--steel);background:#eef0f3;border-radius:999px;padding:1px 7px}
+.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tab.on .n{background:rgba(255,255,255,.2);color:#fff}
+.tabsearch{background:#f5f6f8;border:1px solid var(--hair);border-radius:10px;padding:8px 10px}
 .search{width:100%;border:1px solid var(--hair);border-radius:8px;padding:10px 12px;font:15px inherit;
   font-family:inherit;color:var(--ink);outline:none;background:var(--paper);margin-top:10px}
 .search:focus{border-color:var(--wine)}
@@ -9276,7 +9282,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.33", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.34", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -10498,27 +10504,38 @@ function viewBatch() {
     </div>`;
   }
   if (!b.list) return h + (b.busy ? `<p class="hint">Loading…</p>` : "");
-  const q = String(b.q || "").trim().toLowerCase();
-  const match = function (c) {
-    if (!q) return true;
-    return [c.name, c.cagNo, c.caseId].concat(c.files || []).join(" ").toLowerCase().indexOf(q) >= 0;
-  };
-  const list = b.list.filter(match);
-  const ready = list.filter(function (c) { return c.status === "scanned"; });
-  const saved = list.filter(function (c) { return c.status === "saved"; });
-  const failed = list.filter(function (c) { return c.status === "failed"; });
-  const busy = list.filter(function (c) { return c.status === "queued" || c.status === "reading"; });
-  h += `<input class="search" placeholder="Search by name, CAG no. or file name" value="${esc2(b.q || "")}" oninput="S.batch.q=this.value;renderList('batchLists',batchListsHtml())">`;
+  h += `<label class="fld" style="display:block;margin:0 0 4px"><span>Search all lists</span>
+    <input class="search" placeholder="Name, CAG no. or file name — searches every list below" value="${esc2(b.q || "")}" oninput="S.batch.q=this.value;renderList('batchLists',batchListsHtml())"></label>`;
   h += `<div id="batchLists">${batchListsHtml()}</div>`;
   return h;
 }
+/* the tabs over the inbox lists: "All" shows every list in turn; a tab shows
+   one list for one proforma type, with its own search box under the tabs */
+const BATCH_TABS = [
+  { id: "", label: "All" },
+  { id: "scanned-CAG", label: "To check · CAG", status: "scanned", type: "CAG", title: "Scanned — to be checked" },
+  { id: "scanned-PTCA", label: "To check · PTCA", status: "scanned", type: "PTCA", title: "Scanned — to be checked" },
+  { id: "waiting-CAG", label: "Waiting · CAG", status: "waiting", type: "CAG", title: "Waiting to be scanned" },
+  { id: "waiting-PTCA", label: "Waiting · PTCA", status: "waiting", type: "PTCA", title: "Waiting to be scanned" },
+  { id: "failed", label: "Failed", status: "failed", type: "", title: "Failed" },
+  { id: "saved-CAG", label: "Saved · CAG", status: "saved", type: "CAG", title: "Checked and saved" },
+  { id: "saved-PTCA", label: "Saved · PTCA", status: "saved", type: "PTCA", title: "Checked and saved" },
+];
+function batchTabPick(id) { S.batch.tab = id; S.batch.tq = ""; renderList("batchLists", batchListsHtml()); }
+function batchCaseMatches(c, q) {
+  if (!q) return true;
+  return [c.name, c.cagNo, c.caseId].concat(c.files || []).join(" ").toLowerCase().indexOf(q) >= 0;
+}
+function batchStatusOf(c) { return c.status === "queued" || c.status === "reading" ? "waiting" : c.status; }
 function batchListsHtml() {
   const b = S.batch;
   const q = String(b.q || "").trim().toLowerCase();
-  const list = (b.list || []).filter(function (c) {
-    if (!q) return true;
-    return [c.name, c.cagNo, c.caseId].concat(c.files || []).join(" ").toLowerCase().indexOf(q) >= 0;
-  });
+  // the top box narrows every list; the tab counts follow it
+  const all = (b.list || []).filter(function (c) { return batchCaseMatches(c, q); });
+  const tab = BATCH_TABS.filter(function (t) { return t.id === (b.tab || ""); })[0] || BATCH_TABS[0];
+  const inTab = function (c, t) { return (!t.status || batchStatusOf(c) === t.status) && (!t.type || (batchIsPtca(c) ? "PTCA" : "CAG") === t.type); };
+  const tq = String(b.tq || "").trim().toLowerCase();
+  const list = tab.id ? all.filter(function (c) { return inTab(c, tab) && batchCaseMatches(c, tq); }) : all;
   const by = function (s) { return list.filter(function (c) { return c.status === s; }); };
   const ready = by("scanned"), saved = by("saved"), failed = by("failed"),
     busy = list.filter(function (c) { return c.status === "queued" || c.status === "reading"; });
@@ -10579,12 +10596,35 @@ function batchListsHtml() {
     });
     return h + `</div>`;
   };
-  let h = "";
-  h += section("Scanned — to be checked", ready, readyRow, "live", "Nothing waiting. Cases appear here a few minutes after their pages reach the inbox.");
-  h += section("Failed", failed, failedRow, "miss", "No failed cases.");
-  if (busy.length) h += section("Being read", busy, busyRow, "dim", "");
-  if (saved.length) h += section("Checked and saved", saved, savedRow, "dim", "", 40);
-  return h;
+  let h = `<div class="tabs">` + BATCH_TABS.map(function (t) {
+    const n = t.id ? all.filter(function (c) { return inTab(c, t); }).length : all.length;
+    return `<button class="tab${t.id === tab.id ? " on" : ""}" onclick="batchTabPick('${t.id}')">${esc2(t.label)}<span class="n">${n}</span></button>`;
+  }).join("") + `</div>`;
+  if (!tab.id) {
+    h += `<p class="hint" style="margin:2px 0 8px">Showing every list${q ? ", narrowed by the search above" : ""}. Pick a tab to see one list on its own, with a search box of its own.</p>`;
+    h += section("Scanned — to be checked", ready, readyRow, "live", "Nothing waiting. Cases appear here a few minutes after their pages reach the inbox.");
+    h += section("Failed", failed, failedRow, "miss", "No failed cases.");
+    if (busy.length) h += section("Waiting to be scanned", busy, busyRow, "dim", "");
+    if (saved.length) h += section("Checked and saved", saved, savedRow, "dim", "", 40);
+    return h;
+  }
+  // one tab: its own search box, then just that list (one proforma type, so no CAG/PTCA split)
+  h += `<label class="fld tabsearch" style="display:block;margin:4px 0 8px"><span>Search only in “${esc2(tab.label)}”${q ? " (already narrowed by the search above)" : ""}</span>
+    <input class="search" placeholder="Name, CAG no. or file name — this tab only" value="${esc2(b.tq || "")}" oninput="S.batch.tq=this.value;renderList('batchLists',batchListsHtml())"></label>`;
+  const items = tab.status === "scanned" ? ready : tab.status === "failed" ? failed : tab.status === "waiting" ? busy : saved;
+  const row = tab.status === "scanned" ? readyRow : tab.status === "failed" ? failedRow : tab.status === "waiting" ? busyRow : savedRow;
+  const tone = tab.status === "scanned" ? "live" : tab.status === "failed" ? "miss" : "dim";
+  const empty = tq || q ? "No case here matches the search." : tab.status === "scanned" ? "Nothing waiting to be checked." : tab.status === "failed" ? "No failed cases." : tab.status === "waiting" ? "Nothing waiting — every upload has been read." : "Nothing saved yet.";
+  h += `<div class="card"><div class="cardhead"><b>${esc2(tab.title)}${tab.type ? ` <span class="tag" style="background:${tab.type === "PTCA" ? "#1f5fc2" : "#1c7a55"}">${tab.type}</span>` : ""}</b><span class="${items.length ? tone : "dim"}">${items.length}</span></div>`;
+  if (!items.length) h += `<p class="hint">${esc2(empty)}</p>`;
+  else if (tab.status === "failed") {
+    // failed keeps the CAG / PTCA split, as before
+    [["CAG", items.filter(function (c) { return !batchIsPtca(c); }), "#1c7a55"], ["PTCA", items.filter(batchIsPtca), "#1f5fc2"]].forEach(function (g) {
+      if (!g[1].length) return;
+      h += `<div class="subhead"><span><span class="tag" style="background:${g[2]}">${g[0]}</span> ${g[1].length} ${g[1].length === 1 ? "case" : "cases"}</span></div>` + g[1].map(row).join("");
+    });
+  } else h += items.map(row).join("");
+  return h + `</div>`;
 }
 
 /* ---- opening a batch case on the review screen ---- */
@@ -10822,7 +10862,7 @@ window.addEventListener("error", function (ev) {
 /* expose for inline handlers */
 Object.assign(window,{editLocalCase,editSharedCase,closeEdit,openOtherCopy,beginEdit,editingCase,editBanner,editDirty,editClashOk,caseIdentity,idKey,clearScanSession,scanSessionHasContent,caseJsonKey,downloadSelf,S,render,setPath,getPath,toggle,setSeg,setSegStr,toggleIn,pickFile,pickPdf,pickPool,otOpen,otMove,seroPositive,boxesMissing,potassiumOf,checklistText,CHECKLIST,uploadAllToSheet,testSheet,sheetUrlProblem,openRegistry,loadShared,removeShared,shareLink,openOt,loadOt,setOtDate,otAdd,otSet,otRemove,copyOt,tomorrowIso,todayIso,localIso,otFlush,otReady,renderList,regListHtml,otPickHtml,sheetApi,allCases,searchCases,suggestedType,modelPicker,slotModel,openCamera,closeCamera,snapCamera,retryCamera,removePoolItem,pickForSlot,rotateSlot,sortAgain,startOver,sortPool,autoAssign,normalizeSort,uprightTurn,SORT_PROMPT,CAM,scanOne,scanRemaining,buildReport,clearSlot,scannedCount,photoCount,newPatient,downloadDocx,downloadCaseXlsx,downloadRegistry,addToRegistry,removeCase,exportRegistryJson,importRegistryJson,addLesion,delLesion,setLesion,togLesion,cancelExtract,togLesionChar,setLesionSeg,setDominance,setDominanceArg,BLANK,saveCfg,loadLocal,retryFailed,buildDocx,buildXlsx,buildRegistryXlsx,caseRecord,mergeInto,VESSELS,posteriorOwner,dominanceLabel,rentropText,renalText,graftText,originText,dominanceWord,rentropWarning,rentropSwap,occludedMains,vesselProse,ramusProse,lesionSentence,vesselDiseaseText,diseasedVessels,withDesignation,WALL_CHARS,cuspName,efPhrase,rwmaText,diagnosisText,finalDiagnosisLines,has,
 diagramPanel,diagramConflicts,diagramLesionNotes,dominanceConflict,applyDiagramValue,dismissDiagramConflict,removeDiagram,toggleDiagBig,downloadDiagramJpeg,diagramForRegistry,normalizeDiagramResult,blankDiagram,pairLesions,pctInfo,samePct,pctLabel,proseRuns,blueNote,stripMarks,isDiagramSlot,diagramSlotFor,slotDef,currentDiagramImage,diagramVesselHint,diagramDominanceText,diagramConflictSummary,noteDiagramUrl,setRecField,syncToSheet,appendPayload,diagramLink,quickHash,diagramToLesion,addDiagramFinding,adoptDiagramFindings,SHEET_VESSELS,stentConditionClause,lesionSentence,blankLesion,PROMPT_D,DIAGRAM_PX,BLUE_OPEN,BLUE_CLOSE,UNREAD,UNREAD_IN,SLOTS,page2Xml,documentXml,vesselLesionSentences,
-setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
+setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchTabPick,BATCH_TABS,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
 PTCA_REVIEWERS,PROMPT_Q4,PROMPT_U,UTIL_VESSELS,blankUtilGrid,blankUtilCol,PTCA_SEG_GROUPS,PTCA_TO_TOKENS,segSiteInfo,segRangePhrase,segGroupOf,ptcaToVessels,splitDevices,deviceDia,stentParts,utilLookup,utilBalloonsOf,utilAllBalloons,utilStentsOf,pickPodBalloon,deriveTargets,prdMapText,podMapText,stentMapText,techniqueSentences,togUtilCol,rebuildPlan,stripWirePrefix,lcFirst,stentLabel,lesionSiteOf,
 openBatch,loadBatch,batchRunNow,batchRetry,batchDismiss,openBatchCase,batchToggleBig,batchPushPrompts,batchListsHtml,batchPanel,viewBatch,batchPromptSet,noTemperature,geminiRequest,mcCheckNow,mcChoose,mcCleanCat,mcDismissNote,mcRefresh,mcMaybeRefresh,mcApply,mcBoot,mcDue,mcLastFive,mcDeviceCheck,mcBlock,mcSettingsHtml,mcActiveCat,mcUsable,mcDefault,mcSheetCheckText,MODELS,MODEL_STATE,getModelFallbackChain,runModelChain,modelLabel,shortError,modelFailure});
 </script>
