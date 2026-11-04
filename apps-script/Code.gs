@@ -109,7 +109,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.34: a model that hit its daily limit rests until Google's reset (midnight Pacific), not just an hour
+var SCRIPT_VERSION = 13;   // 13.35: IPD No and OPD No kept apart in the registry; lookup and the case list match either
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -496,7 +496,7 @@ function listCases() {
       var isPtca = entry.type === "PTCA";
       list.push({
         id: sheetName + "!" + (i + 2), ptype: entry.type,
-        name: name, cagNo: cag, ptcaNo: g(r, "PTCA No"), ipd: g(r, "IPD/OPD No"), date: g(r, "Date"),
+        name: name, cagNo: cag, ptcaNo: g(r, "PTCA No"), ipd: g(r, "IPD No") || g(r, "IPD/OPD No"), opd: g(r, "OPD No"), date: g(r, "Date"),
         savedAt: g(r, "Saved at"), age: g(r, "Age"), sex: g(r, "Sex"), dx: g(r, "Clinical Diagnosis"),
         vessel: isPtca
           ? (g(r, "CAG finding") ? "CAG s/o " + g(r, "CAG finding")
@@ -565,7 +565,7 @@ function lookupCase(q) {
     for (var i = 0; i < rows.length; i++) {
       var g = function (h) { var k = have.indexOf(h); return k < 0 ? "" : cell(rows[i][k]); };
       if (String(g("CAG No")).trim() === q) return lookupHit(have, rows[i]);
-      if (!byIpd && String(g("IPD/OPD No")).trim() === q) byIpd = { have: have, row: rows[i] };
+      if (!byIpd && (String(g("IPD No")).trim() === q || String(g("OPD No")).trim() === q || String(g("IPD/OPD No")).trim() === q)) byIpd = { have: have, row: rows[i] };
     }
   }
   if (byIpd) return lookupHit(byIpd.have, byIpd.row);
