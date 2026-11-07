@@ -168,6 +168,12 @@ a.b{text-decoration:none;display:inline-block}
 .mcbox li.off b{color:var(--steel);font-weight:600}
 .mcnote{display:flex;gap:8px 12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 /* ---- shared registry and OT list ---- */
+.readby{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:3px 0}
+.readby .rbl{font-size:11.5px;color:var(--steel);margin-right:2px}
+.readby .rb{display:inline-block;color:#fff;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.5}
+.readby .rb i{font-style:normal;font-weight:400;opacity:.9}
+.readby.small .rb{font-size:11px;padding:1px 7px}
+.readbyPanel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 10px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 6px}
 .tab{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;border:1px solid var(--hair);background:var(--panel);font:13.5px inherit;cursor:pointer;color:var(--ink)}
 .tab .n{font-size:11.5px;color:var(--steel);background:#eef0f3;border-radius:999px;padding:1px 7px}
@@ -2328,6 +2334,7 @@ function caseRecord(D) {
   const fields = patientRecord(D);
   if (has(S.cfg.userName)) fields.push(["Saved by", String(S.cfg.userName).trim()]);
   fields.push(["Unsure fields", unsureColumn(D)]);
+  fields.push(["Read by", readByText(D.readBy)]);
   return {
     type: "CAG",
     cagNo: String(D.cagNo || "").trim(),
@@ -4708,6 +4715,7 @@ function ptcaRecord(P) {
   );
   if (has(S.cfg.userName)) fields.push(["Saved by", String(S.cfg.userName).trim()]);
   fields.push(["Unsure fields", unsureColumn(P)]);
+  fields.push(["Read by", readByText(P.readBy)]);
   return {
     type: "PTCA",
     cagNo: String(P.cagNo || "").trim(),
@@ -5896,6 +5904,50 @@ function unsureLabel(p) {
   return words.join(" \u203a ") || unsureNorm(p);
 }
 /* the amber summary at the top of a review screen */
+/* ---------- which Gemini model read which sheet ----------
+   colour by kind: Pro purple, Flash teal, Flash-Lite amber (lighter and less
+   accurate on handwriting), anything else grey */
+const READBY_SHEET = { p1: "1", a1: "2", a2: "3", a3: "4", d1: "diagram", d: "diagram",
+  q1: "1", q2: "2", q3: "3", q4: "4", qu: "utilization" };
+const READBY_ORDER = ["p1", "a1", "a2", "a3", "d1", "d", "q1", "q2", "q3", "q4", "qu"];
+function readByColour(model) { const t = mcTier(model); return t === "high" ? "#6d28d9" : t === "mid" ? "#0f766e" : t === "low" ? "#b45309" : "#5f6470"; }
+function readByShort(model) { return String(mcLabel(model) || model || "?").replace(/^Gemini\s+/, ""); }
+function readByOfSession() {
+  const out = {};
+  Object.keys(S.readBy || {}).forEach(function (k) { if (S.res[k]) out[k] = S.readBy[k]; });
+  return out;
+}
+/* { model: [sheet, …] } in sheet order */
+function readByGroups(rb) {
+  const g = {}, order = [];
+  READBY_ORDER.forEach(function (k) {
+    const m = (rb || {})[k]; if (!m) return;
+    if (!g[m]) { g[m] = []; order.push(m); }
+    const w = READBY_SHEET[k] || k; if (g[m].indexOf(w) < 0) g[m].push(w);
+  });
+  return order.map(function (m) { return { model: m, sheets: g[m] }; });
+}
+function readBySheetsWord(list) {
+  const nums = list.filter(function (x) { return /^\d$/.test(x); }), rest = list.filter(function (x) { return !/^\d$/.test(x); });
+  const parts = [];
+  if (nums.length) parts.push((nums.length === 1 ? "sheet " : "sheets ") + nums.join(", "));
+  return parts.concat(rest).join(" + ");
+}
+function readByText(rb) { return readByGroups(rb).map(function (x) { return mcLabel(x.model) + " (" + readBySheetsWord(x.sheets) + ")"; }).join("; "); }
+function readByChips(rb, small) {
+  const gs = readByGroups(rb);
+  if (!gs.length) return "";
+  const one = gs.length === 1;
+  return `<span class="readby${small ? " small" : ""}"><span class="rbl">Read by</span>` + gs.map(function (x) {
+    return `<span class="rb" style="background:${readByColour(x.model)}" title="${esc2(mcLabel(x.model))}">${esc2(readByShort(x.model))}${one ? "" : ` <i>${esc2(readBySheetsWord(x.sheets))}</i>`}</span>`;
+  }).join("") + `</span>`;
+}
+function readByPanel(obj) {
+  const rb = (obj && obj.readBy && Object.keys(obj.readBy).length) ? obj.readBy : readByOfSession();
+  if (!Object.keys(rb || {}).length) return "";
+  const lite = readByGroups(rb).some(function (x) { return mcTier(x.model) === "low"; });
+  return `<div class="readbyPanel">${readByChips(rb)}${lite ? `<span class="hint" style="margin:0">Flash-Lite is the lighter model — check its sheets with extra care.</span>` : ""}</div>`;
+}
 function unsurePanel() {
   const list = unsureList();
   if (!list.length) return "";
@@ -6176,7 +6228,7 @@ function scheduleSettingsHtml() {
     <div class="row alignend">
       <label class="fld" style="flex:0 1 110px"><span>From</span><input id="schFrom" type="time" value="${esc2(w[0] || "20:00")}" ${can ? "" : "disabled"}></label>
       <label class="fld" style="flex:0 1 110px"><span>To</span><input id="schTo" type="time" value="${esc2(w[1] || "04:00")}" ${can ? "" : "disabled"}></label>
-      <label class="fld" style="flex:0 1 150px"><span>Reserve (requests)</span><input id="schRes" type="number" min="0" max="500" value="${p ? p.reserve : 25}" ${can ? "" : "disabled"}></label>
+      <label class="fld" style="flex:0 1 150px"><span>Reserve (requests)</span><input id="schRes" type="number" min="0" max="500" value="${p ? p.reserve : 12}" ${can ? "" : "disabled"}></label>
       <label class="fld" style="flex:0 1 190px"><span>Use the reserve, min before reset</span><input id="schSpend" type="number" min="0" max="600" value="${p ? p.spendMin : 90}" ${can ? "" : "disabled"}></label>
     </div>
     <div class="btns"><button class="b" onclick="scheduleSet(false)" ${can ? "" : "disabled"}>Save schedule</button>
@@ -6402,6 +6454,7 @@ function clearScanSession() {
   S.pdf = { name: "", busy: false, msg: "" };
   S.pool = freshPool();
   S.batchCase = null;
+  S.readBy = {};
 }
 function newPatient() {
   clearScanSession();
@@ -7611,7 +7664,10 @@ async function scanOne(slot) {
   S.phase = "Reading " + s.title + "\u2026";
   render();
   try {
+    S.lastModelUsed = "";
     const raw = await callWithRetry(S.imgs[slot].b64, s.prompt, s.title, slotModel(slot));
+    S.readBy = S.readBy || {};
+    S.readBy[slot] = S.lastModelUsed || slotModel(slot);
     S.res[slot] = s.diagram ? normalizeDiagramResult(raw)
       : slot.charAt(0) === "q" ? normalizePtcaResult(raw)
       : normalizeOperators(normalizeTgLdl(normalizeLesions(raw)));
@@ -7673,6 +7729,7 @@ function buildReport() {
     }
     catch (e) { badSheets.push(s.title + " (" + (e.message || "merge failed") + ")"); }
   });
+  merged.readBy = readByOfSession();
   S.D = merged;
   adoptDiagramFindings(S.D, { a1: !!S.res.a1, a2: !!S.res.a2, a3: !!S.res.a3 });
   const dropped = pruneUnsupportedPlan(S.D);
@@ -7764,6 +7821,7 @@ function buildPtcaReport() {
     try { mergeInto(merged, stripForMerge(s.slot, S.res[s.slot])); }
     catch (e) { badSheets.push(s.title + " (" + (e.message || "merge failed") + ")"); }
   });
+  merged.readBy = readByOfSession();
   S.P = merged;
   ptcaAfterMerge(S.P);
   // the target-vessel plan: which balloon predilated which lesion, which
@@ -9124,7 +9182,9 @@ async function runModelChain(label, send, onSwitch, startModel) {
     if (i > 0 && onSwitch) onSwitch(model, tried[tried.length - 1]);
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        return await send(model);
+        const out = await send(model);
+        S.lastModelUsed = model;          // which model actually answered (a fallback may have)
+        return out;
       } catch (e) {
         if (S.cancelled && e && /cancelled/.test(e.message || "")) throw e;
         lastErr = e;
@@ -9358,7 +9418,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.37", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.38", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -9916,6 +9976,7 @@ function viewReview() {
   h += editBanner();
   h += batchPanel();
   h += `<div class="warn">Check every value against the sheet before issuing. Handwriting recognition can misread digits.</div>`;
+  h += readByPanel(D);
   h += unsurePanel();
   h += diagramPanel(D);
 
@@ -10187,6 +10248,7 @@ function viewPtcaReview() {
   h += editBanner();
   h += batchPanel();
   h += `<div class="warn">PTCA & stenting report. Check every value against the sheet before issuing — handwriting recognition can misread digits.</div>`;
+  h += readByPanel(P);
   h += unsurePanel();
 
   h += SECT("Patient",
@@ -10634,6 +10696,7 @@ function batchListsHtml() {
   // one row per case, by status
   const readyRow = function (c) {
     return `<div class="pick"><div class="who" onclick="openBatchCase('${esc2(c.caseId)}')" style="cursor:pointer"><b>${esc2(batchCaseLabel(c))}</b>
+      ${readByChips(c.readBy, true)}
       <span>${esc2(batchSheetCount(c))} · ${esc2((c.files || []).join(", "))}${/upload time/.test(c.grouping || "") ? " · <b style=\"color:#8a6a12\">grouped by upload time — check the pages belong together</b>" : ""}</span>
       ${times(c)}
       ${problems(c)}</div>
@@ -10644,6 +10707,7 @@ function batchListsHtml() {
   };
   const failedRow = function (c) {
     return `<div class="pick"><div class="who"><b>${esc2(batchCaseLabel(c))}</b>
+      ${readByChips(c.readBy, true)}
       <span>${esc2((c.files || []).join(", "))}</span>
       ${times(c)}
       ${problems(c) || `<span>no reason recorded</span>`}</div>
@@ -10658,7 +10722,7 @@ function batchListsHtml() {
         <button class="b danger" onclick="batchDismiss('${esc2(c.caseId)}')">Dismiss</button></div>` : ""}</div>`;
   };
   const savedRow = function (c) {
-    return `<div class="pick"><div class="who"><b>${esc2(batchCaseLabel(c))}</b><span>${esc2((c.files || []).join(", "))}</span>${times(c)}</div>
+    return `<div class="pick"><div class="who"><b>${esc2(batchCaseLabel(c))}</b>${readByChips(c.readBy, true)}<span>${esc2((c.files || []).join(", "))}</span>${times(c)}</div>
         <div class="btns" style="margin:0"><button class="b" onclick="openBatchCase('${esc2(c.caseId)}')" ${opening ? "disabled" : ""}>Open again</button></div></div>`;
   };
   // every section is split in two: CAG cases first, then PTCA, each with its own count
@@ -10789,6 +10853,10 @@ async function openBatchCase(caseId) {
       else S.res[s] = normalizeOperators(normalizeTgLdl(normalizeLesions(raw)));
     } catch (e) { S.errs[s === "d" ? "d1" : s] = "stored reading unusable: " + (e.message || e); }
   });
+  S.readBy = {};
+  Object.keys(j.readBy || {}).forEach(function (k) { S.readBy[k === "d" ? "d1" : k] = j.readBy[k]; });
+  // a draft or registry copy from before 13.38 has no Read by: it takes the sheet's
+  { const o0 = ptca ? S.P : S.D; if (o0 && (!o0.readBy || !Object.keys(o0.readBy).length)) o0.readBy = Object.assign({}, S.readBy); }
   S.batchCase = { caseId: j.caseId, type: ptca ? "PTCA" : "CAG", name: j.name || "", cagNo: j.cagNo || "", grouping: j.grouping || "", errors: j.errors || [],
     files: j.files || [], pageMap: j.pageMap || [], pages: [], loading: true, big: "",
     // the last draft saved to the sheet, to tell "saved" from "changed since"
@@ -10939,7 +11007,7 @@ window.addEventListener("error", function (ev) {
 /* expose for inline handlers */
 Object.assign(window,{editLocalCase,editSharedCase,closeEdit,openOtherCopy,beginEdit,editingCase,editBanner,editDirty,editClashOk,caseIdentity,idKey,clearScanSession,scanSessionHasContent,caseJsonKey,downloadSelf,S,render,setPath,getPath,toggle,setSeg,setSegStr,toggleIn,pickFile,pickPdf,pickPool,otOpen,otMove,seroPositive,boxesMissing,potassiumOf,checklistText,CHECKLIST,uploadAllToSheet,testSheet,sheetUrlProblem,openRegistry,loadShared,removeShared,shareLink,openOt,loadOt,setOtDate,otAdd,otSet,otRemove,copyOt,tomorrowIso,todayIso,localIso,otFlush,otReady,renderList,regListHtml,otPickHtml,sheetApi,allCases,searchCases,suggestedType,modelPicker,slotModel,openCamera,closeCamera,snapCamera,retryCamera,removePoolItem,pickForSlot,rotateSlot,sortAgain,startOver,sortPool,autoAssign,normalizeSort,uprightTurn,SORT_PROMPT,CAM,scanOne,scanRemaining,buildReport,clearSlot,scannedCount,photoCount,newPatient,downloadDocx,downloadCaseXlsx,downloadRegistry,addToRegistry,removeCase,exportRegistryJson,importRegistryJson,addLesion,delLesion,setLesion,togLesion,cancelExtract,togLesionChar,setLesionSeg,setDominance,setDominanceArg,BLANK,saveCfg,loadLocal,retryFailed,buildDocx,buildXlsx,buildRegistryXlsx,caseRecord,mergeInto,VESSELS,posteriorOwner,dominanceLabel,rentropText,renalText,graftText,originText,dominanceWord,idText,idNumbers,rentropWarning,rentropSwap,occludedMains,vesselProse,ramusProse,lesionSentence,vesselDiseaseText,diseasedVessels,withDesignation,WALL_CHARS,cuspName,efPhrase,rwmaText,diagnosisText,finalDiagnosisLines,has,
 diagramPanel,diagramConflicts,diagramLesionNotes,dominanceConflict,applyDiagramValue,dismissDiagramConflict,removeDiagram,toggleDiagBig,downloadDiagramJpeg,diagramForRegistry,normalizeDiagramResult,blankDiagram,pairLesions,pctInfo,samePct,pctLabel,proseRuns,blueNote,stripMarks,isDiagramSlot,diagramSlotFor,slotDef,currentDiagramImage,diagramVesselHint,diagramDominanceText,diagramConflictSummary,noteDiagramUrl,setRecField,syncToSheet,appendPayload,diagramLink,quickHash,diagramToLesion,addDiagramFinding,adoptDiagramFindings,SHEET_VESSELS,stentConditionClause,lesionSentence,blankLesion,PROMPT_D,DIAGRAM_PX,BLUE_OPEN,BLUE_CLOSE,UNREAD,UNREAD_IN,SLOTS,page2Xml,documentXml,vesselLesionSentences,
-setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchTabPick,BATCH_TABS,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,scheduleSettingsHtml,scheduleSet,scheduleLineHtml,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
+setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchTabPick,BATCH_TABS,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,scheduleSettingsHtml,scheduleSet,scheduleLineHtml,readByText,readByChips,readByPanel,readByGroups,readByOfSession,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
 PTCA_REVIEWERS,PROMPT_Q4,PROMPT_U,UTIL_VESSELS,blankUtilGrid,blankUtilCol,PTCA_SEG_GROUPS,PTCA_TO_TOKENS,segSiteInfo,segRangePhrase,segGroupOf,ptcaToVessels,splitDevices,deviceDia,stentParts,utilLookup,utilBalloonsOf,utilAllBalloons,utilStentsOf,pickPodBalloon,deriveTargets,prdMapText,podMapText,stentMapText,techniqueSentences,togUtilCol,rebuildPlan,stripWirePrefix,lcFirst,stentLabel,lesionSiteOf,
 openBatch,loadBatch,batchRunNow,batchRetry,batchDismiss,openBatchCase,batchToggleBig,batchPushPrompts,batchListsHtml,batchPanel,viewBatch,batchPromptSet,noTemperature,geminiRequest,mcCheckNow,mcChoose,mcCleanCat,mcDismissNote,mcRefresh,mcMaybeRefresh,mcApply,mcBoot,mcDue,mcLastFive,mcDeviceCheck,mcBlock,mcSettingsHtml,mcActiveCat,mcUsable,mcDefault,mcSheetCheckText,MODELS,MODEL_STATE,getModelFallbackChain,runModelChain,modelLabel,shortError,modelFailure});
 </script>

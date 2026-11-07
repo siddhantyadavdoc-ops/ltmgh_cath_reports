@@ -109,7 +109,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -746,7 +746,7 @@ var BATCH_MAX_FILE = 20 * 1024 * 1024;  // Gemini's inline limit is 20 MB
 var BATCH_FETCH_TIMEOUT_NOTE = "Google did not answer within the time limit (the file may be too large or the service slow)";
 var BATCH_HEAD = ["Case id", "Status", "Created", "Updated", "Files", "File ids", "Pages", "Grouping",
                   "Name", "CAG No", "Page map", "Results", "Errors", "Log", "Models", "Opened by", "Saved by", "Run id", "Type",
-                  "Uploaded", "Scanned at", "Checked at", "Files removed", "Draft", "Draft at", "Draft by", "Draft ms"];
+                  "Uploaded", "Scanned at", "Checked at", "Files removed", "Draft", "Draft at", "Draft by", "Draft ms", "Read by"];
 /* Drive housekeeping: once more than BATCH_KEEP cases still have their files
    in Processed/Failed, the oldest BATCH_PRUNE of them that have been checked
    (saved or dismissed) or failed lose their files; the readings stay in the
@@ -915,7 +915,7 @@ function batchCallChain_(key, chain, prompt, item, pdfPage, pause, timeLeft) {
     if (tried) pause();
     r = batchGemini_(key, live[i], prompt, item, pdfPage);
     tried++;
-    if (r.ok) { if (live[i] !== chain[0]) r.via = live[i]; return r; }
+    if (r.ok) { r.model = live[i]; if (live[i] !== chain[0]) r.via = live[i]; return r; }
     if (r.quota && r.nofree) return r;             // the model name is wrong for a free key: a setting, not a fault
     if (r.quota) { r.retry = true; continue; }     // limit hit: the next model carries on
     if (!r.retry && !r.tryOther) return r;         // not a temporary fault: another model won't help
@@ -940,7 +940,7 @@ function batchCallChain_(key, chain, prompt, item, pdfPage, pause, timeLeft) {
    number of requests it took that day), kept in BATCH_CAPS; models whose limit
    has never been hit are not counted towards the reserve. */
 var BATCH_TZ = "Asia/Kolkata";
-var BATCH_WINDOW_DEFAULT = "20:00-04:00", BATCH_RESERVE_DEFAULT = 25, BATCH_SPEND_DEFAULT = 90;
+var BATCH_WINDOW_DEFAULT = "20:00-04:00", BATCH_RESERVE_DEFAULT = 12, BATCH_SPEND_DEFAULT = 90;
 var BATCH_GUARD_ = null;   // set by batchTick for an automatic night run: { reserve: n }
 function batchHm_(m) { m = ((m % 1440) + 1440) % 1440; return ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + (m % 60)).slice(-2); }
 function batchParseHm_(t) { var m = /^\s*(\d{1,2})[:.](\d{2})\s*$/.exec(String(t || "")); if (!m) return null; var h = Number(m[1]), mi = Number(m[2]); return h < 24 && mi < 60 ? h * 60 + mi : null; }
@@ -954,7 +954,14 @@ function batchWindow_() {
   if (a == null || b == null || a === b) return null;
   return { from: a, to: b, text: batchHm_(a) + "\u2013" + batchHm_(b) };
 }
-function batchReserveN_() { var raw = PropertiesService.getScriptProperties().getProperty("BATCH_RESERVE"); var v = Number(raw); return raw != null && String(raw).trim() !== "" && isFinite(v) && v >= 0 ? Math.round(v) : BATCH_RESERVE_DEFAULT; }
+function batchReserveN_() {
+  var pp = PropertiesService.getScriptProperties(), raw = pp.getProperty("BATCH_RESERVE");
+  // 13.38: the department's reserve is 12; a 25 saved under 13.37 (the old default) moves to 12 once
+  if (raw === "25" && !pp.getProperty("BATCH_RESERVE_1338")) { pp.setProperty("BATCH_RESERVE", "12"); raw = "12"; }
+  if (!pp.getProperty("BATCH_RESERVE_1338")) pp.setProperty("BATCH_RESERVE_1338", "1");
+  return batchReserveOf_(raw);
+}
+function batchReserveOf_(raw) { var v = Number(raw); return raw != null && String(raw).trim() !== "" && isFinite(v) && v >= 0 ? Math.round(v) : BATCH_RESERVE_DEFAULT; }
 function batchSpendMin_() { var raw = PropertiesService.getScriptProperties().getProperty("BATCH_SPEND_MIN"); var v = Number(raw); return raw != null && String(raw).trim() !== "" && isFinite(v) && v >= 0 ? Math.min(600, Math.round(v)) : BATCH_SPEND_DEFAULT; }
 function batchInRange_(m, a, b) { return a < b ? (m >= a && m < b) : (m >= a || m < b); }
 /* what an automatic run may do now: mode "always" (no window set), "night"
@@ -1128,7 +1135,7 @@ function batchRowObj_(v) {
     pageMap: j(v[10], []), results: j(v[11], {}), errors: j(v[12], []), log: cell(v[13]),
     models: cell(v[14]), openedBy: cell(v[15]), savedBy: cell(v[16]), runId: cell(v[17]), type: batchType_(v[18]),
     uploaded: cell(v[19]), scannedAt: cell(v[20]), checkedAt: cell(v[21]), filesRemoved: cell(v[22]),
-    draft: cell(v[23]), draftAt: cell(v[24]), draftBy: cell(v[25]), draftMs: Number(v[26]) || 0 };
+    draft: cell(v[23]), draftAt: cell(v[24]), draftBy: cell(v[25]), draftMs: Number(v[26]) || 0, readBy: j(v[27], {}) };
 }
 function batchRowVals_(c) {
   var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
@@ -1137,7 +1144,7 @@ function batchRowVals_(c) {
     c.pages || 0, c.grouping || "", c.name || "", c.cagNo || "", cap(JSON.stringify(c.pageMap || [])),
     cap(JSON.stringify(c.results || {})), cap(JSON.stringify(c.errors || [])), cap(c.log || ""),
     c.models || "", c.openedBy || "", c.savedBy || "", c.runId || "", batchType_(c.type),
-    c.uploaded || "", c.scannedAt || "", c.checkedAt || "", c.filesRemoved || "", c.draft || "", c.draftAt || "", c.draftBy || "", c.draftMs || ""];
+    c.uploaded || "", c.scannedAt || "", c.checkedAt || "", c.filesRemoved || "", c.draft || "", c.draftAt || "", c.draftBy || "", c.draftMs || "", JSON.stringify(c.readBy || {})];
 }
 function batchWriteRow_(c) {
   var sh = batchTab_();
@@ -1377,6 +1384,7 @@ function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
       c.errors.push({ page: m.label, step: "reading " + BATCH_SLOT_WORD[slot], reason: rr.reason, slot: slot });
     } else {
       c.results[slot] = rr.json;
+      c.readBy = c.readBy || {}; c.readBy[slot] = rr.model || (models.readChain || [models.read])[0];
       var hdr = rr.json && typeof rr.json === "object" ? rr.json : {};
       if (slot === "p1") { c.name = String(hdr.name || ""); c.cagNo = String(hdr.cagNo || ""); }
       else if (slot === "q1") { c.name = String(hdr.name || ""); c.cagNo = String(hdr.ptcaNo || hdr.cathNo || hdr.cagNo || ""); }
@@ -1945,8 +1953,27 @@ function batchList_() {
       pages: r.pages, grouping: r.grouping, name: r.name, cagNo: r.cagNo, type: r.type,
       uploaded: r.uploaded, scannedAt: r.scannedAt, checkedAt: r.checkedAt, filesRemoved: r.filesRemoved,
       sheets: Object.keys(r.results || {}).filter(function (k) { return BATCH_SLOTS.indexOf(k) >= 0; }),
-      errors: r.errors, openedBy: r.openedBy, savedBy: r.savedBy };
+      errors: r.errors, openedBy: r.openedBy, savedBy: r.savedBy, readBy: batchReadBy_(r) };
   }).reverse();
+}
+/* which model read each sheet; a case read before 13.38 has it worked out from its log
+   (the last "reading <sheet>: ok" line, "(via …)" when a fallback model answered) */
+function batchReadBy_(r) {
+  var have = r.readBy && typeof r.readBy === "object" ? r.readBy : {};
+  var out = {}, read0 = String(r.models || "").split(" / ")[0].trim();
+  var lines = String(r.log || "").split("\n");
+  Object.keys(r.results || {}).forEach(function (slot) {
+    if (BATCH_SLOTS.indexOf(slot) < 0) return;
+    if (have[slot]) { out[slot] = have[slot]; return; }
+    var word = BATCH_SLOT_WORD[slot], got = "";
+    for (var i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].indexOf("reading " + word + ": ok") < 0) continue;
+      var v = /\(via ([^)\s]+)\)/.exec(lines[i]);
+      got = v ? v[1] : read0; break;
+    }
+    if (got) out[slot] = got;
+  });
+  return out;
 }
 function batchGet_(req) {
   var tab = batchTabRows_();
@@ -1960,7 +1987,7 @@ function batchGet_(req) {
   return { found: true, caseId: r.caseId, status: r.status, created: r.created, updated: r.updated, grouping: r.grouping,
     name: r.name, cagNo: r.cagNo, type: r.type, uploaded: r.uploaded, scannedAt: r.scannedAt, checkedAt: r.checkedAt, filesRemoved: r.filesRemoved,
     draft: r.draft, draftAt: r.draftAt, draftBy: r.draftBy, draftMs: r.draftMs, pageMap: r.pageMap, results: r.results, errors: r.errors, log: r.log,
-    models: r.models, files: files, openedBy: r.openedBy, savedBy: r.savedBy };
+    models: r.models, files: files, openedBy: r.openedBy, savedBy: r.savedBy, readBy: batchReadBy_(r) };
 }
 /* the bytes of one of a case's files, so the app can show the page beside
    the review screen (and, for a PDF, split it itself the way it does now) */
@@ -2019,7 +2046,7 @@ function batchRetry_(caseId) {
     });
   });
   r.status = "queued"; r.pageMap = []; r.results = {}; r.errors = []; r.pages = 0; r.scannedAt = ""; r.checkedAt = ""; r.savedBy = "";
-  r.draft = ""; r.draftAt = ""; r.draftBy = ""; r.draftMs = 0;
+  r.draft = ""; r.draftAt = ""; r.draftBy = ""; r.draftMs = 0; r.readBy = {};
   r.log = (r.log ? r.log + "\n" : "") + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm:ss") + " retry: queued again from the app";
   batchWriteRow_(r);
   return true;
