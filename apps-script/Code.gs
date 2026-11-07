@@ -109,7 +109,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.35: IPD No and OPD No kept apart in the registry; lookup and the case list match either
+var SCRIPT_VERSION = 13;   // 13.36: no script change (DCB plan box is read and worded in the app)
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",

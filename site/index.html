@@ -1867,7 +1867,9 @@ function planText(cag) {
   if (!cag || !cag.plan) return { main: "", tail: [] };
   const p = cag.plan, out = [];
   if (p.mmm) out.push("MMM");
-  if ((p.ptcaTo || []).length) out.push("PTCA to " + j(p.ptcaTo));
+  // DCB ticked: the plan is a drug coated balloon to the ticked vessel(s), worded like the PTCA phrase
+  if (p.dcb) out.push((p.ptcaTo || []).length ? "Drug coated balloon to " + j(p.ptcaTo) : "Drug coated balloon");
+  else if ((p.ptcaTo || []).length) out.push("PTCA to " + j(p.ptcaTo));
   const adj = [];
   if (p.ivus) adj.push("IVUS");
   if (p.rota) adj.push("Rota");
@@ -3182,7 +3184,7 @@ function BLANK() {
       rentrop:  { grade: "", toLad: false, toLcx: false, toRca: false, fromLad: false, fromLcx: false, fromRca: false, note: "" },
       grafts:   { limaNormal: false, rimaNormal: false, note: "" },
       finalDx:  { lm: false, lad: false, d1: false, lcx: false, om: false, rca: false, pda: false, plv: false, ramus: false, nonObstructive: false, nacp: false },
-      plan: { mmm: false, ptcaTo: [], ivus: false, rota: false, cabg: false, cmm: false, riskControl: false },
+      plan: { mmm: false, ptcaTo: [], ivus: false, rota: false, cabg: false, dcb: false, cmm: false, riskControl: false },
       finalDiagnosisExtra: "",
     },
   };
@@ -4930,6 +4932,7 @@ function cagCaseFromFields(fields, lesions) {
     if (/\bIVUS\b/i.test(pl)) D.cag.plan.ivus = true;
     if (/\bRota\b/i.test(pl)) D.cag.plan.rota = true;
     if (/\bCABG\b/.test(pl)) D.cag.plan.cabg = true;
+    if (/\bDCB\b|Drug coated balloon/i.test(pl)) D.cag.plan.dcb = true;
     if (/Continued Medical Management/i.test(pl)) D.cag.plan.cmm = true;
     if (/Aggressive control of risk factors/i.test(pl)) D.cag.plan.riskControl = true;
   }
@@ -5550,7 +5553,7 @@ Also read:
 - grafts — limaNormal and rimaNormal for the "LIMA: Normal" and "RIMA: Normal" boxes; note for handwriting on the Grafts line.
 - renalL / renalR — the Left and Right renal arteries. These may be printed as one combined "Renals :" line or as two separate lines beginning "Left Renal:" and "Right Renal:" — handle either. Each reads: Normal, Ostial, ____% stenosis, Stent. Set normal:true when its "Normal" box is ticked; otherwise record the stenosis as a lesion in the usual shape (set segment "Ostial" when the Ostial box is ticked, else leave segment empty), and set stent:true on that lesion if the renal Stent box is ticked. Omit a renal artery entirely if its line is absent or nothing on it is marked.
 - finalDx — the row of vessel boxes on the Final Diagnosis line: "Final Diagnosis : ☐ LM ☐ LAD ☐ D1, ☐ LCX ☐ OM, ☐ RCA, ☐ PDA, ☐ PLV, ☐ Ramus" (keys lm, lad, d1, lcx, om, rca, pda, plv, ramus). Ramus is the last box on that row, after PLV. Return ONLY the boxes with a pen mark in them — on a typical sheet one to three are ticked and the rest are empty printed boxes. Never tick a vessel because it was diseased elsewhere, and never return them all. Newer printings add a "Non obstructive CAD" box and, beside it, a "Non-anginal chest pain" box on the line just below that row: return finalDx.nonObstructive: true and finalDx.nacp: true when ticked (these two are on the Final Diagnosis line, separate from the Clinical Diagnosis boxes of sheet 1).
-- plan — the Plan block is three printed lines: "Plan : ☐ MMM , PTCA to ☐ LM ☐ LAD ☐ D1, ☐ LCX ☐ OM, ☐ RCA, ☐ Ramus", then "with ☐ IVUS ☐ Rota ☐ CABG", then the two printed sentences "Continued Medical Management" and "Aggressive control of risk factors" (each may have a handwritten tick before it). Keys: mmm; ptcaTo (any of LM, LAD, D1, LCX, OM, RCA, Ramus — the Ramus box is the last one on the "PTCA to" row, after RCA); ivus, rota, cabg (the three boxes on the "with" line — CABG is the LAST box on that line, right after Rota, and is ticked on its own when surgery is planned); cmm (Continued Medical Management); riskControl (Aggressive control of risk factors). Return only what is ticked; a Plan line with nothing ticked gives no keys.
+- plan — the Plan block is three printed lines: "Plan : ☐ MMM , PTCA to ☐ LM ☐ LAD ☐ D1, ☐ LCX ☐ OM, ☐ RCA, ☐ Ramus", then "with ☐ IVUS ☐ Rota ☐ CABG ☐ DCB", then the two printed sentences "Continued Medical Management" and "Aggressive control of risk factors" (each may have a handwritten tick before it). Keys: mmm; ptcaTo (any of LM, LAD, D1, LCX, OM, RCA, Ramus — the Ramus box is the last one on the "PTCA to" row, after RCA); ivus, rota, cabg, dcb (the four boxes on the "with" line, in that order — CABG is the third, right after Rota, and is ticked on its own when surgery is planned; DCB, drug coated balloon, is the LAST box on that line, right after CABG, and is ticked together with the vessel(s) on the "PTCA to" row it is meant for); cmm (Continued Medical Management); riskControl (Aggressive control of risk factors). Return only what is ticked; a Plan line with nothing ticked gives no keys.
 - ptcaTo comes ONLY from the boxes on the "Plan : ☐ MMM , PTCA to …" row itself. The Final Diagnosis row above it has the same vessel boxes and is a different thing — a vessel ticked there is NOT a PTCA target. Never infer a target from the vessel findings on the sheets (a plaque or a lesion in a vessel does not make it a target). When no box on the Plan row is marked, return ptcaTo as an empty list.
 - finalDiagnosisExtra — any other handwriting on the Final Diagnosis line.
 
@@ -5867,7 +5870,7 @@ const UNSURE_WORDS = { cag: "", lm: "LM", lad: "LAD", d1: "D1", lcx: "LCx", om: 
   lesions: "lesion", percent: "%", chars: "characteristics", segment: "segment", stent: "stent", stentType: "stent type", isr: "ISR %", nih: "NIH", thrombosis: "stent thrombosis", thrombosisPct: "thrombosis %", note: "note",
   grade: "grade", normal: "Normal", involved: "involved", timi: "TIMI", type: "Type", dominance: "dominance", originNormal: "normal origin", anomalousFrom: "anomalous origin",
   rentrop: "Rentrop", toLad: "to LAD", toLcx: "to LCx", toRca: "to RCA", fromLad: "from LAD", fromLcx: "from LCx", fromRca: "from RCA", grafts: "grafts", limaNormal: "LIMA normal", rimaNormal: "RIMA normal",
-  finalDx: "Final diagnosis", nonObstructive: "Non obstructive CAD", nacp: "Non-anginal chest pain", plan: "Plan", mmm: "MMM", ptcaTo: "PTCA to", ivus: "IVUS", rota: "Rota", cabg: "CABG", cmm: "CMM", riskControl: "risk-factor control", finalDiagnosisExtra: "final diagnosis line",
+  finalDx: "Final diagnosis", nonObstructive: "Non obstructive CAD", nacp: "Non-anginal chest pain", plan: "Plan", mmm: "MMM", ptcaTo: "PTCA to", ivus: "IVUS", rota: "Rota", cabg: "CABG", dcb: "DCB", cmm: "CMM", riskControl: "risk-factor control", finalDiagnosisExtra: "final diagnosis line",
   dx: "Clinical diagnosis", awmi: "AWMI", iw: "IW", pw: "PW", rv: "RV", ua: "UA", csa: "CSA", nstemi: "NSTEMI", dxDate: "date", thrombolysed: "thrombolysed", agent: "agent",
   past: "Past history", rf: "Risk factors", htn: "HTN", dm: "DM", dyslipidaemia: "dyslipidaemia", smoking: "smoking", tobacco: "tobacco", others: "others", exam: "Examination", pulse: "pulse", bp: "BP",
   ecg: "ECG", hr: "HR", rhythm: "rhythm", stElev: "ST elevation", stElevLeads: "ST elevation leads", qWaves: "Q waves", qWavesLeads: "Q wave leads", tInv: "T inversion", tInvLeads: "T inversion leads", stDep: "ST depression", stDepLeads: "ST depression leads", cst: "CST",
@@ -9305,7 +9308,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.35", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.36", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -9975,7 +9978,7 @@ function viewReview() {
      <div class="chips">${CK("Non obstructive CAD", "cag.finalDx.nonObstructive")}${CK("Non-anginal chest pain", "cag.finalDx.nacp")}</div>` +
     ROW(F("Extra final-diagnosis line", "cag.finalDiagnosisExtra", "1 1 100%")) +
     `<p class="hint" style="margin-top:12px"><b>Plan</b></p>
-     <div class="chips">${CK("MMM", "cag.plan.mmm")}${CK("IVUS", "cag.plan.ivus")}${CK("Rota", "cag.plan.rota")}${CK("CABG", "cag.plan.cabg")}</div>
+     <div class="chips">${CK("MMM", "cag.plan.mmm")}${CK("IVUS", "cag.plan.ivus")}${CK("Rota", "cag.plan.rota")}${CK("CABG", "cag.plan.cabg")}${CK("DCB (drug coated balloon)", "cag.plan.dcb")}</div>
      <p class="hint">PTCA to</p><div class="chips">` +
     ["LM", "LAD", "D1", "LCX", "OM", "RCA", "Ramus"].map(function (t) { return CKA(t, "cag.plan.ptcaTo", t); }).join("") +
     `</div><div class="chips">${CK("Continued Medical Management", "cag.plan.cmm")}${CK("Aggressive risk factor control", "cag.plan.riskControl")}</div>
