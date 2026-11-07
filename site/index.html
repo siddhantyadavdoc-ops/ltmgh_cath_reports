@@ -170,8 +170,9 @@ a.b{text-decoration:none;display:inline-block}
 /* ---- shared registry and OT list ---- */
 .readby{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:3px 0}
 .readby .rbl{font-size:11.5px;color:var(--steel);margin-right:2px}
-.readby .rb{display:inline-block;color:#fff;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.5}
-.readby .rb i{font-style:normal;font-weight:400;opacity:.9}
+.pick .who .readby .rb,.readby .rb{display:inline-block;color:#fff;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.5}
+.pick .who .readby .rb i,.readby .rb i{font-style:normal;font-weight:400;color:#fff;opacity:.92}
+.subhead .tag,.cardhead .tag{color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:4px}
 .readby.small .rb{font-size:11px;padding:1px 7px}
 .readbyPanel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 10px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 6px}
@@ -9418,7 +9419,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.38", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.39", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
