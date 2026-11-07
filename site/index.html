@@ -6148,6 +6148,55 @@ function batchStash() {
   try { localStorage.setItem(LS_DRAFTS, JSON.stringify(drafts)); } catch (e) {}
 }
 function batchDraftOf(caseId) { return batchDrafts()[caseId] || null; }
+/* ---------- when the automatic scans run (kept in the sheet's script, shared) ---------- */
+function scheduleLineHtml(st) {
+  const p = st && st.schedule;
+  if (!p) return "";
+  const rl = st.reserveLeft || { left: 0, models: [] };
+  const known = (rl.models || []).length;
+  let now;
+  if (p.mode === "always") now = "Automatic scans run all day (no scan window set).";
+  else if (p.mode === "night") now = `<b>Now: night scan, until ${esc2(p.until)}</b>` + (p.reserve ? ` — keeping the last ${p.reserve} requests for scans started from the app` : "") + ".";
+  else if (p.mode === "spend") now = `<b>Now: using up what is left before Google's reset at ${esc2(p.resetAt)}</b> — the reserve is spent by the automatic scan.`;
+  else now = `<b>Now: automatic scans paused until ${esc2(p.next)}</b> — "Scan the inbox now" and "Scan on this phone" still work, and may use the reserve.`;
+  const plan = p.mode === "always" ? "" : ` Schedule: automatic scans ${esc2(p.window)} (IST), keeping ${p.reserve} requests in reserve; from ${esc2(p.spendFrom)} until Google's daily reset at ${esc2(p.resetAt)} the automatic scan uses whatever reserve is left.`;
+  const res = !p.reserve || p.mode === "always" ? "" : known
+    ? ` Requests left today on models with a known daily limit: <b>${rl.left}</b> (${esc2(rl.models.map(function (m) { return m.label + " " + m.left + "/" + m.cap; }).join(", "))}).`
+    : " The reserve starts working once a model's daily limit has been hit once (the scanner learns each limit then).";
+  return `<p class="hint">${now}${plan}${res} Change it in Settings.</p>`;
+}
+function scheduleSettingsHtml() {
+  const st = S.batch.status || {};
+  const p = st.schedule;
+  const can = !!(S.cfg.sheetUrl && S.cfg.editKey);
+  const w = p && p.window ? p.window.split("\u2013") : ["20:00", "04:00"];
+  const always = p && p.mode === "always";
+  return `<div style="margin-top:12px"><b>When the inbox is scanned automatically</b>
+    <p class="hint">Google's free daily limits reset at midnight US Pacific time (13:30 IST in winter, 12:30 in summer). The automatic scan reads the evening's uploads in the night window and stops short of the known daily limits by the reserve, so urgent scans started from the app in the morning still work. In the minutes before the reset it uses up whatever reserve is left. Scans started from the app always run. The setting lives in the sheet, so it applies to the whole department.</p>
+    <div class="row alignend">
+      <label class="fld" style="flex:0 1 110px"><span>From</span><input id="schFrom" type="time" value="${esc2(w[0] || "20:00")}" ${can ? "" : "disabled"}></label>
+      <label class="fld" style="flex:0 1 110px"><span>To</span><input id="schTo" type="time" value="${esc2(w[1] || "04:00")}" ${can ? "" : "disabled"}></label>
+      <label class="fld" style="flex:0 1 150px"><span>Reserve (requests)</span><input id="schRes" type="number" min="0" max="500" value="${p ? p.reserve : 25}" ${can ? "" : "disabled"}></label>
+      <label class="fld" style="flex:0 1 190px"><span>Use the reserve, min before reset</span><input id="schSpend" type="number" min="0" max="600" value="${p ? p.spendMin : 90}" ${can ? "" : "disabled"}></label>
+    </div>
+    <div class="btns"><button class="b" onclick="scheduleSet(false)" ${can ? "" : "disabled"}>Save schedule</button>
+      <button class="b" onclick="scheduleSet(true)" ${can ? "" : "disabled"}>Scan all day instead</button></div>
+    <p class="hint" id="schStatus">${esc2(!S.cfg.sheetUrl ? "Set the shared sheet URL first." : !S.cfg.editKey ? "View-only device: the edit key is needed to change this." : !p ? "Open Inbox scans once to load the current setting." : always ? "Now: automatic scans run all day." : "Now: " + p.window + ", reserve " + p.reserve + ", reserve used from " + p.spendFrom + " until the reset at " + p.resetAt + ".")}</p></div>`;
+}
+async function scheduleSet(always) {
+  const el = document.getElementById("schStatus");
+  const v = function (id) { const x = document.getElementById(id); return x ? x.value : ""; };
+  if (el) el.textContent = "Saving to the sheet…";
+  try {
+    const body = always ? { window: "always" } : { window: v("schFrom") + "-" + v("schTo"), reserve: Number(v("schRes")), spendMin: Number(v("schSpend")) };
+    const j = await sheetApi("batchScheduleSet", body, 20000);
+    S.batch.status = Object.assign(S.batch.status || {}, { schedule: j.schedule, reserveLeft: j.reserveLeft });
+    flash("ok", j.schedule.mode === "always" ? "Automatic scans now run all day." : "Automatic scans " + j.schedule.window + ", reserve " + j.schedule.reserve + ".");
+  } catch (e) {
+    flash("err", /unknown action/i.test(String(e && e.message)) ? "The sheet's script is older than 13.37 — it updates itself from the repo within a few minutes." : "Could not save: " + (e.message || e));
+  }
+  render();
+}
 /* ---------- Drive housekeeping settings (kept in the sheet's script, shared) ---------- */
 const HK_CHOICES = [150, 200, 500, 1000, 3000];
 function housekeepSettingsHtml() {
@@ -9192,6 +9241,7 @@ function viewSettings() {
         <button class="b" onclick="openBatch();batchRunNow()" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Scan the inbox now</button>
         <button class="b" onclick="batchPushPrompts(true).then(function(ok){flash(ok?'ok':'err',ok?'Reading prompts sent to the sheet.':'Could not send the prompts \u2014 the edit key and a Code13 sheet are needed.')})" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Send reading prompts now</button></div>
       <p class="hint">${esc2(S.cfg.promptsSent === APP_VERSION + "@" + S.cfg.sheetUrl ? "This app version's prompts have been sent to this sheet." : "Prompts not yet sent from this version (sent automatically when an editor opens Inbox scans).")}</p>
+      ${scheduleSettingsHtml()}
       ${housekeepSettingsHtml()}
     </div>
     <div class="btns" style="margin-top:16px">
@@ -9308,7 +9358,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.36", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.37", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -10522,6 +10572,7 @@ function viewBatch() {
     h += `<div class="card"><div class="cardhead"><b>Scanner</b><div class="btns" style="margin:0">${st.cagUrl ? `<a class="b" href="${esc2(st.cagUrl)}" target="_blank" rel="noopener">CAG folder</a>` : ""}${st.ptcaUrl ? `<a class="b" href="${esc2(st.ptcaUrl)}" target="_blank" rel="noopener">PTCA folder</a>` : ""}${st.inboxUrl ? `<a class="b" href="${esc2(st.inboxUrl)}" target="_blank" rel="noopener">${st.cagUrl ? "Inbox" : "Open the inbox folder"}</a>` : ""}</div></div>
       <p class="hint">${esc2(bits.join(" · "))}</p>
       ${st.cutOff ? `<p class="hint" style="color:#8a6a12">${esc2(st.cutOff)}</p>` : ""}
+      ${scheduleLineHtml(st)}
       ${(st.usage || []).length || st.last429 ? `<p class="hint">Scanner's Gemini requests today: ${esc2((st.usage || []).map(function (u) { return u.label + " " + u.n; }).join(", ") || "none")}${st.last429 ? ` · <b style="color:#c00000">limit hit: ${esc2(st.last429)}</b>` : ""}${(st.resting || []).length ? ` · resting until ${esc2(st.resting.map(function (r) { return r.label + " " + r.until; }).join(", "))} — the other free models are used meanwhile` : ""} — Google does not report what is left; a limit shows here as soon as it is hit. Each free model has its own daily limit, so the scanner moves to the next one when a limit is hit.</p>` : ""}
       <p class="hint">Drive housekeeping: ${st.hkOn === false ? "<b>off</b> (files stay in Drive until turned on in Settings)" : "once more than " + (st.keep || 150) + " cases still have their files, the oldest " + (st.prune || 20) + " checked or failed cases lose their PDFs/photos (the readings and the report stay in the sheet; a case waiting to be checked is never touched)"}. Change it in Settings.</p>
       <p class="hint">The inbox has two folders: <b>CAG</b> for angiogram proformas and <b>PTCA</b> for PTCA proformas (with the utilization report). Residents put a case's pages in the right folder: the whole proforma as one PDF, or photos named like <b>1906_1.jpg, 1906_2.jpg …</b> (any shared name before _1, _2). Photos with no shared name are grouped by upload time and flagged.${st.cagUrl ? "" : " The folders appear after setupBatchScanner is run on Code13.13 (files in the inbox itself count as CAG)."}</p>
@@ -10888,7 +10939,7 @@ window.addEventListener("error", function (ev) {
 /* expose for inline handlers */
 Object.assign(window,{editLocalCase,editSharedCase,closeEdit,openOtherCopy,beginEdit,editingCase,editBanner,editDirty,editClashOk,caseIdentity,idKey,clearScanSession,scanSessionHasContent,caseJsonKey,downloadSelf,S,render,setPath,getPath,toggle,setSeg,setSegStr,toggleIn,pickFile,pickPdf,pickPool,otOpen,otMove,seroPositive,boxesMissing,potassiumOf,checklistText,CHECKLIST,uploadAllToSheet,testSheet,sheetUrlProblem,openRegistry,loadShared,removeShared,shareLink,openOt,loadOt,setOtDate,otAdd,otSet,otRemove,copyOt,tomorrowIso,todayIso,localIso,otFlush,otReady,renderList,regListHtml,otPickHtml,sheetApi,allCases,searchCases,suggestedType,modelPicker,slotModel,openCamera,closeCamera,snapCamera,retryCamera,removePoolItem,pickForSlot,rotateSlot,sortAgain,startOver,sortPool,autoAssign,normalizeSort,uprightTurn,SORT_PROMPT,CAM,scanOne,scanRemaining,buildReport,clearSlot,scannedCount,photoCount,newPatient,downloadDocx,downloadCaseXlsx,downloadRegistry,addToRegistry,removeCase,exportRegistryJson,importRegistryJson,addLesion,delLesion,setLesion,togLesion,cancelExtract,togLesionChar,setLesionSeg,setDominance,setDominanceArg,BLANK,saveCfg,loadLocal,retryFailed,buildDocx,buildXlsx,buildRegistryXlsx,caseRecord,mergeInto,VESSELS,posteriorOwner,dominanceLabel,rentropText,renalText,graftText,originText,dominanceWord,idText,idNumbers,rentropWarning,rentropSwap,occludedMains,vesselProse,ramusProse,lesionSentence,vesselDiseaseText,diseasedVessels,withDesignation,WALL_CHARS,cuspName,efPhrase,rwmaText,diagnosisText,finalDiagnosisLines,has,
 diagramPanel,diagramConflicts,diagramLesionNotes,dominanceConflict,applyDiagramValue,dismissDiagramConflict,removeDiagram,toggleDiagBig,downloadDiagramJpeg,diagramForRegistry,normalizeDiagramResult,blankDiagram,pairLesions,pctInfo,samePct,pctLabel,proseRuns,blueNote,stripMarks,isDiagramSlot,diagramSlotFor,slotDef,currentDiagramImage,diagramVesselHint,diagramDominanceText,diagramConflictSummary,noteDiagramUrl,setRecField,syncToSheet,appendPayload,diagramLink,quickHash,diagramToLesion,addDiagramFinding,adoptDiagramFindings,SHEET_VESSELS,stentConditionClause,lesionSentence,blankLesion,PROMPT_D,DIAGRAM_PX,BLUE_OPEN,BLUE_CLOSE,UNREAD,UNREAD_IN,SLOTS,page2Xml,documentXml,vesselLesionSentences,
-setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchTabPick,BATCH_TABS,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
+setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchTabPick,BATCH_TABS,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,scheduleSettingsHtml,scheduleSet,scheduleLineHtml,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
 PTCA_REVIEWERS,PROMPT_Q4,PROMPT_U,UTIL_VESSELS,blankUtilGrid,blankUtilCol,PTCA_SEG_GROUPS,PTCA_TO_TOKENS,segSiteInfo,segRangePhrase,segGroupOf,ptcaToVessels,splitDevices,deviceDia,stentParts,utilLookup,utilBalloonsOf,utilAllBalloons,utilStentsOf,pickPodBalloon,deriveTargets,prdMapText,podMapText,stentMapText,techniqueSentences,togUtilCol,rebuildPlan,stripWirePrefix,lcFirst,stentLabel,lesionSiteOf,
 openBatch,loadBatch,batchRunNow,batchRetry,batchDismiss,openBatchCase,batchToggleBig,batchPushPrompts,batchListsHtml,batchPanel,viewBatch,batchPromptSet,noTemperature,geminiRequest,mcCheckNow,mcChoose,mcCleanCat,mcDismissNote,mcRefresh,mcMaybeRefresh,mcApply,mcBoot,mcDue,mcLastFive,mcDeviceCheck,mcBlock,mcSettingsHtml,mcActiveCat,mcUsable,mcDefault,mcSheetCheckText,MODELS,MODEL_STATE,getModelFallbackChain,runModelChain,modelLabel,shortError,modelFailure});
 </script>

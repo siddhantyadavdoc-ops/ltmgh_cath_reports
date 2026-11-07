@@ -109,7 +109,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.36: no script change (DCB plan box is read and worded in the app)
+var SCRIPT_VERSION = 13;   // 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -165,7 +165,7 @@ function handle(e) {
     // case waits a little, then is told to try again rather than hanging
     if (!lock.tryLock(25000)) return out({ ok: false, error: "The sheet is busy (the batch scanner is reading a case) — try again in a minute.", busy: true });
     var canEdit = editAllowed(req.key);
-    var needEdit = { append: 1, remove: 1, otSave: 1, batchPrompts: 1, batchRetry: 1, batchMark: 1, batchRunNow: 1, rosterSave: 1, batchDraft: 1, batchHousekeepSet: 1 };
+    var needEdit = { append: 1, remove: 1, otSave: 1, batchPrompts: 1, batchRetry: 1, batchMark: 1, batchRunNow: 1, rosterSave: 1, batchDraft: 1, batchHousekeepSet: 1, batchScheduleSet: 1 };
     if (needEdit[action] && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to make changes.", canEdit: false });
     switch (action) {
       case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_() });
@@ -188,6 +188,7 @@ function handle(e) {
         if (req.keep != null) { var kk = Number(req.keep); if (!isFinite(kk) || kk < 50) throw new Error("the limit must be at least 50 cases"); hp.setProperty("BATCH_KEEP", String(Math.round(kk))); }
         return out({ ok: true, canEdit: true, v: SCRIPT_VERSION, hkOn: !batchHousekeepOff_(), keep: batchKeepN_(), prune: batchPruneN_() });
       }
+      case "batchScheduleSet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, batchScheduleSet_(req)));
       case "batchRunNow": { lock.releaseLock(); return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, batchTick({ fromApp: true, caseId: String(req.caseId || "") }))); }
       default: return out({ ok: false, error: "unknown action " + action });
     }
@@ -897,6 +898,16 @@ function batchCallChain_(key, chain, prompt, item, pdfPage, pause, timeLeft) {
   var resting = batchResting_();
   var live = chain.filter(function (m) { return !resting[m]; });
   if (!live.length) return { ok: false, quota: true, retry: true, reason: "every free model's limit is used up for now (" + chain.join(", ") + ") — the scanner carries on in a later run" };
+  if (BATCH_GUARD_) {
+    var cl = batchCappedLeft_(), caps0 = {};
+    cl.models.forEach(function (x) { caps0[x.model] = 1; });
+    if (cl.left <= BATCH_GUARD_.reserve) {
+      var kept = live.filter(function (m) { return caps0[m]; });
+      live = live.filter(function (m) { return !caps0[m]; });
+      if (!live.length) return { ok: false, quota: true, retry: true, reserve: true,
+        reason: "the last " + BATCH_GUARD_.reserve + " requests of the day on " + kept.join(", ") + " are kept for scans started from the app (" + cl.left + " left) \u2014 the automatic scan uses them before Google's daily reset, or carries on after it" };
+    }
+  }
   for (var i = 0; i < live.length; i++) {
     // a slow Google answer can take a minute: no further model is tried
     // when the run is short of time — the page waits for the next run
@@ -913,12 +924,115 @@ function batchCallChain_(key, chain, prompt, item, pdfPage, pause, timeLeft) {
   return r;
 }
 
+/* ---- when the automatic (5-minute) runs may read ----
+   Google's free daily limits reset at midnight Pacific (13:30 IST in winter,
+   12:30 IST in summer), so a "quota day" runs from one reset to the next.
+   Uploads arrive in the evening; the bulk is read at night inside the scan
+   window (BATCH_WINDOW, default 20:00-04:00 on the department's clock). At night
+   the automatic runs stop short of the models' known daily limits by
+   BATCH_RESERVE requests (default 25), kept for scans started from the app in
+   the morning. In the last BATCH_SPEND_MIN minutes before the reset (default
+   90: 12:00-13:30 in winter) the automatic runs read again and may spend that
+   reserve, since whatever is left is lost at the reset. Outside both windows the
+   automatic runs do nothing. Scans started from the app ("Scan the inbox
+   now", "Scan now" on a case) always run and may use the reserve.
+   A model's daily limit is learned the first time it answers a daily 429 (the
+   number of requests it took that day), kept in BATCH_CAPS; models whose limit
+   has never been hit are not counted towards the reserve. */
+var BATCH_TZ = "Asia/Kolkata";
+var BATCH_WINDOW_DEFAULT = "20:00-04:00", BATCH_RESERVE_DEFAULT = 25, BATCH_SPEND_DEFAULT = 90;
+var BATCH_GUARD_ = null;   // set by batchTick for an automatic night run: { reserve: n }
+function batchHm_(m) { m = ((m % 1440) + 1440) % 1440; return ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + (m % 60)).slice(-2); }
+function batchParseHm_(t) { var m = /^\s*(\d{1,2})[:.](\d{2})\s*$/.exec(String(t || "")); if (!m) return null; var h = Number(m[1]), mi = Number(m[2]); return h < 24 && mi < 60 ? h * 60 + mi : null; }
+function batchWindow_() {
+  var raw = PropertiesService.getScriptProperties().getProperty("BATCH_WINDOW");
+  if (raw == null) raw = BATCH_WINDOW_DEFAULT;
+  raw = String(raw).trim();
+  if (!raw || /^(always|all ?day|off|none)$/i.test(raw)) return null;
+  var p = raw.split(/\s*(?:-|\u2013|to)\s*/);
+  var a = batchParseHm_(p[0]), b = batchParseHm_(p[1]);
+  if (a == null || b == null || a === b) return null;
+  return { from: a, to: b, text: batchHm_(a) + "\u2013" + batchHm_(b) };
+}
+function batchReserveN_() { var raw = PropertiesService.getScriptProperties().getProperty("BATCH_RESERVE"); var v = Number(raw); return raw != null && String(raw).trim() !== "" && isFinite(v) && v >= 0 ? Math.round(v) : BATCH_RESERVE_DEFAULT; }
+function batchSpendMin_() { var raw = PropertiesService.getScriptProperties().getProperty("BATCH_SPEND_MIN"); var v = Number(raw); return raw != null && String(raw).trim() !== "" && isFinite(v) && v >= 0 ? Math.min(600, Math.round(v)) : BATCH_SPEND_DEFAULT; }
+function batchInRange_(m, a, b) { return a < b ? (m >= a && m < b) : (m >= a || m < b); }
+/* what an automatic run may do now: mode "always" (no window set), "night"
+   (inside the window, reserve kept), "spend" (before the reset, reserve may
+   be used) or "closed"; plus the times for the app's status line */
+function batchPlan_(now) {
+  now = now || new Date();
+  var hm = Utilities.formatDate(now, BATCH_TZ, "HH:mm").split(":");
+  var m = Number(hm[0]) * 60 + Number(hm[1]);
+  var w = batchWindow_(), reserve = batchReserveN_(), spend = batchSpendMin_();
+  var r = batchPacificReset_(now);
+  var resetMin = m + Math.round((r.ms - 2 * 60000) / 60000);         // the reset, on today's clock (may pass midnight)
+  var spendFrom = resetMin - spend;
+  var inSpend = spend > 0 && reserve > 0 && (r.ms - 2 * 60000) <= spend * 60000;
+  var plan = { window: w ? w.text : "", reserve: reserve, spendMin: spend, resetAt: batchHm_(resetMin), spendFrom: batchHm_(spendFrom), tz: BATCH_TZ };
+  if (!w) { plan.mode = "always"; plan.guard = false; return plan; }
+  if (batchInRange_(m, w.from, w.to)) { plan.mode = "night"; plan.guard = reserve > 0; plan.until = batchHm_(w.to); return plan; }
+  if (inSpend) { plan.mode = "spend"; plan.guard = false; plan.until = batchHm_(resetMin); return plan; }
+  plan.mode = "closed"; plan.guard = false;
+  // the next time an automatic run reads: the spend slot if it comes first today, else the window
+  var toWin = (w.from - m + 1440) % 1440, toSpend = spend > 0 && reserve > 0 ? (spendFrom - m + 1440) % 1440 : 1e9;
+  plan.next = toSpend < toWin ? batchHm_(spendFrom) : batchHm_(w.from);
+  return plan;
+}
+function batchScheduleSet_(req) {
+  var p = PropertiesService.getScriptProperties();
+  if (req.window != null) {
+    var w = String(req.window).trim();
+    if (/^(always|all ?day|)$/i.test(w)) p.setProperty("BATCH_WINDOW", "always");
+    else {
+      var parts = w.split(/\s*[-\u2013]\s*/), a = batchParseHm_(parts[0]), b = batchParseHm_(parts[1]);
+      if (a == null || b == null || a === b) throw new Error("the scan window must be two times like 20:00-04:00");
+      p.setProperty("BATCH_WINDOW", batchHm_(a) + "-" + batchHm_(b));
+    }
+  }
+  if (req.reserve != null) { var n = Number(req.reserve); if (!isFinite(n) || n < 0 || n > 500) throw new Error("the reserve must be 0 to 500 requests"); p.setProperty("BATCH_RESERVE", String(Math.round(n))); }
+  if (req.spendMin != null) { var sm = Number(req.spendMin); if (!isFinite(sm) || sm < 0 || sm > 600) throw new Error("the spend time must be 0 to 600 minutes"); p.setProperty("BATCH_SPEND_MIN", String(Math.round(sm))); }
+  return { schedule: batchPlan_(), reserveLeft: batchCappedLeft_() };
+}
+/* the daily limit learned for each model (requests answered before its daily 429) */
+function batchCaps_() {
+  var caps = {};
+  try { caps = JSON.parse(PropertiesService.getScriptProperties().getProperty("BATCH_CAPS") || "{}") || {}; } catch (e) {}
+  // a model resting for the daily limit today, from before limits were kept, teaches its limit too
+  try {
+    var u = batchUsage_(), rest = batchResting_();
+    Object.keys(rest).forEach(function (mm) {
+      if (caps[mm]) return;
+      var left = rest[mm] + BATCH_REST_MS - Date.now();
+      if (left > 2 * 3600000 && (u.counts[mm] || 0) > 1) caps[mm] = (u.counts[mm] || 0) - 1;
+    });
+  } catch (e) {}
+  return caps;
+}
+/* requests left today on the models whose daily limit is known */
+function batchCappedLeft_() {
+  var caps = batchCaps_(), u = batchUsage_(), rest = batchResting_(), left = 0, models = [];
+  Object.keys(caps).forEach(function (mm) {
+    var restDaily = rest[mm] != null && (rest[mm] + BATCH_REST_MS - Date.now()) > 2 * 3600000;
+    var l = restDaily ? 0 : Math.max(0, Number(caps[mm]) - (u.counts[mm] || 0));
+    left += l; models.push({ model: mm, label: mcLabel(mm), cap: Number(caps[mm]), left: l });
+  });
+  return { left: left, models: models };
+}
+
 /* ---- the 5-minute tick ---- */
 function batchTick(opts) {
   opts = opts || {};
   var start = Date.now();
   var runId = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss");
   if (batchOff_()) return { ran: false, why: "off" };
+  // an automatic run outside the scan window does nothing (a scan started from the app always runs)
+  BATCH_GUARD_ = null;
+  if (!opts.fromApp) {
+    var plan = batchPlan_();
+    if (plan.mode === "closed") return { ran: false, why: "outside the scan window (next automatic read at " + plan.next + ")" };
+    if (plan.guard) BATCH_GUARD_ = { reserve: plan.reserve };
+  }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(opts.fromApp ? 5000 : 1000)) { batchLogRow_(runId, "", "", "run", "skipped", "another run is in progress"); return { ran: false, why: "another run is in progress" }; }
   var summary = { ran: true, runId: runId, cases: 0, scanned: 0, failed: 0, pending: 0, why: "" };
@@ -1695,6 +1809,7 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
     // which limit: Google names it (…PerMinute… / …PerDay…) and often says how long to wait
     var kind = code === 429 ? batch429Kind_(text) : null;
     if (quota) batchCount_("", model + (nofree ? " (no free tier)" : " (" + (kind ? kind.word : "limit") + " reached)"), nofree ? "" : model, kind ? kind.restMs : 0);
+    if (quota && !nofree && kind && kind.word === "daily limit") batchLearnCap_(model);
     var reason = code === 429
       ? (nofree ? "the model " + model + " has no free tier for this key — set BATCH_MODEL_READ / BATCH_MODEL_PAGE to a free one"
                 : "Google's " + (kind ? kind.word : "limit") + " for " + model + " is used up (429) — other models are tried; this one rests for " + (kind ? kind.restWord : "an hour"))
@@ -1752,8 +1867,8 @@ function batch429Kind_(text) {
 }
 /* Google's free-tier daily counters reset at midnight Pacific time: how long
    until the next one, and that moment on the sheet's own clock */
-function batchPacificReset_() {
-  var now = new Date();
+function batchPacificReset_(now) {
+  now = now || new Date();
   var hms = Utilities.formatDate(now, "America/Los_Angeles", "HH:mm:ss").split(":");
   var secIn = Number(hms[0]) * 3600 + Number(hms[1]) * 60 + Number(hms[2]);
   var ms = (86400 - secIn) * 1000 + 2 * 60000;          // two minutes' grace
@@ -1774,6 +1889,14 @@ function batchCount_(model, hit429, restModel, restMs) {
     if (hit429) u.last429 = hit429 + " at " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
     if (restModel) u.rest[restModel] = Date.now() + (restMs || BATCH_REST_MS) - BATCH_REST_MS;   // "until" stored as start + rest − hour
     PropertiesService.getScriptProperties().setProperty("BATCH_USAGE", JSON.stringify(u));
+  } catch (e) {}
+}
+function batchLearnCap_(model) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var caps = {}; try { caps = JSON.parse(props.getProperty("BATCH_CAPS") || "{}") || {}; } catch (e) {}
+    var n = (batchUsage_().counts[model] || 0) - 1;     // the 429 itself was counted
+    if (n > 0) { caps[model] = n; props.setProperty("BATCH_CAPS", JSON.stringify(caps)); }
   } catch (e) {}
 }
 /* models resting after a 429 (limit hit within the last hour) */
@@ -1812,7 +1935,8 @@ function batchStatus_() {
     promptsVersion: p ? String(p.appVersion || "") : "", promptsSentAt: p ? String(p.sentAt || "") : "",
     inboxUrl: inboxUrl, cagUrl: cagUrl, ptcaUrl: ptcaUrl, ptcaPrompts: !!(p && p.ptcaReady),
     everyMin: BATCH_EVERY_MIN, gapSec: batchGapMs_() / 1000, models: batchModels_(), last: last, keep: batchKeepN_(), prune: batchPruneN_(), hkOn: !batchHousekeepOff_(),
-    running: running && running.live ? running : null, cutOff: cutOff, usage: usage, last429: u.last429 || "", resting: resting };
+    running: running && running.live ? running : null, cutOff: cutOff, usage: usage, last429: u.last429 || "", resting: resting,
+    schedule: batchPlan_(), reserveLeft: batchCappedLeft_() };
 }
 function batchList_() {
   var tab = batchTabRows_();
