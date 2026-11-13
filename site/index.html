@@ -2485,11 +2485,16 @@ async function loadRosters(force) {
     const j = await sheetApi("rosterGet", {}, 20000);
     R.operators = textToOperators(j.operators || "");
     R.technicians = textToOperators(j.technicians || "");
+    // 13.41 — the hardware list travels the same way. A script older than
+    // 13.41 answers without one: this device's own copy then stays in force.
+    R.hwShared = typeof j.hardware === "string";
+    R.hardware = R.hwShared ? textToOperators(j.hardware) : (S.cfg.hardware || []);
     R.updatedAt = j.updatedAt || ""; R.by = j.by || ""; R.err = "";
     R.loaded = true; R.at = Date.now();
     // mirror to this device so it has the list when offline
     S.cfg.operators = R.operators.length ? R.operators : null;
     S.cfg.technicians = R.technicians.length ? R.technicians : null;
+    if (R.hwShared) S.cfg.hardware = R.hardware.length ? R.hardware : null;
     saveCfg();
     return true;
   } catch (e) {
@@ -2499,17 +2504,25 @@ async function loadRosters(force) {
   }
 }
 /* an edit in Settings: kept on this device at once, sent to the sheet a
-   moment later (one request per burst of typing) */
+   moment later (one request per burst of typing). Only the lists changed on
+   this device are sent (13.41): a device that has been open since morning
+   must not write its old copy of the hardware list over a colleague's newer
+   one just because the doctors' roster was edited on it. */
 let ROSTER_PUSH = null;
+const ROSTER_KINDS = ["operators", "technicians", "hardware"];
+const ROSTER_DIRTY = {};          // lists edited here and not yet stored in the sheet
 function rosterEdit(kind, text) {
   const list = textToOperators(text);
   S.cfg[kind] = list.length ? list : null; saveCfg();
   if (S.rosters.loaded) S.rosters[kind] = list;
+  ROSTER_DIRTY[kind] = true;
+  if (kind === "hardware") hwStatusShow();
   rosterPushLater();
 }
 function rosterReset(kind) {
   S.cfg[kind] = null; saveCfg();
   if (S.rosters.loaded) S.rosters[kind] = [];
+  ROSTER_DIRTY[kind] = true;
   rosterPushLater();
   render();
 }
@@ -2520,15 +2533,33 @@ function rosterPushLater() {
 async function rosterPush() {
   const R = S.rosters;
   if (!S.cfg.sheetUrl || !S.cfg.editKey) { R.saved = S.cfg.sheetUrl ? "view-only device: the edit key is needed to change the shared roster" : ""; rosterStatusShow(); return; }
+  const sent = {};
+  ROSTER_KINDS.forEach(function (k) { if (ROSTER_DIRTY[k]) sent[k] = operatorsToText(S.cfg[k] || []); });
+  if (!Object.keys(sent).length) return;
+  const wasLoaded = R.loaded;
   R.pushing = true; rosterStatusShow();
   try {
-    const j = await sheetApi("rosterSave", {
-      operators: operatorsToText(S.cfg.operators || []), technicians: operatorsToText(S.cfg.technicians || []), by: S.cfg.userName || "" }, 20000);
-    R.loaded = true; R.at = Date.now(); R.updatedAt = j.updatedAt || ""; R.by = j.by || ""; R.err = "";
-    R.operators = S.cfg.operators || []; R.technicians = S.cfg.technicians || [];
-    R.saved = "saved to the shared sheet — every device gets it on its next open";
+    const j = await sheetApi("rosterSave", Object.assign({ by: S.cfg.userName || "" }, sent), 20000);
+    R.updatedAt = j.updatedAt || ""; R.by = j.by || ""; R.err = "";
+    let late = "";
+    Object.keys(sent).forEach(function (k) {
+      // a script from 13.41 on says which lists it kept ("keys"); an older one
+      // keeps the two rosters and nothing else
+      const kept = j.keys ? j.keys.indexOf(k) >= 0 : k !== "hardware";
+      if (k === "hardware") {
+        R.hwShared = kept;
+        if (!kept) late = " (the hardware list stays on this device only: the sheet's script is older than 13.41)";
+      }
+      if (wasLoaded) R[k] = S.cfg[k] || [];
+      // an edit typed while this was on its way stays marked for the next save
+      if (kept && operatorsToText(S.cfg[k] || []) === sent[k]) delete ROSTER_DIRTY[k];
+    });
+    R.saved = "saved to the shared sheet \u2014 every device gets it on its next open" + late;
+    // lists never fetched on this device (it was offline when it opened): get
+    // the ones that were not just sent, rather than take this device's old copy for them
+    if (!wasLoaded) loadRosters(true);
   } catch (e) {
-    R.saved = "could not save to the shared sheet: " + (e.message || e) + " — kept on this device";
+    R.saved = "could not save to the shared sheet: " + (e.message || e) + " \u2014 kept on this device";
   }
   R.pushing = false; rosterStatusShow();
 }
@@ -2541,7 +2572,12 @@ function rosterStatusText() {
   if (R.loaded) return "Shared through the sheet with every device" + (R.updatedAt ? " · last changed " + R.updatedAt + (R.by ? " by " + R.by : "") : " · built-in lists in use") + ".";
   return "Loading the shared lists…";
 }
-function rosterStatusShow() { const el = document.getElementById("rosterStatus"); if (el) el.textContent = rosterStatusText(); }
+function rosterStatusShow() {
+  const t = rosterStatusText();
+  const el = document.getElementById("rosterStatus"); if (el) el.textContent = t;
+  const more = document.querySelectorAll ? document.querySelectorAll(".rosterStatus") : [];
+  for (let i = 0; i < more.length; i++) more[i].textContent = t;
+}
 
 /* Every normalized string that should resolve to this operator: their full
    name plus every alias/initials code on file for them. */
@@ -3380,6 +3416,9 @@ function PBLANK() {
       /* the sheet's own photo, kept with the registry row (13.40): the Drive
          link of its stored copy, and the stamp of the photo that was sent */
       imageUrl: "", uploadedHash: "",
+      /* what the hardware list put in full when the sheet was read
+         ("RS \u2192 NC Rockstar"), for the review screen (13.41) */
+      expanded: [],
     },
     recommendationsExtra: "",
   };
@@ -3472,12 +3511,16 @@ function ptcaToVessels(P) {
 /* ---------- device strings from the utilization grid ---------- */
 /* "2.0*12 Sapphire (pre)" → "2.0*12 Sapphire": the technician's pre / post /
    PrD / PoD tags on the utilization sheet say what the balloon was for; the
-   report never prints them */
+   report never prints them. 13.41: nor the stent's site written as the
+   o / p / m / d code — "(p-m)", or a bare "p-m" at the end — and a tag in
+   front counts with or without a dash ("Post 3.5×8 …", "PrD: 2×12 …"). */
 function stripPrePost(s) {
   return String(s == null ? "" : s)
     .replace(/\s*[\(\[\{]\s*(pre|post|prd|pod|pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*)\s*[\)\]\}]/gi, "")
+    .replace(/\s*[\(\[\{]\s*[opmd](?:\s*[-–—\/]\s*[opmd])?\s*[\)\]\}]/gi, "")
+    .replace(/\s+[opmd]\s*[-–—\/]\s*[opmd]\s*$/i, "")
     .replace(/(^|\s)[-–]?\s*(pre|post|prd|pod)\s*$/i, "")
-    .replace(/^\s*(pre|post|prd|pod)\s*[-–:]\s*/i, "")
+    .replace(/^\s*(pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod)\b\s*[-–:]?\s*(?=\S)/i, "")
     .replace(/\s{2,}/g, " ").trim();
 }
 function splitDevices(cell) {
@@ -3500,6 +3543,303 @@ function stentParts(s) {
   const name = (s.slice(0, m.index) + " " + s.slice(m.index + m[1].length)).replace(/\s+/g, " ").trim();
   return { size: size, name: name };
 }
+
+/* ============================================================
+   13.41 — the department's hardware list and its short forms
+   ============================================================
+   The utilization sheet's cells are small, so the technicians write a device
+   as its size and a short form ("2.5×12 RS", "3×38 UT p-m", "XB3"). The list
+   below says what each short form stands for. Like the doctors' and the
+   technicians' rosters it is only the built-in starting point: the list in
+   force is edited in Settings and shared through the sheet (S.cfg.hardware /
+   S.rosters.hardware), one device per line —
+       Full name | Type | short form, other spellings
+   After a scan every device in the utilization grid is checked against it. A
+   short form, or any other spelling listed for a device (a misreading the
+   scanner keeps making can be listed too), is replaced by the full name, and
+   a name written in full is given the list's own spelling. Matching is exact
+   — letters and digits only, case and spacing ignored — and never by
+   resemblance: a "Fielder XT" must not turn into the list's "Fielder FC".
+   What keeps a wrong name out of a report:
+   - a short code counts only in a row for its type (hwFind);
+   - a device the scanner marked with "?" is left exactly as read;
+   - sizes, notes in brackets and stray marks are never rewritten;
+   - everything that was changed is listed for the person checking the
+     report (util.expanded → "Put in full from the hardware list …"), with
+     the sheet's photo one tap away. */
+const DEFAULT_HARDWARE = [
+  { name: "XB 3.0", role: "Guide", aliases: ["XB3"] },
+  { name: "JR 3.5 SH", role: "Guide", aliases: ["JR3.5 SH"] },
+  { name: "Runthrough NS", role: "Wire", aliases: ["RNS"] },
+  { name: "Blue Star", role: "Wire", aliases: ["BS", "Blu star", "Buistar"] },
+  { name: "Fielder FC", role: "Wire", aliases: ["FC"] },
+  { name: "BMW", role: "Wire", aliases: [] },
+  { name: "NC Rockstar", role: "Balloon", aliases: ["RS"] },
+  { name: "Lineage", role: "Balloon", aliases: ["LN"] },
+  { name: "Seguro", role: "Balloon", aliases: ["SG", "Seguso"] },
+  { name: "Tanzor", role: "Balloon", aliases: ["TZ", "Tamor", "Tantor", "Tanzer"] },
+  { name: "Sapphire", role: "Balloon", aliases: ["SP"] },
+  { name: "Yukon Choice", role: "Stent", aliases: ["YC"] },
+  { name: "Yukon Choice Swift", role: "Stent", aliases: ["YCS"] },
+  { name: "Xience Alpine", role: "Stent", aliases: ["XA"] },
+  { name: "Ultimaster Tansei", role: "Stent", aliases: ["UT", "Ultimaster Tanes"] },
+  { name: "Biomime Aura", role: "Stent", aliases: ["BA"] },
+  { name: "Elutax", role: "DCB", aliases: ["EX"] },
+  { name: "Wedge", role: "Cutting balloon", aliases: ["WG"] },
+  { name: "Guidezilla", role: "Guide extension", aliases: ["GZ"] },
+  { name: "Thrombuster", role: "Aspiration catheter", aliases: ["TB"] },
+];
+function activeHardware() { return activeRoster("hardware", DEFAULT_HARDWARE); }
+/* a written name as it is compared: letters and digits only ("X B3" = "XB3",
+   "Blue-star" = "Bluestar", "JR3.5 SH" = "JR 3.5SH") */
+function hwNorm(s) { return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, ""); }
+/* the Type column, read loosely ("Guide wire", "guiding catheter", "DEB" …) */
+function hwKind(role) {
+  const r = String(role == null ? "" : role).toLowerCase().trim();
+  if (!r) return "";
+  if (/exten|\bge\b/.test(r)) return "ge";
+  if (/micro|\bmc\b/.test(r)) return "mc";
+  if (/aspir|thromb/.test(r)) return "asp";
+  if (/wire/.test(r)) return "wire";
+  if (/dcb|deb|drug/.test(r)) return "dcb";
+  if (/cut|scor/.test(r)) return "cutting";
+  if (/bal+oon|poba/.test(r)) return "balloon";
+  if (/stent|\bdes\b/.test(r)) return "stent";
+  if (/guid|cath/.test(r)) return "guide";
+  return "other";
+}
+/* which types of device belong in which row or cell of the sheet */
+const HW_ROW_KINDS = { guide: ["guide"], wire: ["wire"], balloon: ["balloon", "cutting", "dcb"], stent: ["stent", "dcb"],
+  cutting: ["cutting", "balloon"], ge: ["ge"], mc: ["mc"], asp: ["asp"] };
+const HW_GRID_KIND = { guide: "guide", wire: "wire", balloon1: "balloon", balloon2: "balloon", stent1: "stent", stent2: "stent", stent3: "stent" };
+const HW_UTIL_KIND = { cutting: "cutting", microcatheter: "mc", guideExtension: "ge", aspiration: "asp" };
+/* the device a written name stands for: one that belongs in this row first
+   (so the same short form may serve a balloon and a stent). A device of
+   another type counts only when its name, or a spelling of it, is written out
+   — a wire named in the guide's row is still that wire — never by a short
+   code: "FC" in the microcatheter cell is not the wire Fielder FC, and a
+   misread code must not turn into whatever device happens to own it. */
+const HW_CODE_LEN = 5;            // fewer letters and digits than this is a short code
+function hwFind(text, rowKind, list) {
+  const key = hwNorm(text);
+  if (!key) return null;
+  const want = HW_ROW_KINDS[rowKind] || [];
+  let other = null;
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i];
+    if (!e || !has(e.name)) continue;
+    if ([e.name].concat(e.aliases || []).map(hwNorm).indexOf(key) < 0) continue;
+    const k = hwKind(e.role);
+    if (!k || !want.length || want.indexOf(k) >= 0) return e;
+    if (!other && key.length >= HW_CODE_LEN) other = e;
+  }
+  return other;
+}
+const HW_SIZE_SRC = "\\d+(?:\\.\\d+)?\\s*[*×xX]\\s*\\d+(?:\\.\\d+)?";
+const HW_TOK_RE = new RegExp("([\\(\\[\\{][^\\)\\]\\}]*[\\)\\]\\}]?)|(" + HW_SIZE_SRC + ")|(\\s+)|((?:(?!" + HW_SIZE_SRC + ")[^\\s\\(\\[\\{])+)", "g");
+const HW_TAG_RE = /^(?:pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod)[:\-–]?$/i;
+const HW_SITE_RE = /^[opmd](?:[-–—\/][opmd])?$/i;
+/* a guide's French size in front of its name: "6F", "6 Fr.", "6FXB3" — and
+   the scanner's "GFr" for a handwritten "6Fr" */
+const HW_FR_RE = /^(?:([4-9])|g)\s*f(?:r(?![a-z]))?\.?\s*/i;
+/* One device as written ("(Post) 3.5×8 RS", "2.5×28 UT m-d", "6FXB3") with
+   its name put in full. Everything else — the size, a pre/post tag, a note in
+   brackets — stays exactly as written; a site code after a short form goes
+   into brackets ("3×38 Ultimaster Tansei (p-m)"), where the report's device
+   names never pick it up. Returns the text unchanged when nothing on the list
+   matches. notes collects "RS → NC Rockstar" for the review screen.
+   opt.dropSite: for a field of the procedure plan, which is printed as it
+   stands and has its own "Deployed at" — the site code is left out instead.
+   opt.fr: the French size to give a guide written without one (the sheath's,
+   when the sheet says it; 6 otherwise). */
+function hwExpandDevice(seg, rowKind, list, notes, opt) {
+  const src = String(seg == null ? "" : seg);
+  if (!src.trim()) return src;
+  // the scanner's "?" marks what it could not read: such a device stays exactly
+  // as read, for the person checking — a doubtful "RS?" is not NC Rockstar
+  if (src.indexOf("?") >= 0) return src;
+  const lead = /^\s*/.exec(src)[0], trail = /\s*$/.exec(src)[0];
+  // the cell in pieces: a note in brackets | a size | spaces | a word (which
+  // stops where a size begins, so "RS2.5x12" is a word and a size)
+  const toks = [];
+  src.trim().replace(HW_TOK_RE, function (m, note, size, sp, word) {
+    toks.push({ t: note != null ? "note" : size != null ? "size" : sp != null ? "sp" : "word", s: m });
+    return m;
+  });
+  // a mark standing by itself ("/", "-", "&", "+") is not part of any name: it
+  // ends a run of words and stays where it is
+  toks.forEach(function (t) { if (t.t === "word" && !/[a-z0-9]/i.test(t.s)) t.t = "mark"; });
+  let changed = false;
+  let i = 0;
+  while (i < toks.length) {
+    if (toks[i].t !== "word") { i++; continue; }
+    // a run of words (spaces between them), up to the next size, note or mark
+    let end = i;
+    for (let k = i + 1; k < toks.length; k++) {
+      if (toks[k].t === "word") end = k;
+      else if (toks[k].t !== "sp") break;
+    }
+    const idx = [];
+    for (let k = i; k <= end; k++) if (toks[k].t === "word") idx.push(k);
+    // the technician's pre / post tags at either end are not part of the name
+    let a = 0, b = idx.length;
+    while (a < b && HW_TAG_RE.test(toks[idx[a]].s)) a++;
+    while (b > a && HW_TAG_RE.test(toks[idx[b - 1]].s)) b--;
+    let hit = "", pre = "", post = "";
+    if (a < b) {
+      // punctuation written against the name ("RS.", "-RS") stays around it
+      const words = idx.slice(a, b).map(function (k) { return toks[k].s; });
+      pre = /^[^a-z0-9]*/i.exec(words[0])[0];
+      post = /[^a-z0-9]*$/i.exec(words[words.length - 1])[0];
+      words[0] = words[0].slice(pre.length);
+      const last = words.length - 1;
+      words[last] = words[last].slice(0, words[last].length - post.length);
+      hit = hwMatchWords(words, rowKind, list, notes, opt);
+    }
+    if (hit) {
+      toks.splice(idx[a], idx[b - 1] - idx[a] + 1, { t: "word", s: pre + hit + post, put: true });
+      changed = true;
+      i = idx[a] + 1;
+    } else i = end + 1;
+  }
+  if (!changed) return src;
+  // put together again: sizes, notes and untouched words exactly as written;
+  // a name put in full stands apart from what was written against it ("2.5×12RS")
+  let out = "";
+  toks.forEach(function (t, k) {
+    if (t.t === "sp") { out += " "; return; }
+    if (t.put && k > 0 && toks[k - 1].t !== "sp") out += " ";
+    out += t.s;
+    if (t.put && k < toks.length - 1 && toks[k + 1].t !== "sp") out += " ";
+  });
+  out = out.trim();
+  // nothing but the spacing would change: leave the cell as it was written
+  if (out === src.trim().replace(/\s+/g, " ")) return src;
+  return lead + out + trail;
+}
+/* the words of one name → what to put in their place, or "" */
+function hwMatchWords(words, rowKind, list, notes, opt) {
+  opt = opt || {};
+  const text = words.join(" ");
+  // what the review screen is told: only a real change, never capitals or spacing
+  const note = function (written, shown) {
+    if (!notes || hwNorm(written) === hwNorm(shown)) return;
+    const n = String(written).replace(/[.\s]+$/, "") + " \u2192 " + shown;
+    if (notes.indexOf(n) < 0) notes.push(n);
+  };
+  const isGuide = function (e) { return hwKind(e.role) === "guide"; };
+  // a catheter with its French size written in front: a guide, or a guide
+  // extension or aspiration catheter in its own cell ("6F Guidezilla")
+  const fr = HW_FR_RE.exec(text);
+  if (fr && fr[0].length < text.length) {
+    const rest = text.slice(fr[0].length);
+    const e = hwFind(rest, rowKind === "ge" || rowKind === "asp" ? rowKind : "guide", list);
+    if (e && ["guide", "ge", "asp"].indexOf(hwKind(e.role)) >= 0) {
+      note(rest, e.name);
+      if (!fr[1]) note(fr[0], "6F");            // the scanner's "GFr" for a handwritten 6Fr
+      return (fr[1] || "6") + "F " + e.name;
+    }
+  }
+  let e = hwFind(text, rowKind, list);
+  if (e) {
+    // a guide written without its size is given the sheath's, or 6F — and the
+    // review screen says so, since nobody wrote it
+    const out = (isGuide(e) ? (/^[4-9]$/.test(String(opt.fr || "")) ? opt.fr : "6") + "F " : "") + e.name;
+    note(text, out);
+    return out;
+  }
+  // a site code after the name: "UT p-m", "Xience Alpine d"
+  if (words.length > 1 && HW_SITE_RE.test(words[words.length - 1])) {
+    const head = words.slice(0, -1).join(" ");
+    e = hwFind(head, rowKind, list);
+    if (e && !isGuide(e)) { note(head, e.name); return e.name + (opt.dropSite ? "" : " (" + words[words.length - 1].toLowerCase() + ")"); }
+  }
+  return "";
+}
+/* the one French size written for the sheath ("Rt RA 6F", "6 Fr. Rt Radial"),
+   or "" when none or more than one is written */
+function hwSheathFr(text) {
+  const found = [];
+  String(text == null ? "" : text).replace(/(^|[^0-9.])([4-9])\s*fr?(?![a-z])/gi, function (m, pre, d) { if (found.indexOf(d) < 0) found.push(d); return m; });
+  return found.length === 1 ? found[0] : "";
+}
+/* a whole cell: devices separated by commas, semicolons or new lines */
+function hwExpandCell(text, rowKind, notes, list, opt) {
+  if (!has(text)) return text;
+  list = list || activeHardware();
+  if (!list || !list.length) return text;
+  return String(text).split(/([,;\n]+)/).map(function (part, i) {
+    return i % 2 ? part : hwExpandDevice(part, rowKind, list, notes, opt);
+  }).join("");
+}
+/* the utilization sheet's reading, checked against the list in place: the
+   vessel grid and the adjunct cells that name one device (cutting balloon,
+   microcatheter, guide extension, aspiration catheter). Free-text cells —
+   Other hardware, Notes — are never touched. What was put in full is kept on
+   util.expanded, so the review screen can say so. */
+function hwExpandUtil(u) {
+  if (!u || typeof u !== "object") return u;
+  const list = activeHardware(), notes = [];
+  const opt = { fr: hwSheathFr(u.accessSheath) };
+  if (u.grid && typeof u.grid === "object") {
+    Object.keys(u.grid).forEach(function (v) {
+      const c = u.grid[v];
+      if (!c || typeof c !== "object") return;
+      Object.keys(HW_GRID_KIND).forEach(function (k) {
+        if (typeof c[k] === "string" && has(c[k])) c[k] = hwExpandCell(c[k], HW_GRID_KIND[k], notes, list, opt);
+      });
+    });
+  }
+  Object.keys(HW_UTIL_KIND).forEach(function (k) {
+    if (typeof u[k] === "string" && has(u[k])) u[k] = hwExpandCell(u[k], HW_UTIL_KIND[k], notes, list, opt);
+  });
+  if (notes.length) u.expanded = uniqList((Array.isArray(u.expanded) ? u.expanded : []).concat(notes));
+  return u;
+}
+/* what is wrong with the list as typed in Settings — a short form given to two
+   devices of the same type, a type that is not a type — in plain words */
+function hwListProblems(list) {
+  const seen = {}, out = [];
+  (list || []).forEach(function (e) {
+    const k = hwKind(e.role);
+    // "Supraflex Cruz | SC": the short form has landed in the Type's place
+    if (k === "other" && out.length < 6) out.push("the type \u201c" + e.role + "\u201d of " + e.name + " is not one of those below \u2014 its short forms will not be used");
+    [e.name].concat(e.aliases || []).forEach(function (a) {
+      const key = hwNorm(a);
+      if (!key) return;
+      const id = k + "|" + key;
+      if (seen[id] && seen[id] !== e.name && out.length < 6) out.push("“" + a + "” is listed for both " + seen[id] + " and " + e.name + " — the first is used");
+      if (!seen[id]) seen[id] = e.name;
+    });
+  });
+  return out;
+}
+function hwStatusText() {
+  const list = activeHardware();
+  const probs = hwListProblems(list);
+  const n = list.length;
+  return (S.cfg.hardware && S.cfg.hardware.length ? n + (n === 1 ? " device" : " devices") + " on the department's list." : "The built-in list is in use (" + n + " devices).") +
+    (probs.length ? " Check: " + probs.join("; ") + "." : "");
+}
+function hwStatusShow() { const el = document.getElementById("hwStatus"); if (el) { el.textContent = hwStatusText(); el.style.color = hwListProblems(activeHardware()).length ? "#8a6a12" : ""; } }
+/* a hardware field on the review screen: what is typed is checked against the
+   list when the field is left, so "2.5x12 RS" typed in a correction prints in
+   full like a scanned one. The inputs carry data-hw="<row kind>"; the
+   utilization grid's own cells also data-hw-grid, and keep a site code in
+   brackets as a scan does — anywhere else it is left out. */
+document.addEventListener("change", function (ev) {
+  const el = ev.target;
+  if (!el || el.tagName !== "INPUT" || !el.getAttribute) return;
+  const kind = el.getAttribute("data-hw");
+  if (!kind) return;
+  const P = S.P || {};
+  const sheath = String((P.proc || {}).sheath == null ? "" : P.proc.sheath).replace(/\s*fr?\.?\s*$/i, "").trim();
+  const out = hwExpandCell(el.value, kind, null, null, { dropSite: el.getAttribute("data-hw-grid") !== "1",
+    fr: hwSheathFr((P.util || {}).accessSheath) || (/^[4-9]$/.test(sheath) ? sheath : "") });
+  if (out === el.value) return;
+  el.value = out;
+  if (typeof el.oninput === "function") el.oninput();
+});
 const UTIL_LEFT = ["LM", "LAD", "D1", "LCx", "Ramus", "OM"], UTIL_RIGHT = ["RCA", "PDA", "PLV"];
 const UTIL_PARENT = { D1: "LAD", OM: "LCx", PDA: "RCA", PLV: "RCA", LM: "LAD", Ramus: "LM" };
 function utilCol(P, v) { return ((P.util || {}).grid || {})[v] || blankUtilCol(); }
@@ -4809,7 +5149,11 @@ function normalizePtcaResult(d) {
   if (d.util && typeof d.util === "object") {
     ["op1", "op2", "op3"].forEach(function (k) { if (has(d.util[k])) d.util[k] = matchOperator(d.util[k]); });
     if (has(d.util.technician)) d.util.technician = matchTechnician(d.util.technician);
+    hwExpandUtil(d.util);       // 13.41 — short forms and listed spellings → the hardware list's full names
   }
+  // …and the one device the doctor's sheet 4 names: the cutting balloon
+  const cal = d.tech && typeof d.tech === "object" ? d.tech.calcium : null;
+  if (cal && typeof cal === "object" && typeof cal.cuttingName === "string" && has(cal.cuttingName)) cal.cuttingName = hwExpandCell(cal.cuttingName, "cutting", null);
   return d;
 }
 
@@ -5251,13 +5595,15 @@ function recField(rec, k) {
 }
 /* the case as it matters for "is this the same data?" — the diagram's Drive
    link and upload stamp (and, for a PTCA, the utilization sheet's) are written
-   onto the phone's copy after it is sent, so they are not a difference */
+   onto the phone's copy after it is sent, so they are not a difference; nor is
+   the note of which names the hardware list put in full (13.41), which a copy
+   saved by an earlier version does not carry */
 function caseJsonKey(s) {
   if (!s) return "";
   try {
     const o = JSON.parse(s);
     if (o && o.diagram) { delete o.diagram.imageUrl; delete o.diagram.uploadedHash; }
-    if (o && o.util && typeof o.util === "object") { delete o.util.imageUrl; delete o.util.uploadedHash; }
+    if (o && o.util && typeof o.util === "object") { delete o.util.imageUrl; delete o.util.uploadedHash; delete o.util.expanded; }
     return JSON.stringify(o);
   } catch (e) { return String(s); }
 }
@@ -5811,6 +6157,7 @@ TOP TABLE (patient & team)
 
 VESSEL GRID — the big table. Its header row reads "Vessel →" then the columns LM, LAD, D1, LCx, Ramus, OM, RCA, PDA, PLV (an older printing has no Ramus column). Its rows are Guiding Catheter, Guide Wire, Balloon 1, Balloon 2, Stent 1, Stent 2 and (on the current printing) Stent 3. Report every handwritten cell under util.grid, keyed by column then row: util.grid.LAD = {"guide":"...","wire":"...","balloon1":"...","balloon2":"...","stent1":"...","stent2":"...","stent3":"..."}. Use exactly these column keys: LM, LAD, D1, LCx, Ramus, OM, RCA, PDA, PLV. Omit empty cells and empty columns entirely.
 - Copy each cell verbatim: balloons and stents are written as name and size, e.g. "Sapphire 1.5×10" or "2.75*44 Biomime Aura". Keep the size characters exactly (* or ×). A cell can carry two devices separated by a comma — keep the comma.
+- A device is often written as a SHORT FORM — a code of two to four capital letters, or a short code with a number — beside its size, sometimes followed by a site code made of the letters o, p, m, d: for example "2.5×12 RS", "3×38 UT p-m", "XB3", "RNS, FC". Copy short forms and site codes exactly as written, letter for letter; never expand them, translate them or guess what they stand for.
 - Be careful to keep each device in ITS OWN column: the column says which vessel the device was used in.
 
 BOTTOM TABLE (adjunct hardware & dose)
@@ -6029,12 +6376,12 @@ const S = {
   // cheap Lite model is plenty); sheetModels: a per-sheet choice, "" = default.
   cfg: { apiKey: "", sheetUrl: "", editKey: "", userName: "", mode: "CAG",
          model: "gemini-3.8-flash", sortModel: "gemini-3.1-flash-lite",
-         sheetModels: {}, rpm: 15, rpd: 1500, imgMax: 1600, operators: null, technicians: null, cfgVer: 3 },
+         sheetModels: {}, rpm: 15, rpd: 1500, imgMax: 1600, operators: null, technicians: null, hardware: null, cfgVer: 3 },
   // shared registry (from the Google Sheet) and OT lists
   shared: { cases: null, canEdit: false, at: 0, busy: false, err: "" },
   // the department's rosters, held in the sheet ("Rosters" tab) so an edit on
   // one phone reaches every device; loaded = fetched at least once this session
-  rosters: { loaded: false, operators: null, technicians: null, at: 0, updatedAt: "", by: "", err: "", pushing: false, saved: "" },
+  rosters: { loaded: false, operators: null, technicians: null, hardware: null, hwShared: true, at: 0, updatedAt: "", by: "", err: "", pushing: false, saved: "" },
   ot: { date: "", list: [], busy: false, q: "", local: {}, loadedFor: "", err: "" },
   log: [],
   // inbox batch scans (v13): the list from the sheet, the scanner's status,
@@ -8294,6 +8641,11 @@ async function uploadAllToSheet() {
 const F = (label, path, flex) =>
   `<label class="fld${isUnsure(path) ? " unsure" : ""}" style="flex:${flex || "1 1 140px"}"><span>${esc2(label)}</span>` +
   `<input value="${esc2(getPath(path))}" oninput="setPath('${path}',this.value)"></label>`;
+/* the same field for a device (13.41): data-hw names the row it belongs to, and
+   what is typed is checked against the hardware list when the field is left */
+const FH = (label, path, flex, kind) =>
+  `<label class="fld${isUnsure(path) ? " unsure" : ""}" style="flex:${flex || "1 1 140px"}"><span>${esc2(label)}</span>` +
+  `<input value="${esc2(getPath(path))}" data-hw="${kind}"${path.indexOf("P.util.") === 0 ? ` data-hw-grid="1"` : ""} oninput="setPath('${path}',this.value)"></label>`;
 
 /* Date field: the free-text box (unchanged behaviour — still shows exactly
    what the scanner read, "?" included) paired with a small native date
@@ -9389,6 +9741,23 @@ function viewSettings() {
       <button class="b" onclick="if(confirm('Replace the technician list above with the built-in default list — on every device?')){rosterReset('technicians');}">Reset to default technicians</button>
     </div>
 
+    <label class="fld" style="flex:1 1 100%;margin-top:14px"><span>Hardware and short forms</span>
+      <textarea rows="14" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px"
+        placeholder="Full name | Type | short form, other spellings"
+        oninput="rosterEdit('hardware',this.value)"
+        >${esc2(operatorsToText(activeHardware()))}</textarea></label>
+    <p class="hint rosterStatus">${esc2(rosterStatusText())}</p>
+    <p class="hint" id="hwStatus" style="${hwListProblems(activeHardware()).length ? "color:#8a6a12" : ""}">${esc2(hwStatusText())}</p>
+    <p class="hint">One device per line: <b>Full name | Type | short form, other spellings</b>. Type is Guide, Wire, Balloon, Stent, DCB,
+      Cutting balloon, Guide extension, Microcatheter or Aspiration catheter. After a scan the utilization sheet is checked against this
+      list: a short form such as <b>RS</b>, or any other spelling listed for a device, is replaced by its full name \u2014 so
+      \u201c2.5\u00d712 RS\u201d prints as \u201c2.5\u00d712 NC Rockstar\u201d. Only an exact match counts (capitals and spaces aside), never a
+      look-alike, and a short form only in a row for its type; a misreading the scanner keeps making can be added to that device's line. A guide written without its size is
+      given the sheath's, or 6F. Edit freely; changes save automatically, go to the shared sheet, and reach every device.</p>
+    <div class="btns" style="margin-top:8px">
+      <button class="b" onclick="if(confirm('Replace the hardware list above with the built-in default list — on every device?')){rosterReset('hardware');}">Reset to default hardware list</button>
+    </div>
+
     <div class="mcbox"><b>Inbox batch scanner</b>
       <p class="hint" style="margin-top:6px">Residents drop a case's PDF or page photos into the department's Drive inbox — the <b>CAG</b> folder for angiogram proformas, the <b>PTCA</b> folder for PTCA proformas and utilization reports — and the Sheet's script reads them one page at a time, 3 seconds between steps. Open <b>Inbox scans</b> on the front screen to check what it read. Setting up: paste Code${SCRIPT_WANTED}.gs into the Sheet's Apps Script, deploy a new version, run <b>setupBatchScanner</b> once there (it needs GEMINI_KEY in the script properties), share the inbox folder with the residents, then open Inbox scans here as an editor so the app sends its reading prompts.</p>
       <div class="btns"><button class="b" onclick="openBatch()" ${S.cfg.sheetUrl ? "" : "disabled"}>Inbox scans</button>
@@ -9518,7 +9887,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.40", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.41", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -10260,6 +10629,14 @@ function utilReadHtml(P) {
   if (tail.length) h += pairs(tail);
   return h || `<p class="hint">Nothing is held from the utilization sheet yet.</p>`;
 }
+/* what the hardware list put in full when the sheet was read (13.41) */
+function utilExpandedNote(P) {
+  const raw = ((P || {}).util || {}).expanded;
+  const ex = uniqList(Array.isArray(raw) ? raw : []);
+  if (!ex.length) return "";
+  return `<p class="hint" style="font-size:12.5px;color:var(--slate)">Put in full from the hardware list (Settings): ` +
+    ex.map(function (x) { return `<b>${esc2(x)}</b>`; }).join(" \u00b7 ") + `. Check them against the sheet.</p>`;
+}
 /* the head of the Utilization section on the PTCA review screen */
 function utilSheetPanel(P) {
   const im = S.imgs.qu || null;
@@ -10309,7 +10686,7 @@ function openUtilView() {
     <div class="uvbody"><div class="uvcols">
       <div><div class="uvimg" id="uvBox"><img id="uvImg" alt="Utilization sheet" src="${im.url}"></div>
         <p class="hint">Tap the sheet to zoom in on that spot, then drag to move around.</p></div>
-      <div><p class="uvhead">Held in the report from this sheet</p>${utilReadHtml(P)}
+      <div><p class="uvhead">Held in the report from this sheet</p>${utilReadHtml(P)}${utilExpandedNote(P)}
         <p class="hint">Close to correct anything in the Utilization and Procedure sections.</p></div>
     </div></div>`;
   document.body.appendChild(el);
@@ -10391,12 +10768,12 @@ function targetBlockHtml(t, i) {
     `<label class="fld${fldCls(t.site)}" style="flex:1 1 160px"><span>Site / segment</span>
       <input value="${esc2(fldVal(t.site))}" ${isUnread(t.site) ? `placeholder="?"` : ""} oninput="setTgt(${i},'site',this.value)"></label>` +
     `<label class="fld${fldCls(t.guide)}" style="flex:1 1 150px"><span>Guide catheter</span>
-      <input value="${esc2(fldVal(t.guide))}" ${isUnread(t.guide) ? `placeholder="?"` : ""} oninput="setTgt(${i},'guide',this.value)"></label>` +
+      <input value="${esc2(fldVal(t.guide))}" ${isUnread(t.guide) ? `placeholder="?"` : ""} data-hw="guide" oninput="setTgt(${i},'guide',this.value)"></label>` +
     `<label class="fld${fldCls(t.wire)}" style="flex:1 1 170px"><span>Guide wire(s)</span>
-      <input value="${esc2(fldVal(t.wire))}" ${isUnread(t.wire) ? `placeholder="?"` : ""} oninput="setTgt(${i},'wire',this.value)"></label>`);
+      <input value="${esc2(fldVal(t.wire))}" ${isUnread(t.wire) ? `placeholder="?"` : ""} data-hw="wire" oninput="setTgt(${i},'wire',this.value)"></label>`);
   h += ROW(
     `<label class="fld${fldCls(t.pre)}" style="flex:2 1 170px"><span>Predilation balloon</span>
-      <input value="${esc2(fldVal(t.pre))}" ${isUnread(t.pre) ? `placeholder="?"` : ""} oninput="setTgt(${i},'pre',this.value)"></label>` +
+      <input value="${esc2(fldVal(t.pre))}" ${isUnread(t.pre) ? `placeholder="?"` : ""} data-hw="balloon" oninput="setTgt(${i},'pre',this.value)"></label>` +
     `<label class="fld" style="flex:1 1 70px"><span>atm</span><input value="${esc2(fldVal(t.preAtm))}" oninput="setTgt(${i},'preAtm',this.value)"></label>` +
     `<label class="fld" style="flex:1 1 70px"><span>sec</span><input value="${esc2(fldVal(t.preSec))}" oninput="setTgt(${i},'preSec',this.value)"></label>`);
   (t.stents || []).forEach(function (st, jx) {
@@ -10404,7 +10781,7 @@ function targetBlockHtml(t, i) {
       `<label class="fld${fldCls(st.size)}" style="flex:1 1 90px"><span>Stent ${jx + 1} — size</span>
         <input value="${esc2(fldVal(st.size))}" placeholder="${isUnread(st.size) ? "?" : "2.5*16"}" oninput="setStent(${i},${jx},'size',this.value)"></label>` +
       `<label class="fld${fldCls(st.name)}" style="flex:1 1 130px"><span>Name</span>
-        <input value="${esc2(fldVal(st.name))}" ${isUnread(st.name) ? `placeholder="?"` : ""} oninput="setStent(${i},${jx},'name',this.value)"></label>` +
+        <input value="${esc2(fldVal(st.name))}" ${isUnread(st.name) ? `placeholder="?"` : ""} data-hw="stent" oninput="setStent(${i},${jx},'name',this.value)"></label>` +
       `<label class="fld${fldCls(st.site)}" style="flex:1 1 130px"><span>Deployed at</span>
         <input value="${esc2(fldVal(st.site))}" ${isUnread(st.site) ? `placeholder="?"` : ""} oninput="setStent(${i},${jx},'site',this.value)"></label>` +
       `<label class="fld" style="flex:1 1 60px"><span>atm</span><input value="${esc2(fldVal(st.atm))}" oninput="setStent(${i},${jx},'atm',this.value)"></label>` +
@@ -10412,14 +10789,14 @@ function targetBlockHtml(t, i) {
       `<button class="b danger" onclick="delStent(${i},${jx})" style="align-self:flex-end">×</button>`) +
       ROW(
       `<label class="fld" style="flex:1 1 170px"><span>PoD balloon (this stent alone)</span>
-        <input value="${esc2(fldVal(st.post))}" placeholder="e.g. 2.5*12 Seguro" oninput="setStent(${i},${jx},'post',this.value)"></label>` +
+        <input value="${esc2(fldVal(st.post))}" placeholder="e.g. 2.5*12 Seguro" data-hw="balloon" oninput="setStent(${i},${jx},'post',this.value)"></label>` +
       `<label class="fld" style="flex:2 1 220px"><span>Overlapped with (prints after the site)</span>
         <input value="${esc2(fldVal(st.overlap))}" placeholder="e.g. proximal part of mid LAD stent" oninput="setStent(${i},${jx},'overlap',this.value)"></label>`) + `</div>`;
   });
   h += `<div class="btns"><button class="b" onclick="addStent(${i})">+ Stent</button></div>`;
   h += ROW(
     `<label class="fld${fldCls(t.post)}" style="flex:2 1 170px"><span>Postdilation balloon</span>
-      <input value="${esc2(fldVal(t.post))}" ${isUnread(t.post) ? `placeholder="?"` : ""} oninput="setTgt(${i},'post',this.value)"></label>` +
+      <input value="${esc2(fldVal(t.post))}" ${isUnread(t.post) ? `placeholder="?"` : ""} data-hw="balloon" oninput="setTgt(${i},'post',this.value)"></label>` +
     `<label class="fld" style="flex:1 1 70px"><span>atm</span><input value="${esc2(fldVal(t.postAtm))}" oninput="setTgt(${i},'postAtm',this.value)"></label>` +
     `<label class="fld" style="flex:1 1 70px"><span>sec</span><input value="${esc2(fldVal(t.postSec))}" oninput="setTgt(${i},'postSec',this.value)"></label>`);
   h += `<div class="row alignend"><div class="chips">
@@ -10435,8 +10812,9 @@ function targetBlockHtml(t, i) {
    proforma ticks and the utilization grid, all editable */
 function bifBlockHtml(t, i) {
   if (!targetIsBif(t)) return `<div class="btns"><button class="b" onclick="togBif(${i})">+ Bifurcation (side branch, POT)</button></div>`;
+  const HW2 = { sbWire: "wire", sbPre: "balloon", pot: "balloon", sbStent: "stent", crush: "balloon", recross1: "wire", recross2: "wire" };
   const F2 = function (label, k, flex, ph) {
-    return `<label class="fld" style="flex:${flex || "1 1 120px"}"><span>${label}</span><input value="${esc2(fldVal(t[k]))}" placeholder="${esc2(ph || "")}" oninput="setTgt(${i},'${k}',this.value)"></label>`;
+    return `<label class="fld" style="flex:${flex || "1 1 120px"}"><span>${label}</span><input value="${esc2(fldVal(t[k]))}" placeholder="${esc2(ph || "")}"${HW2[k] ? ` data-hw="${HW2[k]}"` : ""} oninput="setTgt(${i},'${k}',this.value)"></label>`;
   };
   const techs = ["Provisional"].concat(BIF_TWO_STENT);
   let h = `<div class="lesion"><div class="cardhead"><b>Bifurcation</b><button class="b danger" onclick="togBif(${i})">Not a bifurcation</button></div>`;
@@ -10607,7 +10985,7 @@ function viewPtcaReview() {
       FD("Date", "P.util.date") + F("Technician", "P.util.technician", "1 1 120px")) +
     ROW(F("First operator", "P.util.op1", "1 1 150px") + F("Second operator", "P.util.op2", "1 1 150px") +
       F("Third operator", "P.util.op3", "1 1 150px") + F("Access / Sheath", "P.util.accessSheath", "1 1 130px")) +
-    `<p class="hint">Show a vessel's column to type or correct its hardware — each device as name and size, e.g. "2.5*12 Seguro"; two devices in one cell separated by a comma.</p>` +
+    `<p class="hint">Show a vessel's column to type or correct its hardware — each device as name and size, e.g. "2.5*12 Seguro"; two devices in one cell separated by a comma. A short form from the hardware list in Settings (RS, UT \u2026) is put in full when you leave the field.</p>` +
     `<div class="chips">` + UTIL_VESSELS.map(function (v) {
       const on = S.utilOpen[v] || filledCols.indexOf(v) >= 0;
       return `<button class="ck${on ? " on" : ""}" onclick="togUtilCol('${v}')"><i></i>${v}</button>`;
@@ -10615,22 +10993,22 @@ function viewPtcaReview() {
   UTIL_VESSELS.forEach(function (v) {
     if (!(S.utilOpen[v] || filledCols.indexOf(v) >= 0)) return;
     ut += `<div class="lesion"><b style="font-size:13px">${v}</b>` + ROW(
-      F("Guiding catheter", "P.util.grid." + v + ".guide", "1 1 130px") +
-      F("Guide wire", "P.util.grid." + v + ".wire", "1 1 130px") +
-      F("Balloon 1", "P.util.grid." + v + ".balloon1", "1 1 130px") +
-      F("Balloon 2", "P.util.grid." + v + ".balloon2", "1 1 130px") +
-      F("Stent 1", "P.util.grid." + v + ".stent1", "1 1 130px") +
-      F("Stent 2", "P.util.grid." + v + ".stent2", "1 1 130px") +
-      F("Stent 3", "P.util.grid." + v + ".stent3", "1 1 130px")) + `</div>`;
+      FH("Guiding catheter", "P.util.grid." + v + ".guide", "1 1 130px", "guide") +
+      FH("Guide wire", "P.util.grid." + v + ".wire", "1 1 130px", "wire") +
+      FH("Balloon 1", "P.util.grid." + v + ".balloon1", "1 1 130px", "balloon") +
+      FH("Balloon 2", "P.util.grid." + v + ".balloon2", "1 1 130px", "balloon") +
+      FH("Stent 1", "P.util.grid." + v + ".stent1", "1 1 130px", "stent") +
+      FH("Stent 2", "P.util.grid." + v + ".stent2", "1 1 130px", "stent") +
+      FH("Stent 3", "P.util.grid." + v + ".stent3", "1 1 130px", "stent")) + `</div>`;
   });
-  ut += ROW(F("Cutting balloon", "P.util.cutting", "1 1 130px") + F("Microcatheter (MC)", "P.util.microcatheter", "1 1 130px") +
-      F("Guide extension (GE)", "P.util.guideExtension", "1 1 130px")) +
-    ROW(F("Rota burr", "P.util.rotaBurr", "1 1 130px") + F("Aspiration catheter", "P.util.aspiration", "1 1 130px") +
+  ut += ROW(FH("Cutting balloon", "P.util.cutting", "1 1 130px", "cutting") + FH("Microcatheter (MC)", "P.util.microcatheter", "1 1 130px", "mc") +
+      FH("Guide extension (GE)", "P.util.guideExtension", "1 1 130px", "ge")) +
+    ROW(F("Rota burr", "P.util.rotaBurr", "1 1 130px") + FH("Aspiration catheter", "P.util.aspiration", "1 1 130px", "asp") +
       F("IVUS / OCT / ELCA", "P.util.ivusOctElca", "1 1 130px")) +
     ROW(F("AK", "P.util.ak", "1 1 90px") + F("FT", "P.util.ft", "1 1 90px") + F("Injection", "P.util.injection", "1 1 90px")) +
     ROW(F("Other hardware", "P.util.otherHardware", "1 1 100%")) +
     ROW(F("Notes", "P.util.notes", "1 1 100%"));
-  h += SECT("Utilization sheet (technician's hardware grid)", utilSheetPanel(P) + ut);
+  h += SECT("Utilization sheet (technician's hardware grid)", utilSheetPanel(P) + utilExpandedNote(P) + ut);
 
   /* ---- the technique checklists from pages 3–4 ---- */
   const T = P.tech;
@@ -10672,12 +11050,12 @@ function viewPtcaReview() {
     `<p class="hint">Thrombus Mx</p><div class="chips">` +
       ["Aspiration", "Thrombus catheter", "Guide extension", "Guide catheter", "Balloon dottering", "Balloon inflation", "ELCA"].map(function (w) { return CKA(w, "P.tech.thrombusMx", w); }).join("") + `</div>` +
     ((thrombusDotters(P.tech) || has((P.tech.thrombus || {}).dotter)) ? `<div class="row">` +
-      F("Dottering balloon (smallest on the sheet unless written)", "P.tech.thrombus.dotter", "2 1 200px") + F("atm", "P.tech.thrombus.dotterAtm", "1 1 60px") + F("sec", "P.tech.thrombus.dotterSec", "1 1 60px") + `</div>` : "") +
+      FH("Dottering balloon (smallest on the sheet unless written)", "P.tech.thrombus.dotter", "2 1 200px", "balloon") + F("atm", "P.tech.thrombus.dotterAtm", "1 1 60px") + F("sec", "P.tech.thrombus.dotterSec", "1 1 60px") + `</div>` : "") +
     ((thrombusAspirates(P.tech) || has((P.tech.thrombus || {}).device)) ? `<div class="row">` +
-      F("Aspirated with (device, from the utilization sheet)", "P.tech.thrombus.device", "2 1 220px") + F("Runs", "P.tech.thrombus.runs", "1 1 60px") + F("TIMI achieved", "P.tech.thrombus.timi", "1 1 90px") +
+      FH("Aspirated with (device, from the utilization sheet)", "P.tech.thrombus.device", "2 1 220px", "asp") + F("Runs", "P.tech.thrombus.runs", "1 1 60px") + F("TIMI achieved", "P.tech.thrombus.timi", "1 1 90px") +
       `<div class="chips">${CK("Failed to restore flow", "P.tech.thrombus.failed")}</div></div>` : "") +
     `<div class="row alignend"><div class="chips">${CK("Cutting balloon", "P.tech.calcium.cutting")}</div>` +
-      F("Size & brand", "P.tech.calcium.cuttingName", "1 1 120px") +
+      FH("Size & brand", "P.tech.calcium.cuttingName", "1 1 120px", "cutting") +
       ((P.tech.calcium || {}).cutting || has((P.tech.calcium || {}).cuttingName) ? F("atm", "P.tech.calcium.cuttingAtm", "1 1 55px") + F("sec", "P.tech.calcium.cuttingSec", "1 1 55px") + `<div class="chips">${CK("Dissection", "P.tech.calcium.dissection")}</div>` : "") +
       `<div class="chips">${CK("Rota", "P.tech.calcium.rota")}</div>` + F("Burr (mm)", "P.tech.calcium.rotaName", "1 1 90px") +
       `<div class="chips">${CK("ELCA", "P.tech.calcium.elca")}</div></div>` +
@@ -11250,6 +11628,7 @@ window.addEventListener("error", function (ev) {
 Object.assign(window,{editLocalCase,editSharedCase,closeEdit,openOtherCopy,beginEdit,editingCase,editBanner,editDirty,editClashOk,caseIdentity,idKey,clearScanSession,scanSessionHasContent,caseJsonKey,downloadSelf,S,render,setPath,getPath,toggle,setSeg,setSegStr,toggleIn,pickFile,pickPdf,pickPool,otOpen,otMove,seroPositive,boxesMissing,potassiumOf,checklistText,CHECKLIST,uploadAllToSheet,testSheet,sheetUrlProblem,openRegistry,loadShared,removeShared,shareLink,openOt,loadOt,setOtDate,otAdd,otSet,otRemove,copyOt,tomorrowIso,todayIso,localIso,otFlush,otReady,renderList,regListHtml,otPickHtml,sheetApi,allCases,searchCases,suggestedType,modelPicker,slotModel,openCamera,closeCamera,snapCamera,retryCamera,removePoolItem,pickForSlot,rotateSlot,sortAgain,startOver,sortPool,autoAssign,normalizeSort,uprightTurn,SORT_PROMPT,CAM,scanOne,scanRemaining,buildReport,clearSlot,scannedCount,photoCount,newPatient,downloadDocx,downloadCaseXlsx,downloadRegistry,addToRegistry,removeCase,exportRegistryJson,importRegistryJson,addLesion,delLesion,setLesion,togLesion,cancelExtract,togLesionChar,setLesionSeg,setDominance,setDominanceArg,BLANK,saveCfg,loadLocal,retryFailed,buildDocx,buildXlsx,buildRegistryXlsx,caseRecord,mergeInto,VESSELS,posteriorOwner,dominanceLabel,rentropText,renalText,graftText,originText,dominanceWord,idText,idNumbers,rentropWarning,rentropSwap,occludedMains,vesselProse,ramusProse,lesionSentence,vesselDiseaseText,diseasedVessels,withDesignation,WALL_CHARS,cuspName,efPhrase,rwmaText,diagnosisText,finalDiagnosisLines,has,
 diagramPanel,diagramConflicts,diagramLesionNotes,dominanceConflict,applyDiagramValue,dismissDiagramConflict,removeDiagram,toggleDiagBig,downloadDiagramJpeg,diagramForRegistry,normalizeDiagramResult,blankDiagram,pairLesions,pctInfo,samePct,pctLabel,proseRuns,blueNote,stripMarks,isDiagramSlot,diagramSlotFor,slotDef,currentDiagramImage,diagramVesselHint,diagramDominanceText,diagramConflictSummary,noteDiagramUrl,setRecField,syncToSheet,appendPayload,diagramLink,quickHash,diagramToLesion,addDiagramFinding,adoptDiagramFindings,SHEET_VESSELS,stentConditionClause,lesionSentence,blankLesion,PROMPT_D,DIAGRAM_PX,BLUE_OPEN,BLUE_CLOSE,UNREAD,UNREAD_IN,SLOTS,page2Xml,documentXml,vesselLesionSentences,
 setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchTabPick,BATCH_TABS,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,scheduleSettingsHtml,scheduleSet,scheduleLineHtml,readByText,readByChips,readByPanel,readByGroups,readByOfSession,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
+DEFAULT_HARDWARE,activeHardware,hwNorm,hwKind,hwFind,hwExpandDevice,hwMatchWords,hwExpandCell,hwExpandUtil,hwSheathFr,hwListProblems,hwStatusText,hwStatusShow,HW_ROW_KINDS,FH,utilExpandedNote,textToOperators,operatorsToText,
 UTIL_PX,UTIL_IMG_COL,UTIL_ROWS,UV,UV_STEPS,utilStoredUrl,utilReadHtml,utilSheetPanel,openUtilView,utilZoom,closeUtilView,currentUtilImage,noteUtilUrl,utilLink,
 PTCA_REVIEWERS,PROMPT_Q4,PROMPT_U,UTIL_VESSELS,blankUtilGrid,blankUtilCol,PTCA_SEG_GROUPS,PTCA_TO_TOKENS,segSiteInfo,segRangePhrase,segGroupOf,ptcaToVessels,splitDevices,deviceDia,stentParts,utilLookup,utilBalloonsOf,utilAllBalloons,utilStentsOf,pickPodBalloon,deriveTargets,prdMapText,podMapText,stentMapText,techniqueSentences,togUtilCol,rebuildPlan,stripWirePrefix,lcFirst,stentLabel,lesionSiteOf,
 openBatch,loadBatch,batchRunNow,batchRetry,batchDismiss,openBatchCase,batchToggleBig,batchPushPrompts,batchListsHtml,batchPanel,viewBatch,batchPromptSet,noTemperature,geminiRequest,mcCheckNow,mcChoose,mcCleanCat,mcDismissNote,mcRefresh,mcMaybeRefresh,mcApply,mcBoot,mcDue,mcLastFive,mcDeviceCheck,mcBlock,mcSettingsHtml,mcActiveCat,mcUsable,mcDefault,mcSheetCheckText,MODELS,MODEL_STATE,getModelFallbackChain,runModelChain,modelLabel,shortError,modelFailure});

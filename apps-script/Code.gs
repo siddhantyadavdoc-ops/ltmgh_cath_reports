@@ -81,6 +81,13 @@
  * (anyone with the URL); batchPrompts, batchRetry, batchMark, batchRunNow
  * (edit key). "whoami" replies v: 13 and says whether the scanner is set up.
  *
+ * What changed in 13.41 — the hardware list
+ * - The "Rosters" tab keeps a third list beside the doctors' and the
+ *   technicians': key "hardware" — the department's devices and their short
+ *   forms ("Full name | Type | short form, other spellings", one per line),
+ *   edited in the app's Settings. rosterGet answers with it; rosterSave
+ *   writes it and says which lists it kept ("keys").
+ *
  * What changed in 13.40 — the PTCA utilization sheet is kept with its case
  * - The app sends a 1600 px copy of the technician's utilization sheet with a
  *   PTCA case ("utilB64"). It is filed in a Drive folder ("PTCA utilization
@@ -117,7 +124,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -696,16 +703,18 @@ function fetchCase(req) {
 /* ---------- the department's rosters (13.22) ----------
    "Rosters" tab: Key | Value | Updated | By. The value is the Settings
    screen's text form ("Name | Role | aliases", one per line); an empty value
-   means "use the app's built-in list". */
+   means "use the app's built-in list". 13.41: a third key, "hardware" — the
+   devices and their short forms ("Full name | Type | short form, …"). */
+var ROSTER_KEYS = ["operators", "technicians", "hardware"];
 var ROSTERS = "Rosters";
 function rosterSheet_() { return sheet(ROSTERS, ["Key", "Value", "Updated", "By"]); }
 function rosterGet_() {
   var sh = rosterSheet_();
-  var o = { operators: "", technicians: "", updatedAt: "", by: "" };
+  var o = { operators: "", technicians: "", hardware: "", updatedAt: "", by: "" };
   if (sh.getLastRow() < 2) return o;
   sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(function (r) {
     var k = String(r[0] || "");
-    if (k === "operators" || k === "technicians") { o[k] = cell(r[1]); var u = cell(r[2]); if (u > o.updatedAt) { o.updatedAt = u; o.by = cell(r[3]); } }
+    if (ROSTER_KEYS.indexOf(k) >= 0) { o[k] = cell(r[1]); var u = cell(r[2]); if (u > o.updatedAt) { o.updatedAt = u; o.by = cell(r[3]); } }
   });
   return o;
 }
@@ -715,15 +724,22 @@ function rosterSave_(req) {
   var by = String(req.by || "");
   var rows = {};
   if (sh.getLastRow() >= 2) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(function (r, i) { rows[String(r[0] || "")] = i + 2; });
-  ["operators", "technicians"].forEach(function (k) {
+  // checked before anything is written, so a save is never half done
+  ROSTER_KEYS.forEach(function (k) {
+    if (req[k] != null && String(req[k]).length > 49000) throw new Error("the " + k + " list is longer than a cell can hold");
+  });
+  var kept = [];
+  ROSTER_KEYS.forEach(function (k) {
     if (req[k] == null) return;
     var v = String(req[k]);
-    if (v.length > 49000) throw new Error("the " + k + " list is longer than a cell can hold");
     var row = rows[k];
     if (!row) { sh.appendRow([k, v, now, by]); rows[k] = sh.getLastRow(); }
     else sh.getRange(row, 1, 1, 4).setValues([[k, v, now, by]]);
+    kept.push(k);
   });
-  return { updatedAt: now, by: by };
+  // "keys": the lists this script kept — an app newer than the script learns
+  // from it that a list it sent was not stored
+  return { updatedAt: now, by: by, keys: kept };
 }
 
 /* ---------- OT lists ---------- */
