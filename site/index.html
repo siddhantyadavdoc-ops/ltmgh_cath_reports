@@ -145,6 +145,29 @@ textarea{width:100%;border:1px solid var(--hair);border-radius:6px;padding:10px;
 .conf .what b{color:#1b4f9c}
 .diagthumb{max-height:220px;max-width:100%;border:1px solid var(--hair);border-radius:6px;cursor:zoom-in;background:#fff}
 .diagthumb.big{max-height:none;width:100%;cursor:zoom-out}
+/* ---- the technician's utilization sheet, shown to whoever checks the PTCA report (13.40) ---- */
+.utilsheet{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:12px}
+.utilsheet .diagthumb{max-height:240px}
+.utilscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.utilread{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+.utilread th,.utilread td{border:1px solid var(--hair);padding:4px 7px;text-align:left;vertical-align:top}
+.utilread th{background:var(--panel);font-weight:600;color:var(--steel);white-space:nowrap}
+#utilview{position:fixed;top:0;right:0;bottom:0;left:0;z-index:90;display:flex;flex-direction:column;
+  background:var(--paper);color:var(--ink)}
+#utilview .uvbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;border-bottom:1px solid var(--hair);background:var(--panel)}
+#utilview .uvbar .uvtitle{flex:1 1 140px;min-width:0;font-size:14px;font-weight:700}
+#utilview .uvbar .uvtitle span{display:block;font-weight:400;font-size:12px;color:var(--steel);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#utilview .uvbody{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:10px 12px calc(16px + env(safe-area-inset-bottom, 0px))}
+#utilview .uvcols{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+#utilview .uvcols > div{flex:1 1 320px;min-width:0}
+#utilview .uvimg{overflow:auto;max-height:74vh;border:1px solid var(--hair);border-radius:6px;background:#fff;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#utilview .uvimg img{display:block;width:100%;max-width:none;height:auto;cursor:zoom-in}
+#utilview .uvimg img.z{cursor:zoom-out}
+#utilview .uvhead{margin:0 0 4px;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim)}
 a.b{text-decoration:none;display:inline-block}
 /* ---- model pickers and request counters ---- */
 .mdl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--steel)}
@@ -249,7 +272,7 @@ fieldset.otlock:disabled{opacity:.55}
 .legend i.BPTCA{border-color:#1f5fc2;border-style:dashed;background:#f6f8fd}.legend i.BCAG{border-color:#1c7a55;border-style:dashed;background:#f5faf7}
 .legend i.done{border-color:#9a9ea8;background:#eeeff2}.legend i.deferred{border-color:#d9a400;background:#fff7d6}
 .ro{font-size:12px;color:var(--steel);background:var(--panel);border:1px solid var(--hair);border-radius:6px;padding:6px 10px;display:inline-block;margin-top:8px}
-@media print{header,.btns,.search,.actions,.card.reg,#crashbox,.noprint{display:none!important}#app{padding:0}}
+@media print{header,.btns,.search,.actions,.card.reg,#crashbox,.noprint,#utilview{display:none!important}#app{padding:0}}
 /* ---- in-app camera: several sheets in one go ---- */
 #cam{position:fixed;top:0;right:0;bottom:0;left:0;z-index:100;display:flex;flex-direction:column;
   background:#000;color:#fff}
@@ -3118,11 +3141,12 @@ function diagramPanel(D) {
 /* Always DIAGRAM_PX on its long edge, whatever size Settings sends for
    reading: a bigger scan is scaled down, a smaller one is kept as it is
    (never enlarged, never re-encoded). */
-function diagramForRegistry(img) {
+function diagramForRegistry(img, px) {
+  px = px || DIAGRAM_PX;                 // the utilization sheet's copy asks for UTIL_PX
   return loadImg(img.url).then(function (el) {
     const w = el.naturalWidth || el.width, h = el.naturalHeight || el.height;
-    if (Math.max(w, h) <= DIAGRAM_PX && img.b64) return img.b64;
-    return drawScaled(el, DIAGRAM_PX, 0).toDataURL("image/jpeg", 0.85).split(",")[1];
+    if (Math.max(w, h) <= px && img.b64) return img.b64;
+    return drawScaled(el, px, 0).toDataURL("image/jpeg", 0.85).split(",")[1];
   });
 }
 function downloadDiagramJpeg() {
@@ -3353,11 +3377,23 @@ function PBLANK() {
       cutting: "", microcatheter: "", guideExtension: "", rotaBurr: "",
       aspiration: "", ivusOctElca: "", ak: "", ft: "", injection: "",
       otherHardware: "", notes: "",
+      /* the sheet's own photo, kept with the registry row (13.40): the Drive
+         link of its stored copy, and the stamp of the photo that was sent */
+      imageUrl: "", uploadedHash: "",
     },
     recommendationsExtra: "",
   };
 }
 const UTIL_VESSELS = ["LM", "LAD", "D1", "LCx", "Ramus", "OM", "RCA", "PDA", "PLV"];
+/* 13.40 — the sheet itself is shown to whoever checks the PTCA report, and a
+   copy of its photo goes to the shared sheet with the case (as the coronary
+   diagram's does for a CAG): UTIL_PX on its long edge — larger than the
+   diagram's copy, because this one is handwriting in small cells — filed in
+   Drive, its link kept in this registry column and on the case (util.imageUrl) */
+const UTIL_PX = 1600;
+const UTIL_IMG_COL = "Utilization sheet image";
+const UTIL_ROWS = [["guide", "Guiding catheter"], ["wire", "Guide wire"], ["balloon1", "Balloon 1"], ["balloon2", "Balloon 2"],
+  ["stent1", "Stent 1"], ["stent2", "Stent 2"], ["stent3", "Stent 3"]];
 function blankUtilCol() { return { guide: "", wire: "", balloon1: "", balloon2: "", stent1: "", stent2: "", stent3: "" }; }
 function blankUtilGrid() {
   const g = {};
@@ -4712,6 +4748,7 @@ function ptcaRecord(P) {
     ["Third operator", uu.op3 || ""],
     ["Technician", has(P.proc.technician) ? P.proc.technician : uu.technician || ""],
     ["Utilization notes", uu.notes || ""],
+    [UTIL_IMG_COL, uu.imageUrl || ""],
     ["Recommendations extra", P.recommendationsExtra || ""]
   );
   if (has(S.cfg.userName)) fields.push(["Saved by", String(S.cfg.userName).trim()]);
@@ -5110,6 +5147,12 @@ function caseFromRegistryData(ptype, j) {
     if (!full) throw new Error("this PTCA case was saved without its full report data — open it on the phone that scanned it and download the report there once, which re-saves it completely");
     const P = mergeInto(PBLANK(), full);
     ptcaAfterMerge(P);
+    // the stored utilization sheet: the link sits in the row's own column and
+    // reaches the case data only on a later save, so the row's copy is taken
+    if (!has(P.util.imageUrl)) {
+      const uf = ((j && j.fields) || []).filter(function (p) { return p && p[0] === UTIL_IMG_COL; })[0];
+      if (uf && /^https:\/\//.test(String(uf[1] || "").trim())) P.util.imageUrl = String(uf[1]).trim();
+    }
     return { ptype: "PTCA", P: P, partial: false };
   }
   if (full) {
@@ -5207,13 +5250,14 @@ function recField(rec, k) {
   return f ? String(f[1] == null ? "" : f[1]) : "";
 }
 /* the case as it matters for "is this the same data?" — the diagram's Drive
-   link and upload stamp are written onto the phone's copy after it is sent,
-   so they are not a difference */
+   link and upload stamp (and, for a PTCA, the utilization sheet's) are written
+   onto the phone's copy after it is sent, so they are not a difference */
 function caseJsonKey(s) {
   if (!s) return "";
   try {
     const o = JSON.parse(s);
     if (o && o.diagram) { delete o.diagram.imageUrl; delete o.diagram.uploadedHash; }
+    if (o && o.util && typeof o.util === "object") { delete o.util.imageUrl; delete o.util.uploadedHash; }
     return JSON.stringify(o);
   } catch (e) { return String(s); }
 }
@@ -6448,6 +6492,7 @@ async function batchSaveDraft() {
 function clearScanSession() {
   batchStash();
   if (CAM.el) closeCamera(true);
+  if (UV.el) closeUtilView(true);       // the sheet on show belongs to the case being cleared
   S.imgs = { p1: null, a1: null, a2: null, a3: null, d1: null, q1: null, q2: null, q3: null, q4: null, qu: null };
   S.res = { p1: null, a1: null, a2: null, a3: null, d1: null, q1: null, q2: null, q3: null, q4: null, qu: null };
   S.diagBig = false;
@@ -7915,7 +7960,7 @@ function sameCase(a, b) {
   }
   return (b.cagNo && a.cagNo === b.cagNo) || (!b.cagNo && a.name === b.name);
 }
-function upsertLocalCase(rec, diagramImg, ed) {
+function upsertLocalCase(rec, diagramImg, ed, utilImg) {
   // ed: the edit this save comes from (see beginEdit). Its record is replaced
   // even when the number, name or date was corrected while editing; a record
   // already filed under the corrected number is the same case, and goes too.
@@ -7934,10 +7979,25 @@ function upsertLocalCase(rec, diagramImg, ed) {
     const prev = g("Diagram image");
     const now = (rec.fields || []).filter(function (p) { return p[0] === "Diagram image"; })[0];
     if (prev && !(now && now[1])) setRecField(rec, "Diagram image", prev);
+    // …and a PTCA the link of its utilization sheet
+    const prevU = g(UTIL_IMG_COL);
+    const nowU = (rec.fields || []).filter(function (p) { return p[0] === UTIL_IMG_COL; })[0];
+    if (prevU && !(nowU && nowU[1])) setRecField(rec, UTIL_IMG_COL, prevU);
   }
   if (replaced) S.reg.cases[at] = rec; else S.reg.cases.push(rec);
-  saveReg(); syncToSheet(rec, diagramImg, ed);
+  saveReg(); syncToSheet(rec, diagramImg, ed, utilImg);
   return replaced;
+}
+/* the utilization sheet's photo of the PTCA case on screen, if there is one —
+   it goes to the shared sheet with the case, as a UTIL_PX copy, so whoever
+   opens the case later (any phone, view-only included) can still see it */
+function currentUtilImage() {
+  const im = S.imgs.qu || null;
+  if (!im) return null;
+  // this very photo is already in Drive from an earlier save: nothing to send
+  const u = S.P && S.P.util;
+  if (u && u.imageUrl && u.uploadedHash && u.uploadedHash === quickHash(im.b64 || "")) return null;
+  return im;
 }
 /* the diagram photo of the CAG case on screen, if one was taken — it goes to
    the shared sheet with the case, as a 1200 px copy (see diagramForRegistry) */
@@ -7973,7 +8033,7 @@ function addPtcaToRegistry(silent, clashChecked) {
   }
   const ed = editingCase(S.P);
   if (ed && !clashChecked && !editClashOk(rec, ed)) return false;
-  const replaced = upsertLocalCase(rec, null, ed);
+  const replaced = upsertLocalCase(rec, null, ed, currentUtilImage());
   if (ed) { editSaved(ed, rec); return true; }
   flash("ok", (replaced ? "Updated PTCA case " : "Added PTCA case ") + (rec.name || rec.ptcaNo || rec.cagNo) +
     " \u2014 registry holds " + S.reg.cases.length + (S.reg.cases.length === 1 ? " case" : " cases") +
@@ -8135,7 +8195,7 @@ function appendPayload(rec) {
    (no edit key, old script) is reported rather than lost quietly. With a
    diagram photo, its 1200 px copy travels in the same request; the script
    files it in Drive and answers with the link, which is kept on the case. */
-function syncToSheet(rec, diagramImg, ed) {
+function syncToSheet(rec, diagramImg, ed, utilImg) {
   if (!S.cfg.sheetUrl) return;
   // an edit names the row it was opened from ("orig"): the script replaces
   // that row even if the number, name or year changed (Code6.gs and later)
@@ -8148,13 +8208,20 @@ function syncToSheet(rec, diagramImg, ed) {
       if (bc.batchCaseId) { S.batch.at = 0; }
       S.shared.at = 0;            // the list is stale now
       if (j && j.diagramUrl) noteDiagramUrl(rec, j.diagramUrl, diagramImg ? quickHash(diagramImg.b64 || "") : "");
+      // the stamp says "this very photo is in Drive": only when it really went and was filed
+      const utilFiled = !!(utilImg && more && more.utilB64 && j && !j.utilError);
+      if (j && j.utilUrl) noteUtilUrl(rec, j.utilUrl, utilFiled ? quickHash(utilImg.b64 || "") : "");
+      // the case itself is saved either way; a photo Drive would not take is only logged
+      if (j && j.utilError) addLog("Notice", "Utilization sheet copy", "The case was saved, but the sheet's photo could not be filed in Drive", String(j.utilError));
       if (ed) editSynced(ed, rec, orig, j);
     });
   };
-  const go = diagramImg
-    ? diagramForRegistry(diagramImg).then(function (b64) { return send({ diagramB64: b64 }); },
-                                          function () { return send(); })   // photo unreadable: the case still goes
-    : send();
+  // the photos travel with the case: the CAG's diagram, the PTCA's utilization
+  // sheet (13.40). One that cannot be prepared is left out — the case still goes.
+  const photos = {}, prep = [];
+  if (diagramImg) prep.push(diagramForRegistry(diagramImg).then(function (b64) { photos.diagramB64 = b64; }, function () {}));
+  if (utilImg) prep.push(diagramForRegistry(utilImg, UTIL_PX).then(function (b64) { photos.utilB64 = b64; }, function () {}));
+  const go = prep.length ? Promise.all(prep).then(function () { return send(photos); }) : send();
   go.catch(function (e) {
     flash("err", "Saved on this phone, but not to the shared sheet: " + (e.message || e));
     // the edit keeps pointing at the sheet's old row, so saving again retries the replacement
@@ -8175,6 +8242,32 @@ function noteDiagramUrl(rec, url, hash) {
     S.D.diagram.imageUrl = url;
     if (hash) S.D.diagram.uploadedHash = hash;
     rec.caseJson = JSON.stringify(S.D);
+  }
+  saveReg();
+}
+/* the same for a PTCA's utilization sheet: the link goes on the registry row,
+   into the phone's copy of the case, and onto the case still on screen (a
+   saved-case edit that was clean stays clean — the link is not a change) */
+function noteUtilUrl(rec, url, hash) {
+  setRecField(rec, UTIL_IMG_COL, url);
+  try {
+    const o = JSON.parse(rec.caseJson || "null");
+    if (o && o.util && typeof o.util === "object") {
+      o.util.imageUrl = url;
+      if (hash) o.util.uploadedHash = hash;
+      rec.caseJson = JSON.stringify(o);
+    }
+  } catch (e) {}
+  const P = S.P;
+  if (rec.type === "PTCA" && P && P.util &&
+      String(P.ptcaNo || "").trim() === String(rec.ptcaNo || "") &&
+      String(P.cagNo || "").trim() === String(rec.cagNo || "") &&
+      String(P.name || "").trim() === String(rec.name || "")) {
+    const ed = editingCase(P);
+    const clean = !!ed && !editDirty();
+    P.util.imageUrl = url;
+    if (hash) P.util.uploadedHash = hash;
+    if (clean) ed.base = JSON.stringify(P);
   }
   saveReg();
 }
@@ -9369,7 +9462,7 @@ function viewRegistry() {
       <div class="btns" style="margin:0">
         <button class="b live" onclick="downloadLocalDocx(${i})">Word report</button>
         <button class="b" onclick="editLocalCase(${i})">Edit</button>
-        ${diagramLink(g("Diagram image"))}
+        ${diagramLink(g("Diagram image"))}${utilLink(g(UTIL_IMG_COL))}
         <button class="b danger" onclick="removeCase(${i})">Remove</button>
       </div></div>`;
   });
@@ -9388,7 +9481,7 @@ function regListHtml() {
       <div class="btns" style="margin:0">
         <button class="b live" onclick="downloadSharedDocx('${esc2(c.id)}')" ${S.regDl || S.regOpen ? "disabled" : ""}>${S.regDl === c.id ? "Fetching\u2026" : "Word report"}</button>
         ${sh.canEdit ? `<button class="b" onclick="editSharedCase('${esc2(c.id)}')" ${S.regDl || S.regOpen ? "disabled" : ""}>${S.regOpen === c.id ? "Opening\u2026" : "Edit"}</button>` : ""}
-        ${diagramLink(c.diagram)}
+        ${diagramLink(c.diagram)}${utilLink(c.util)}
         ${sh.canEdit ? `<button class="b danger" onclick="removeShared('${esc2(c.id)}')">Remove</button>` : ""}
       </div></div>`;
   }).join("") + (shown.length > 60 ? `<p class="hint">Showing the latest 60 of ${shown.length} \u2014 narrow the search to see others.</p>` : "");
@@ -9399,6 +9492,12 @@ function diagramLink(url) {
   url = String(url || "").trim();
   if (!/^https:\/\//.test(url)) return "";
   return `<a class="b" href="${esc2(url)}" target="_blank" rel="noopener">Diagram</a>`;
+}
+/* a PTCA's stored utilization sheet, the same way (13.40) */
+function utilLink(url) {
+  url = String(url || "").trim();
+  if (!/^https:\/\//.test(url)) return "";
+  return `<a class="b" href="${esc2(url)}" target="_blank" rel="noopener">Utilization sheet</a>`;
 }
 
 /* ============================ shared registry ============================ */
@@ -9419,7 +9518,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.39", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.40", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -9497,7 +9596,7 @@ function normCase(c) {
     ckTicked: String(c.ckTicked || ""), ckKnown: c.ckKnown === true || !!(c.ckTicked || c.ckMissing),
     approval: apIdOf(c.approval) || (c.ptype === "PTCA" ? apIdOf(c.ckTicked) : ""),
     amount: String(c.amount || ""), nc: String(c.nc || ""), ptcaTo: String(c.ptcaTo || ""),
-    diagram: String(c.diagram || "") };
+    diagram: String(c.diagram || ""), util: String(c.util || "") };
 }
 /* Local cases in the same shape, so the OT list works with no sheet at all. */
 function localCases() {
@@ -9519,7 +9618,7 @@ function localCases() {
       height: g("Height (cm)"), weight: g("Weight (kg)"), caseStatus: g("Case status"),
       ckTicked: g("Checklist ticked"), ckKnown: (c.fields || []).some(function (p) { return p[0] === "Checklist ticked"; }),
       approval: g("Approval"), amount: g("Amount of approval"), nc: g("NC status"), ptcaTo: g("PTCA to"),
-      diagram: g("Diagram image") });
+      diagram: g("Diagram image"), util: g(UTIL_IMG_COL) });
   });
 }
 function caseDedupeKey(c) {
@@ -10116,6 +10215,146 @@ function viewReview() {
 }
 
 /* ============================ PTCA review ============================ */
+/* ============================================================
+   13.40 — the utilization sheet, shown to whoever checks the PTCA report
+   ============================================================
+   The technician's sheet is where every balloon, stent and wire of the
+   report comes from, and it is the page the checker most needs beside the
+   hardware fields. Its photo (this session's scan, or the page fetched for an
+   inbox case) sits at the head of the Utilization section and opens full
+   screen from there and from the Procedure section; a case opened later from
+   the registry has no photo on this phone, only the link of the stored copy. */
+function utilStoredUrl(P) {
+  const u = String((((P || {}).util) || {}).imageUrl || "").trim();
+  return /^https:\/\//.test(u) ? u : "";
+}
+/* what the report holds from the sheet, laid out as the sheet is — only the
+   vessel columns and the rows that carry something */
+function utilReadHtml(P) {
+  const u = (P && P.util) || {};
+  const grid = u.grid || {};
+  const cell = function (v, k) { return (grid[v] || {})[k]; };
+  const cols = UTIL_VESSELS.filter(function (v) { return UTIL_ROWS.some(function (r) { return has(cell(v, r[0])); }); });
+  const rows = UTIL_ROWS.filter(function (r) { return cols.some(function (v) { return has(cell(v, r[0])); }); });
+  const head = [["Name", u.name], ["IP No.", u.ipNo], ["Cath No.", u.cathNo], ["Date", u.date], ["Technician", u.technician],
+    ["Operators", [u.op1, u.op2, u.op3].filter(has).join(", ")], ["Access / Sheath", u.accessSheath]]
+    .filter(function (p) { return has(p[1]); });
+  const tail = [["Cutting balloon", u.cutting], ["Microcatheter (MC)", u.microcatheter], ["Guide extension (GE)", u.guideExtension],
+    ["Rota burr", u.rotaBurr], ["Aspiration catheter", u.aspiration], ["IVUS / OCT / ELCA", u.ivusOctElca],
+    ["AK", u.ak], ["FT", u.ft], ["Injection", u.injection], ["Other hardware", u.otherHardware], ["Notes", u.notes]]
+    .filter(function (p) { return has(p[1]); });
+  const pairs = function (list) {
+    return `<table class="utilread">` + list.map(function (p) {
+      return `<tr><th>${esc2(p[0])}</th><td>${esc2(p[1])}</td></tr>`;
+    }).join("") + `</table>`;
+  };
+  let h = "";
+  if (head.length) h += pairs(head);
+  if (cols.length) {
+    h += `<div class="utilscroll"><table class="utilread"><tr><th>Vessel →</th>` +
+      cols.map(function (v) { return `<th>${esc2(v)}</th>`; }).join("") + `</tr>` +
+      rows.map(function (r) {
+        return `<tr><th>${esc2(r[1])}</th>` + cols.map(function (v) { return `<td>${esc2(has(cell(v, r[0])) ? cell(v, r[0]) : "")}</td>`; }).join("") + `</tr>`;
+      }).join("") + `</table></div>`;
+  }
+  if (tail.length) h += pairs(tail);
+  return h || `<p class="hint">Nothing is held from the utilization sheet yet.</p>`;
+}
+/* the head of the Utilization section on the PTCA review screen */
+function utilSheetPanel(P) {
+  const im = S.imgs.qu || null;
+  const stored = utilStoredUrl(P);
+  let h = `<div class="utilsheet">`;
+  if (im) {
+    h += `<img class="diagthumb" src="${im.thumb || im.url}" alt="Utilization sheet" onclick="openUtilView()" title="Open the utilization sheet">
+      <div style="flex:1 1 150px"><p class="hint" style="margin-top:0;font-size:12.5px">The technician's sheet for this case. Open it to check every wire, balloon and stent below against the handwriting.</p>
+      <div class="btns"><button class="b primary" onclick="openUtilView()">Open the sheet</button>${stored
+        ? `<a class="b" href="${esc2(stored)}" target="_blank" rel="noopener">Stored copy</a>` : ""}</div></div>`;
+  } else if (stored) {
+    h += `<div style="flex:1 1 200px"><p class="hint" style="margin-top:0;font-size:12.5px">A copy of this case's utilization sheet is kept with the registry.</p>
+      <div class="btns"><a class="b primary" href="${esc2(stored)}" target="_blank" rel="noopener">Open the stored utilization sheet</a></div></div>`;
+  } else {
+    const why = S.batchCase ? (S.batchCase.loading ? "The pages are still being fetched." : "It was not among the pages uploaded for this case.")
+      : editingCase(P) ? "No copy of this case's utilization sheet is stored."
+      : "No utilization sheet was photographed for this case.";
+    h += `<p class="hint" style="margin-top:0;font-size:12.5px">${esc2(why)} The hardware can still be typed below.</p>`;
+  }
+  return h + `</div>`;
+}
+/* ---- the sheet, full screen ----
+   Added to <body> like the camera, so the review screen underneath is not
+   redrawn and keeps its place: the checker opens the sheet from wherever the
+   hardware is being checked, looks, and closes back to the same field. The
+   photo sits beside (on a phone, above) what the report holds from it. */
+const UV = { el: null, pushed: false, zoom: 1, bodyOverflow: null };
+const UV_STEPS = [1, 2, 3];
+function openUtilView() {
+  if (UV.el) return;
+  const P = S.P || {};
+  const im = S.imgs.qu || null;
+  if (!im) {
+    // a saved case: only the stored copy exists, and it opens in Drive
+    const stored = utilStoredUrl(P);
+    if (stored) { try { window.open(stored, "_blank", "noopener"); } catch (e) {} }
+    else flash("err", "There is no utilization sheet photo in this case.");
+    return;
+  }
+  const who = [P.name, has(P.ptcaNo) ? "PTCA " + P.ptcaNo : ""].filter(has).join(" · ");
+  const el = document.createElement("div");
+  el.id = "utilview";
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-label", "Utilization sheet");
+  el.innerHTML = `<div class="uvbar"><div class="uvtitle">Utilization sheet<span>${esc2(who)}</span></div>
+      <button class="b" id="uvZoom">Zoom in</button><button class="b primary" id="uvClose">Close</button></div>
+    <div class="uvbody"><div class="uvcols">
+      <div><div class="uvimg" id="uvBox"><img id="uvImg" alt="Utilization sheet" src="${im.url}"></div>
+        <p class="hint">Tap the sheet to zoom in on that spot, then drag to move around.</p></div>
+      <div><p class="uvhead">Held in the report from this sheet</p>${utilReadHtml(P)}
+        <p class="hint">Close to correct anything in the Utilization and Procedure sections.</p></div>
+    </div></div>`;
+  document.body.appendChild(el);
+  UV.el = el; UV.zoom = 1;
+  // the page underneath must not creep while the sheet is being dragged about
+  UV.bodyOverflow = document.body.style.overflow || "";
+  document.body.style.overflow = "hidden";
+  el.querySelector("#uvClose").onclick = function () { closeUtilView(); };
+  el.querySelector("#uvZoom").onclick = function () { utilZoom(null); };
+  el.querySelector("#uvImg").onclick = function (ev) { utilZoom(ev); };
+  // Android's back button should close the sheet, not leave the review screen
+  try { history.pushState({ util: 1 }, ""); UV.pushed = true; } catch (e) { UV.pushed = false; }
+}
+/* fit → 2× → 3× → fit; the tapped spot (or the middle of what is showing)
+   stays in view */
+function utilZoom(ev) {
+  const el = UV.el;
+  if (!el) return;
+  const box = el.querySelector("#uvBox"), img = el.querySelector("#uvImg"), btn = el.querySelector("#uvZoom");
+  if (!box || !img) return;
+  const r = img.getBoundingClientRect(), b = box.getBoundingClientRect();
+  let fx = 0.5, fy = 0.5;
+  if (r.width > 0 && r.height > 0) {
+    if (ev && typeof ev.clientX === "number") { fx = (ev.clientX - r.left) / r.width; fy = (ev.clientY - r.top) / r.height; }
+    else { fx = (b.left + box.clientWidth / 2 - r.left) / r.width; fy = (b.top + box.clientHeight / 2 - r.top) / r.height; }
+  }
+  fx = Math.min(1, Math.max(0, fx)); fy = Math.min(1, Math.max(0, fy));
+  const last = UV_STEPS[UV_STEPS.length - 1];
+  UV.zoom = UV.zoom >= last ? UV_STEPS[0] : UV_STEPS[UV_STEPS.indexOf(UV.zoom) + 1] || UV_STEPS[0];
+  img.style.width = (UV.zoom * 100) + "%";
+  img.className = UV.zoom >= last ? "z" : "";
+  if (btn) btn.textContent = UV.zoom >= last ? "Fit to screen" : "Zoom in";
+  const r2 = img.getBoundingClientRect();
+  box.scrollLeft = Math.max(0, fx * r2.width - box.clientWidth / 2);
+  box.scrollTop = Math.max(0, fy * r2.height - box.clientHeight / 2);
+}
+function closeUtilView(fromHistory) {
+  if (UV.el) { if (UV.el.parentNode) UV.el.parentNode.removeChild(UV.el); UV.el = null; }
+  if (UV.bodyOverflow != null) { document.body.style.overflow = UV.bodyOverflow; UV.bodyOverflow = null; }
+  if (UV.pushed && !fromHistory) { try { history.back(); } catch (e) {} }
+  UV.pushed = false;
+}
+window.addEventListener("popstate", function () { if (UV.el) { UV.pushed = false; closeUtilView(true); } });
+document.addEventListener("keydown", function (ev) { if (UV.el && (ev.key === "Escape" || ev.key === "Esc")) closeUtilView(); });
+
 function togUtilCol(v) { S.utilOpen[v] = !S.utilOpen[v]; render(); }
 function rebuildPlan() {
   const made = deriveTargets(S.P, true);
@@ -10391,7 +10630,7 @@ function viewPtcaReview() {
     ROW(F("AK", "P.util.ak", "1 1 90px") + F("FT", "P.util.ft", "1 1 90px") + F("Injection", "P.util.injection", "1 1 90px")) +
     ROW(F("Other hardware", "P.util.otherHardware", "1 1 100%")) +
     ROW(F("Notes", "P.util.notes", "1 1 100%"));
-  h += SECT("Utilization sheet (technician's hardware grid)", ut);
+  h += SECT("Utilization sheet (technician's hardware grid)", utilSheetPanel(P) + ut);
 
   /* ---- the technique checklists from pages 3–4 ---- */
   const T = P.tech;
@@ -10456,7 +10695,9 @@ function viewPtcaReview() {
       return `<div class="chips" style="margin-bottom:2px">` +
         toks.map(function (t) { return CKA(t, "P.proc.to", t); }).join("") + `</div>`;
     }).join("") +
-    `<div class="btns"><button class="b live" onclick="rebuildPlan()">Build the procedure plan from the sheets</button></div>
+    `<div class="btns"><button class="b live" onclick="rebuildPlan()">Build the procedure plan from the sheets</button>${S.imgs.qu
+      ? `<button class="b" onclick="openUtilView()">View utilization sheet</button>`
+      : utilStoredUrl(P) ? `<a class="b" href="${esc2(utilStoredUrl(P))}" target="_blank" rel="noopener">Stored utilization sheet</a>` : ""}</div>
      <p class="hint">Pairs each lesion with its hardware from the utilization grid: the vessel's smallest balloon predilates, the smaller of two stents in one vessel is the distal one and goes in first, and the postdilation balloon is the smallest with diameter at or above the stent's (a lesion's predilation balloon can postdilate another stent). It fills the target-vessel blocks below — everything stays editable.</p>` +
     `<div class="row">${SEGB("Side", "P.proc.side", [{ v: "Right", t: "Right" }, { v: "Left", t: "Left" }], "setSegStr")}${SEGB("Route", "P.proc.route", [{ v: "Femoral", t: "Femoral" }, { v: "Radial", t: "Radial" }], "setSegStr")}</div>` +
     ROW(F("Sheath (F)", "P.proc.sheath", "1 1 80px") + F("AK", "P.proc.akNo", "1 1 90px") + F("Fluoro time", "P.proc.fluoroTime", "1 1 100px") +
@@ -11009,6 +11250,7 @@ window.addEventListener("error", function (ev) {
 Object.assign(window,{editLocalCase,editSharedCase,closeEdit,openOtherCopy,beginEdit,editingCase,editBanner,editDirty,editClashOk,caseIdentity,idKey,clearScanSession,scanSessionHasContent,caseJsonKey,downloadSelf,S,render,setPath,getPath,toggle,setSeg,setSegStr,toggleIn,pickFile,pickPdf,pickPool,otOpen,otMove,seroPositive,boxesMissing,potassiumOf,checklistText,CHECKLIST,uploadAllToSheet,testSheet,sheetUrlProblem,openRegistry,loadShared,removeShared,shareLink,openOt,loadOt,setOtDate,otAdd,otSet,otRemove,copyOt,tomorrowIso,todayIso,localIso,otFlush,otReady,renderList,regListHtml,otPickHtml,sheetApi,allCases,searchCases,suggestedType,modelPicker,slotModel,openCamera,closeCamera,snapCamera,retryCamera,removePoolItem,pickForSlot,rotateSlot,sortAgain,startOver,sortPool,autoAssign,normalizeSort,uprightTurn,SORT_PROMPT,CAM,scanOne,scanRemaining,buildReport,clearSlot,scannedCount,photoCount,newPatient,downloadDocx,downloadCaseXlsx,downloadRegistry,addToRegistry,removeCase,exportRegistryJson,importRegistryJson,addLesion,delLesion,setLesion,togLesion,cancelExtract,togLesionChar,setLesionSeg,setDominance,setDominanceArg,BLANK,saveCfg,loadLocal,retryFailed,buildDocx,buildXlsx,buildRegistryXlsx,caseRecord,mergeInto,VESSELS,posteriorOwner,dominanceLabel,rentropText,renalText,graftText,originText,dominanceWord,idText,idNumbers,rentropWarning,rentropSwap,occludedMains,vesselProse,ramusProse,lesionSentence,vesselDiseaseText,diseasedVessels,withDesignation,WALL_CHARS,cuspName,efPhrase,rwmaText,diagnosisText,finalDiagnosisLines,has,
 diagramPanel,diagramConflicts,diagramLesionNotes,dominanceConflict,applyDiagramValue,dismissDiagramConflict,removeDiagram,toggleDiagBig,downloadDiagramJpeg,diagramForRegistry,normalizeDiagramResult,blankDiagram,pairLesions,pctInfo,samePct,pctLabel,proseRuns,blueNote,stripMarks,isDiagramSlot,diagramSlotFor,slotDef,currentDiagramImage,diagramVesselHint,diagramDominanceText,diagramConflictSummary,noteDiagramUrl,setRecField,syncToSheet,appendPayload,diagramLink,quickHash,diagramToLesion,addDiagramFinding,adoptDiagramFindings,SHEET_VESSELS,stentConditionClause,lesionSentence,blankLesion,PROMPT_D,DIAGRAM_PX,BLUE_OPEN,BLUE_CLOSE,UNREAD,UNREAD_IN,SLOTS,page2Xml,documentXml,vesselLesionSentences,
 setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchTabPick,BATCH_TABS,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,scheduleSettingsHtml,scheduleSet,scheduleLineHtml,readByText,readByChips,readByPanel,readByGroups,readByOfSession,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
+UTIL_PX,UTIL_IMG_COL,UTIL_ROWS,UV,UV_STEPS,utilStoredUrl,utilReadHtml,utilSheetPanel,openUtilView,utilZoom,closeUtilView,currentUtilImage,noteUtilUrl,utilLink,
 PTCA_REVIEWERS,PROMPT_Q4,PROMPT_U,UTIL_VESSELS,blankUtilGrid,blankUtilCol,PTCA_SEG_GROUPS,PTCA_TO_TOKENS,segSiteInfo,segRangePhrase,segGroupOf,ptcaToVessels,splitDevices,deviceDia,stentParts,utilLookup,utilBalloonsOf,utilAllBalloons,utilStentsOf,pickPodBalloon,deriveTargets,prdMapText,podMapText,stentMapText,techniqueSentences,togUtilCol,rebuildPlan,stripWirePrefix,lcFirst,stentLabel,lesionSiteOf,
 openBatch,loadBatch,batchRunNow,batchRetry,batchDismiss,openBatchCase,batchToggleBig,batchPushPrompts,batchListsHtml,batchPanel,viewBatch,batchPromptSet,noTemperature,geminiRequest,mcCheckNow,mcChoose,mcCleanCat,mcDismissNote,mcRefresh,mcMaybeRefresh,mcApply,mcBoot,mcDue,mcLastFive,mcDeviceCheck,mcBlock,mcSettingsHtml,mcActiveCat,mcUsable,mcDefault,mcSheetCheckText,MODELS,MODEL_STATE,getModelFallbackChain,runModelChain,modelLabel,shortError,modelFailure});
 </script>

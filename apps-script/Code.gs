@@ -81,6 +81,14 @@
  * (anyone with the URL); batchPrompts, batchRetry, batchMark, batchRunNow
  * (edit key). "whoami" replies v: 13 and says whether the scanner is set up.
  *
+ * What changed in 13.40 — the PTCA utilization sheet is kept with its case
+ * - The app sends a 1600 px copy of the technician's utilization sheet with a
+ *   PTCA case ("utilB64"). It is filed in a Drive folder ("PTCA utilization
+ *   sheets") and its link written into the "Utilization sheet image" column
+ *   of the PTCA tab, exactly as the coronary diagram's copy is for a CAG, so
+ *   whoever opens the case later can still see the sheet.
+ *   Optional: UTIL_FOLDER; sharing follows DIAGRAM_SHARE (link | private).
+ *
  * What changed in v8 — the daily check of Google's Gemini models
  * - Every morning between 5:00 and 5:30 (India time) this script asks Google
  *   which Gemini models exist, sends each likely reading model ONE tiny test
@@ -109,7 +117,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -122,6 +130,8 @@ var CASE_JSON_COL = "Case JSON";
 var CASE_JSON_MAX = 49000;          // a Sheets cell holds 50k characters
 var DIAGRAM_COL = "Diagram image";  // Drive link of the 1200 px diagram copy
 var DIAGRAM_FOLDER_DEFAULT = "CAG diagrams";
+var UTIL_COL = "Utilization sheet image";   // Drive link of the PTCA utilization sheet's copy (13.40)
+var UTIL_FOLDER_DEFAULT = "PTCA utilization sheets";
 
 function doPost(e) { return handle(e); }
 function doGet(e)  { return handle(e); }
@@ -169,7 +179,7 @@ function handle(e) {
     if (needEdit[action] && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to make changes.", canEdit: false });
     switch (action) {
       case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_() });
-      case "append": { var r = appendCase(req); return out({ ok: true, canEdit: true, diagramUrl: r.diagramUrl || "", replaced: !!r.replaced, v: SCRIPT_VERSION }); }
+      case "append": { var r = appendCase(req); return out({ ok: true, canEdit: true, diagramUrl: r.diagramUrl || "", utilUrl: r.utilUrl || "", utilError: r.utilError || "", replaced: !!r.replaced, v: SCRIPT_VERSION }); }
       case "list":   return out({ ok: true, canEdit: canEdit, cases: listCases() });
       case "lookup": return out(Object.assign({ ok: true, canEdit: canEdit }, lookupCase(String(req.q || ""))));
       case "fetchCase": return out(Object.assign({ ok: true, canEdit: canEdit }, fetchCase(req)));
@@ -277,11 +287,14 @@ function appendCase(req) {
   var type = String(req.type || "").trim() === "PTCA" ? "PTCA" : "CAG";
   var year = /^\d{4}$/.test(String(req.year || "")) ? String(req.year) : String(new Date().getFullYear());
   var diagramB64 = String(req.diagramB64 || "");
+  // 13.40 — the technician's utilization sheet travels with a PTCA case
+  var utilB64 = type === "PTCA" ? String(req.utilB64 || "") : "";
 
   var sh = sheet(regSheetName(type, year), null);
   var have = headersOf(sh);
   var wanted = headers.concat([CASE_JSON_COL, "Saved at"]);
   if (diagramB64) wanted.push(DIAGRAM_COL);
+  if (utilB64) wanted.push(UTIL_COL);
   if (!have.length) {
     have = wanted.slice();
     ensureCols(sh, have.length);
@@ -349,6 +362,31 @@ function appendCase(req) {
     row[dcol] = diagramUrl;
   }
 
+  // 13.40 — the utilization sheet of a PTCA, by the same rules: a new photo is
+  // filed in its own Drive folder and its link written to the row; a re-save
+  // without one keeps the link the row already has
+  var ucol = have.indexOf(UTIL_COL);
+  var utilUrl = "", utilError = "";
+  if (ucol >= 0) {
+    var oldU = at ? cell(sh.getRange(at, ucol + 1).getValue()) : "";
+    if (utilB64) {
+      // a photo that cannot be filed must never cost the case its row
+      try { utilUrl = saveDiagram("UTIL", year, ptcaNo || cagNo, name, utilB64, utilFolder()); }
+      catch (eU) {
+        var keptU = String(row[ucol] || "");
+        utilUrl = /^https?:\/\//.test(oldU) ? oldU : (/^https?:\/\//.test(keptU) ? keptU : "");
+        utilError = String(eU && eU.message || eU);
+      }
+    } else if (from) {
+      var sentU = String(row[ucol] || "");
+      var fromU = linkIn(from, UTIL_COL);
+      utilUrl = /^https?:\/\//.test(sentU) ? sentU : /^https?:\/\//.test(fromU) ? fromU : (/^https?:\/\//.test(oldU) ? oldU : sentU);
+    } else {
+      utilUrl = /^https?:\/\//.test(oldU) ? oldU : String(row[ucol] || "");
+    }
+    row[ucol] = utilUrl;
+  }
+
   if (at) sh.getRange(at, 1, 1, have.length).setValues([row]);
   else sh.appendRow(row);
 
@@ -383,7 +421,7 @@ function appendCase(req) {
   }
   // v13 — a case that came through the inbox is marked saved in the Batch tab
   if (req.batchCaseId) { try { batchMark_(String(req.batchCaseId), "saved", g("Saved by") || String(req.by || "")); } catch (e) {} }
-  return { diagramUrl: diagramUrl, replaced: replaced };
+  return { diagramUrl: diagramUrl, utilUrl: utilUrl, utilError: utilError, replaced: replaced };
 }
 
 /* ---------- finding one case's row (v6) ----------
@@ -428,8 +466,8 @@ function rowMatches(have, vals, want) {
   if (want.name) return g("Name") === want.name;
   return false;
 }
-function linkIn(hit) {
-  var i = hit.have.indexOf(DIAGRAM_COL);
+function linkIn(hit, col) {
+  var i = hit.have.indexOf(col || DIAGRAM_COL);
   return i < 0 ? "" : cell(hit.vals[i]);
 }
 
@@ -439,11 +477,19 @@ function diagramFolder() {
   var it = DriveApp.getFoldersByName(name);
   return it.hasNext() ? it.next() : DriveApp.createFolder(name);
 }
+/* 13.40 — the folder for the PTCA utilization sheets' copies */
+function utilFolder() {
+  var name = PropertiesService.getScriptProperties().getProperty("UTIL_FOLDER") || UTIL_FOLDER_DEFAULT;
+  var it = DriveApp.getFoldersByName(name);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(name);
+}
 /* One JPEG per case: "CAG_2026_1906_Ramesh_Patil.jpg". A case re-saved with
    a new photo replaces its earlier file (matched on type, year and number),
-   so the folder never fills with stale copies. Returns the file's link. */
-function saveDiagram(type, year, number, name, b64) {
-  var folder = diagramFolder();
+   so the folder never fills with stale copies. Returns the file's link.
+   A utilization sheet is filed the same way under the type "UTIL"
+   ("UTIL_2026_1234AP56_Name.jpg"), in the folder passed in. */
+function saveDiagram(type, year, number, name, b64, intoFolder) {
+  var folder = intoFolder || diagramFolder();
   var num = String(number || "").replace(/[^A-Za-z0-9\-]/g, "");
   var base = type + "_" + year + "_" + (num || "no-number");
   var who = String(name || "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -515,6 +561,7 @@ function listCases() {
         ptcaTo: g(r, "PTCA to"), savedBy: g(r, "Saved by"),
         height: g(r, "Height (cm)"), weight: g(r, "Weight (kg)"), caseStatus: g(r, "Case status"),
         diagram: g(r, DIAGRAM_COL),
+        util: g(r, UTIL_COL),
       });
     });
   });
