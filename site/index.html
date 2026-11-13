@@ -3511,14 +3511,13 @@ function ptcaToVessels(P) {
 /* ---------- device strings from the utilization grid ---------- */
 /* "2.0*12 Sapphire (pre)" → "2.0*12 Sapphire": the technician's pre / post /
    PrD / PoD tags on the utilization sheet say what the balloon was for; the
-   report never prints them. 13.41: nor the stent's site written as the
-   o / p / m / d code — "(p-m)", or a bare "p-m" at the end — and a tag in
-   front counts with or without a dash ("Post 3.5×8 …", "PrD: 2×12 …"). */
+   report never prints them. 13.41: a tag in front counts with or without a
+   dash ("Post 3.5×8 …", "PrD: 2×12 …"). Any other note the technician wrote
+   with the device — the stent's site, "(Mid-Distal)" — stays in its name and
+   prints in the report (13.42: the department wants it there). */
 function stripPrePost(s) {
   return String(s == null ? "" : s)
     .replace(/\s*[\(\[\{]\s*(pre|post|prd|pod|pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*)\s*[\)\]\}]/gi, "")
-    .replace(/\s*[\(\[\{]\s*[opmd](?:\s*[-–—\/]\s*[opmd])?\s*[\)\]\}]/gi, "")
-    .replace(/\s+[opmd]\s*[-–—\/]\s*[opmd]\s*$/i, "")
     .replace(/(^|\s)[-–]?\s*(pre|post|prd|pod)\s*$/i, "")
     .replace(/^\s*(pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod)\b\s*[-–:]?\s*(?=\S)/i, "")
     .replace(/\s{2,}/g, " ").trim();
@@ -3565,8 +3564,12 @@ function stentParts(s) {
    - a device the scanner marked with "?" is left exactly as read;
    - sizes, notes in brackets and stray marks are never rewritten;
    - everything that was changed is listed for the person checking the
-     report (util.expanded → "Put in full from the hardware list …"), with
-     the sheet's photo one tap away. */
+     report (util.expanded → "Put in full by the app …"), with
+     the sheet's photo one tap away.
+   13.42: "Rockstar" written alone is the NC Rockstar (the department's
+   wish); and a note written with a device, such as the stent's site
+   "(Mid-Distal)", is kept in the report — a site written as a code
+   ("m-d") prints the same way, in words (hwSiteText). */
 const DEFAULT_HARDWARE = [
   { name: "XB 3.0", role: "Guide", aliases: ["XB3"] },
   { name: "JR 3.5 SH", role: "Guide", aliases: ["JR3.5 SH"] },
@@ -3574,7 +3577,7 @@ const DEFAULT_HARDWARE = [
   { name: "Blue Star", role: "Wire", aliases: ["BS", "Blu star", "Buistar"] },
   { name: "Fielder FC", role: "Wire", aliases: ["FC"] },
   { name: "BMW", role: "Wire", aliases: [] },
-  { name: "NC Rockstar", role: "Balloon", aliases: ["RS"] },
+  { name: "NC Rockstar", role: "Balloon", aliases: ["RS", "Rockstar", "Rockstar NC"] },   // 13.42: "Rockstar" alone prints with its NC
   { name: "Lineage", role: "Balloon", aliases: ["LN"] },
   { name: "Seguro", role: "Balloon", aliases: ["SG", "Seguso"] },
   { name: "Tanzor", role: "Balloon", aliases: ["TZ", "Tamor", "Tantor", "Tanzer"] },
@@ -3639,17 +3642,38 @@ const HW_SIZE_SRC = "\\d+(?:\\.\\d+)?\\s*[*×xX]\\s*\\d+(?:\\.\\d+)?";
 const HW_TOK_RE = new RegExp("([\\(\\[\\{][^\\)\\]\\}]*[\\)\\]\\}]?)|(" + HW_SIZE_SRC + ")|(\\s+)|((?:(?!" + HW_SIZE_SRC + ")[^\\s\\(\\[\\{])+)", "g");
 const HW_TAG_RE = /^(?:pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod)[:\-–]?$/i;
 const HW_SITE_RE = /^[opmd](?:[-–—\/][opmd])?$/i;
+/* a stent's site written as a code — o, p, m, d, alone or as a pair — in
+   words: "m-d" → "Mid-Distal", "o-p" → "Ostio-Proximal", "d" → "Distal".
+   "" when the text is not such a code. */
+const HW_SITE_WORD = { o: "Ostial", p: "Proximal", m: "Mid", d: "Distal" };
+function hwSiteText(code) {
+  const m = /^([opmd])(?:\s*[-–—\/]\s*([opmd]))?$/i.exec(String(code == null ? "" : code).trim());
+  if (!m) return "";
+  const a = m[1].toLowerCase(), b = (m[2] || "").toLowerCase();
+  if (!b) return HW_SITE_WORD[a];
+  if (a === b) return "";
+  return (a === "o" ? "Ostio" : HW_SITE_WORD[a]) + "-" + HW_SITE_WORD[b];
+}
+/* what the review screen is told was changed: only a real change, never
+   capitals or spacing */
+function hwNote(notes, written, shown) {
+  if (!notes || hwNorm(written) === hwNorm(shown)) return;
+  const n = String(written).replace(/[.\s]+$/, "") + " \u2192 " + shown;
+  if (notes.indexOf(n) < 0) notes.push(n);
+}
 /* a guide's French size in front of its name: "6F", "6 Fr.", "6FXB3" — and
    the scanner's "GFr" for a handwritten "6Fr" */
 const HW_FR_RE = /^(?:([4-9])|g)\s*f(?:r(?![a-z]))?\.?\s*/i;
 /* One device as written ("(Post) 3.5×8 RS", "2.5×28 UT m-d", "6FXB3") with
    its name put in full. Everything else — the size, a pre/post tag, a note in
-   brackets — stays exactly as written; a site code after a short form goes
-   into brackets ("3×38 Ultimaster Tansei (p-m)"), where the report's device
-   names never pick it up. Returns the text unchanged when nothing on the list
-   matches. notes collects "RS → NC Rockstar" for the review screen.
-   opt.dropSite: for a field of the procedure plan, which is printed as it
-   stands and has its own "Deployed at" — the site code is left out instead.
+   brackets — stays exactly as written. Returns the text unchanged when
+   nothing applies. notes collects "RS → NC Rockstar" for the review screen.
+   The stent's site (13.42): the technicians write it after the stent,
+   "(Mid-Distal)", and the report prints it. Written as a code in a stent row
+   it is put in words the same way — "3×38 UT m-d" → "3×38 Ultimaster Tansei
+   (Mid-Distal)". A pair (p-m, o-p, m-d) counts after any stent; a single
+   letter only after a stent on the list, at the end of the device. In any
+   other row a code is left as it was written.
    opt.fr: the French size to give a guide written without one (the sheath's,
    when the sheet says it; 6 otherwise). */
 function hwExpandDevice(seg, rowKind, list, notes, opt) {
@@ -3669,7 +3693,18 @@ function hwExpandDevice(seg, rowKind, list, notes, opt) {
   // a mark standing by itself ("/", "-", "&", "+") is not part of any name: it
   // ends a run of words and stays where it is
   toks.forEach(function (t) { if (t.t === "word" && !/[a-z0-9]/i.test(t.s)) t.t = "mark"; });
+  const siteRow = rowKind === "stent";
   let changed = false;
+  // a site code the technician put in brackets: "(p-m)" → "(Proximal-Mid)"
+  if (siteRow) toks.forEach(function (t) {
+    if (t.t !== "note") return;
+    const m = /^([\(\[\{])\s*([opmd]\s*[-–—\/]\s*[opmd])\s*([\)\]\}])$/i.exec(t.s);
+    const site = m ? hwSiteText(m[2]) : "";
+    if (!site) return;
+    hwNote(notes, m[2], site);
+    t.s = m[1] + site + m[3];
+    changed = true;
+  });
   let i = 0;
   while (i < toks.length) {
     if (toks[i].t !== "word") { i++; continue; }
@@ -3695,6 +3730,32 @@ function hwExpandDevice(seg, rowKind, list, notes, opt) {
       const last = words.length - 1;
       words[last] = words[last].slice(0, words[last].length - post.length);
       hit = hwMatchWords(words, rowKind, list, notes, opt);
+      const code = words[last];
+      if (!hit && HW_SITE_RE.test(code)) {
+        // the name may end in a site code: "UT p-m", "Xience Alpine d"
+        const pair = code.length > 1;
+        if (last > 0) {
+          const head = words.slice(0, -1).join(" ");
+          let e = hwFind(head, rowKind, list);
+          if (e && hwKind(e.role) === "guide") e = null;            // a guide has no site
+          // a single letter is taken for a site only after a stent on the list, at the very end
+          let atEnd = true;
+          for (let k = idx[b - 1] + 1; k < toks.length; k++) if (toks[k].t !== "sp") atEnd = false;
+          const single = !pair && atEnd && !!e && ["stent", "dcb"].indexOf(hwKind(e.role)) >= 0;
+          const site = siteRow && (pair || single) ? hwSiteText(code) : "";
+          if (e || site) {
+            if (e) hwNote(notes, head, e.name);
+            if (site) hwNote(notes, code, site);
+            hit = (e ? e.name : head) + " " + (site ? "(" + site + ")" : code);
+          }
+        } else if (pair && siteRow) {
+          // the code alone after a size: "3×38 p-m"
+          let k = idx[a] - 1;
+          while (k >= 0 && toks[k].t === "sp") k--;
+          const site = k >= 0 && toks[k].t === "size" ? hwSiteText(code) : "";
+          if (site) { hwNote(notes, code, site); hit = "(" + site + ")"; }
+        }
+      }
     }
     if (hit) {
       toks.splice(idx[a], idx[b - 1] - idx[a] + 1, { t: "word", s: pre + hit + post, put: true });
@@ -3721,12 +3782,6 @@ function hwExpandDevice(seg, rowKind, list, notes, opt) {
 function hwMatchWords(words, rowKind, list, notes, opt) {
   opt = opt || {};
   const text = words.join(" ");
-  // what the review screen is told: only a real change, never capitals or spacing
-  const note = function (written, shown) {
-    if (!notes || hwNorm(written) === hwNorm(shown)) return;
-    const n = String(written).replace(/[.\s]+$/, "") + " \u2192 " + shown;
-    if (notes.indexOf(n) < 0) notes.push(n);
-  };
   const isGuide = function (e) { return hwKind(e.role) === "guide"; };
   // a catheter with its French size written in front: a guide, or a guide
   // extension or aspiration catheter in its own cell ("6F Guidezilla")
@@ -3735,26 +3790,18 @@ function hwMatchWords(words, rowKind, list, notes, opt) {
     const rest = text.slice(fr[0].length);
     const e = hwFind(rest, rowKind === "ge" || rowKind === "asp" ? rowKind : "guide", list);
     if (e && ["guide", "ge", "asp"].indexOf(hwKind(e.role)) >= 0) {
-      note(rest, e.name);
-      if (!fr[1]) note(fr[0], "6F");            // the scanner's "GFr" for a handwritten 6Fr
+      hwNote(notes, rest, e.name);
+      if (!fr[1]) hwNote(notes, fr[0], "6F");   // the scanner's "GFr" for a handwritten 6Fr
       return (fr[1] || "6") + "F " + e.name;
     }
   }
-  let e = hwFind(text, rowKind, list);
-  if (e) {
-    // a guide written without its size is given the sheath's, or 6F — and the
-    // review screen says so, since nobody wrote it
-    const out = (isGuide(e) ? (/^[4-9]$/.test(String(opt.fr || "")) ? opt.fr : "6") + "F " : "") + e.name;
-    note(text, out);
-    return out;
-  }
-  // a site code after the name: "UT p-m", "Xience Alpine d"
-  if (words.length > 1 && HW_SITE_RE.test(words[words.length - 1])) {
-    const head = words.slice(0, -1).join(" ");
-    e = hwFind(head, rowKind, list);
-    if (e && !isGuide(e)) { note(head, e.name); return e.name + (opt.dropSite ? "" : " (" + words[words.length - 1].toLowerCase() + ")"); }
-  }
-  return "";
+  const e = hwFind(text, rowKind, list);
+  if (!e) return "";
+  // a guide written without its size is given the sheath's, or 6F — and the
+  // review screen says so, since nobody wrote it
+  const out = (isGuide(e) ? (/^[4-9]$/.test(String(opt.fr || "")) ? opt.fr : "6") + "F " : "") + e.name;
+  hwNote(notes, text, out);
+  return out;
 }
 /* the one French size written for the sheath ("Rt RA 6F", "6 Fr. Rt Radial"),
    or "" when none or more than one is written */
@@ -3824,9 +3871,7 @@ function hwStatusText() {
 function hwStatusShow() { const el = document.getElementById("hwStatus"); if (el) { el.textContent = hwStatusText(); el.style.color = hwListProblems(activeHardware()).length ? "#8a6a12" : ""; } }
 /* a hardware field on the review screen: what is typed is checked against the
    list when the field is left, so "2.5x12 RS" typed in a correction prints in
-   full like a scanned one. The inputs carry data-hw="<row kind>"; the
-   utilization grid's own cells also data-hw-grid, and keep a site code in
-   brackets as a scan does — anywhere else it is left out. */
+   full like a scanned one. The inputs carry data-hw="<row kind>". */
 document.addEventListener("change", function (ev) {
   const el = ev.target;
   if (!el || el.tagName !== "INPUT" || !el.getAttribute) return;
@@ -3834,8 +3879,7 @@ document.addEventListener("change", function (ev) {
   if (!kind) return;
   const P = S.P || {};
   const sheath = String((P.proc || {}).sheath == null ? "" : P.proc.sheath).replace(/\s*fr?\.?\s*$/i, "").trim();
-  const out = hwExpandCell(el.value, kind, null, null, { dropSite: el.getAttribute("data-hw-grid") !== "1",
-    fr: hwSheathFr((P.util || {}).accessSheath) || (/^[4-9]$/.test(sheath) ? sheath : "") });
+  const out = hwExpandCell(el.value, kind, null, null, { fr: hwSheathFr((P.util || {}).accessSheath) || (/^[4-9]$/.test(sheath) ? sheath : "") });
   if (out === el.value) return;
   el.value = out;
   if (typeof el.oninput === "function") el.oninput();
@@ -8645,7 +8689,7 @@ const F = (label, path, flex) =>
    what is typed is checked against the hardware list when the field is left */
 const FH = (label, path, flex, kind) =>
   `<label class="fld${isUnsure(path) ? " unsure" : ""}" style="flex:${flex || "1 1 140px"}"><span>${esc2(label)}</span>` +
-  `<input value="${esc2(getPath(path))}" data-hw="${kind}"${path.indexOf("P.util.") === 0 ? ` data-hw-grid="1"` : ""} oninput="setPath('${path}',this.value)"></label>`;
+  `<input value="${esc2(getPath(path))}" data-hw="${kind}" oninput="setPath('${path}',this.value)"></label>`;
 
 /* Date field: the free-text box (unchanged behaviour — still shows exactly
    what the scanner read, "?" included) paired with a small native date
@@ -9753,7 +9797,8 @@ function viewSettings() {
       list: a short form such as <b>RS</b>, or any other spelling listed for a device, is replaced by its full name \u2014 so
       \u201c2.5\u00d712 RS\u201d prints as \u201c2.5\u00d712 NC Rockstar\u201d. Only an exact match counts (capitals and spaces aside), never a
       look-alike, and a short form only in a row for its type; a misreading the scanner keeps making can be added to that device's line. A guide written without its size is
-      given the sheath's, or 6F. Edit freely; changes save automatically, go to the shared sheet, and reach every device.</p>
+      given the sheath's, or 6F. A stent's site written after it as a code (o, p, m, d: \u201c3\u00d738 UT m-d\u201d) prints in words,
+      \u201c(Mid-Distal)\u201d, like a site written out. Edit freely; changes save automatically, go to the shared sheet, and reach every device.</p>
     <div class="btns" style="margin-top:8px">
       <button class="b" onclick="if(confirm('Replace the hardware list above with the built-in default list — on every device?')){rosterReset('hardware');}">Reset to default hardware list</button>
     </div>
@@ -9887,7 +9932,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.41", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.42", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -10634,7 +10679,7 @@ function utilExpandedNote(P) {
   const raw = ((P || {}).util || {}).expanded;
   const ex = uniqList(Array.isArray(raw) ? raw : []);
   if (!ex.length) return "";
-  return `<p class="hint" style="font-size:12.5px;color:var(--slate)">Put in full from the hardware list (Settings): ` +
+  return `<p class="hint" style="font-size:12.5px;color:var(--slate)">Put in full by the app (hardware list in Settings): ` +
     ex.map(function (x) { return `<b>${esc2(x)}</b>`; }).join(" \u00b7 ") + `. Check them against the sheet.</p>`;
 }
 /* the head of the Utilization section on the PTCA review screen */
@@ -11628,7 +11673,7 @@ window.addEventListener("error", function (ev) {
 Object.assign(window,{editLocalCase,editSharedCase,closeEdit,openOtherCopy,beginEdit,editingCase,editBanner,editDirty,editClashOk,caseIdentity,idKey,clearScanSession,scanSessionHasContent,caseJsonKey,downloadSelf,S,render,setPath,getPath,toggle,setSeg,setSegStr,toggleIn,pickFile,pickPdf,pickPool,otOpen,otMove,seroPositive,boxesMissing,potassiumOf,checklistText,CHECKLIST,uploadAllToSheet,testSheet,sheetUrlProblem,openRegistry,loadShared,removeShared,shareLink,openOt,loadOt,setOtDate,otAdd,otSet,otRemove,copyOt,tomorrowIso,todayIso,localIso,otFlush,otReady,renderList,regListHtml,otPickHtml,sheetApi,allCases,searchCases,suggestedType,modelPicker,slotModel,openCamera,closeCamera,snapCamera,retryCamera,removePoolItem,pickForSlot,rotateSlot,sortAgain,startOver,sortPool,autoAssign,normalizeSort,uprightTurn,SORT_PROMPT,CAM,scanOne,scanRemaining,buildReport,clearSlot,scannedCount,photoCount,newPatient,downloadDocx,downloadCaseXlsx,downloadRegistry,addToRegistry,removeCase,exportRegistryJson,importRegistryJson,addLesion,delLesion,setLesion,togLesion,cancelExtract,togLesionChar,setLesionSeg,setDominance,setDominanceArg,BLANK,saveCfg,loadLocal,retryFailed,buildDocx,buildXlsx,buildRegistryXlsx,caseRecord,mergeInto,VESSELS,posteriorOwner,dominanceLabel,rentropText,renalText,graftText,originText,dominanceWord,idText,idNumbers,rentropWarning,rentropSwap,occludedMains,vesselProse,ramusProse,lesionSentence,vesselDiseaseText,diseasedVessels,withDesignation,WALL_CHARS,cuspName,efPhrase,rwmaText,diagnosisText,finalDiagnosisLines,has,
 diagramPanel,diagramConflicts,diagramLesionNotes,dominanceConflict,applyDiagramValue,dismissDiagramConflict,removeDiagram,toggleDiagBig,downloadDiagramJpeg,diagramForRegistry,normalizeDiagramResult,blankDiagram,pairLesions,pctInfo,samePct,pctLabel,proseRuns,blueNote,stripMarks,isDiagramSlot,diagramSlotFor,slotDef,currentDiagramImage,diagramVesselHint,diagramDominanceText,diagramConflictSummary,noteDiagramUrl,setRecField,syncToSheet,appendPayload,diagramLink,quickHash,diagramToLesion,addDiagramFinding,adoptDiagramFindings,SHEET_VESSELS,stentConditionClause,lesionSentence,blankLesion,PROMPT_D,DIAGRAM_PX,BLUE_OPEN,BLUE_CLOSE,UNREAD,UNREAD_IN,SLOTS,page2Xml,documentXml,vesselLesionSentences,
 setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData,downloadSharedDocx,downloadLocalDocx,caseFromRegistryData,saveRegistryReport,afterRegistryReport,setTgt,togTgt,addTarget,delTarget,togBif,bifBlockHtml,deriveBifurcation,dkCrushText,kbiBalloons,BIF_OVER,deriveThrombus,deriveRota,rotaText,cuttingText,elcaText,ELCA_DEFAULTS,goHome,ddAvpgText,branchNormalize,BRANCH_KEYS,stripPrePost,DEFAULT_TECHNICIANS,activeTechnicians,matchTechnician,matchFromRoster,activeRoster,loadRosters,rosterEdit,rosterReset,rosterPush,rosterStatusText,batchStash,batchDraftOf,batchDrafts,batchSaveDraft,batchTabPick,BATCH_TABS,batchDraftState,batchSaveButton,housekeepSettingsHtml,housekeepSet,scheduleSettingsHtml,scheduleSet,scheduleLineHtml,readByText,readByChips,readByPanel,readByGroups,readByOfSession,HK_CHOICES,planPtcaFromCag,downloadPlannedProforma,plannedProformaValues,readZipBytes,finalEf,efChange,pruneUnsupportedPlan,vesselObstructive,thrombusAspirates,thrombusDotters,thrombusAspirationText,thrombusDotterText,THROMBUS_ASPIRATION,targetIsBif,bifVesselName,bifSbFull,BIF_TWO_STENT,BIF_SB_OF,setStent,addStent,delStent,setPerf2,PBLANK,PSLOTS,SORT_PROMPT_PTCA,activeSlots,sheetCount,activeSortPrompt,blankTarget,blankStent,fillTarget,fillStent,normalizePtcaResult,ptcaDocumentXml,buildPtcaDocx,ptcaRecord,ptcaDiagnosisLines,ptcaBriefHistoryLines,ptcaNarrativeParas,ptcaProcTitle,ptcaTargetText,stentLines,stentDeployed,hardwareLines,approvalStatusOf,ptcaChecklistText,applyCagToPtca,cagCaseFromFields,findLocalCagCase,caseYear,apIdOf,findPtcaCaseFor,sameCase,upsertLocalCase,stripForMerge,ptcaAfterMerge,localCases,caseDedupeKey,sexFull,ptcaRiskShort,approachText,targetHasContent,cannulatedVessel,fldOrBlank,viewPtcaReview,PTCA_CONSULTANTS,PTCA_RECS,PCHECK,BLOOD_KEYS,BLOOD_LABELS,
-DEFAULT_HARDWARE,activeHardware,hwNorm,hwKind,hwFind,hwExpandDevice,hwMatchWords,hwExpandCell,hwExpandUtil,hwSheathFr,hwListProblems,hwStatusText,hwStatusShow,HW_ROW_KINDS,FH,utilExpandedNote,textToOperators,operatorsToText,
+DEFAULT_HARDWARE,activeHardware,hwNorm,hwKind,hwFind,hwExpandDevice,hwMatchWords,hwExpandCell,hwExpandUtil,hwSheathFr,hwSiteText,hwNote,hwListProblems,hwStatusText,hwStatusShow,HW_ROW_KINDS,FH,utilExpandedNote,textToOperators,operatorsToText,
 UTIL_PX,UTIL_IMG_COL,UTIL_ROWS,UV,UV_STEPS,utilStoredUrl,utilReadHtml,utilSheetPanel,openUtilView,utilZoom,closeUtilView,currentUtilImage,noteUtilUrl,utilLink,
 PTCA_REVIEWERS,PROMPT_Q4,PROMPT_U,UTIL_VESSELS,blankUtilGrid,blankUtilCol,PTCA_SEG_GROUPS,PTCA_TO_TOKENS,segSiteInfo,segRangePhrase,segGroupOf,ptcaToVessels,splitDevices,deviceDia,stentParts,utilLookup,utilBalloonsOf,utilAllBalloons,utilStentsOf,pickPodBalloon,deriveTargets,prdMapText,podMapText,stentMapText,techniqueSentences,togUtilCol,rebuildPlan,stripWirePrefix,lcFirst,stentLabel,lesionSiteOf,
 openBatch,loadBatch,batchRunNow,batchRetry,batchDismiss,openBatchCase,batchToggleBig,batchPushPrompts,batchListsHtml,batchPanel,viewBatch,batchPromptSet,noTemperature,geminiRequest,mcCheckNow,mcChoose,mcCleanCat,mcDismissNote,mcRefresh,mcMaybeRefresh,mcApply,mcBoot,mcDue,mcLastFive,mcDeviceCheck,mcBlock,mcSettingsHtml,mcActiveCat,mcUsable,mcDefault,mcSheetCheckText,MODELS,MODEL_STATE,getModelFallbackChain,runModelChain,modelLabel,shortError,modelFailure});
