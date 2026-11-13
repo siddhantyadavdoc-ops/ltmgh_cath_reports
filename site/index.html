@@ -6430,7 +6430,7 @@ const S = {
   log: [],
   // inbox batch scans (v13): the list from the sheet, the scanner's status,
   // and the inbox case currently open on the review screen
-  batch: { list: null, status: null, canEdit: false, busy: false, err: "", at: 0, open: "", q: "" },
+  batch: { list: null, status: null, canEdit: false, busy: false, err: "", at: 0, open: "", q: "", said: "", saidBad: false, round: 0 },
   batchCase: null,
   busy: false, phase: "", err: "", ok: "", cancelled: false, failed: [],
   usage: { daily: [], minute: [] },
@@ -9806,7 +9806,7 @@ function viewSettings() {
     <div class="mcbox"><b>Inbox batch scanner</b>
       <p class="hint" style="margin-top:6px">Residents drop a case's PDF or page photos into the department's Drive inbox — the <b>CAG</b> folder for angiogram proformas, the <b>PTCA</b> folder for PTCA proformas and utilization reports — and the Sheet's script reads them one page at a time, 3 seconds between steps. Open <b>Inbox scans</b> on the front screen to check what it read. Setting up: paste Code${SCRIPT_WANTED}.gs into the Sheet's Apps Script, deploy a new version, run <b>setupBatchScanner</b> once there (it needs GEMINI_KEY in the script properties), share the inbox folder with the residents, then open Inbox scans here as an editor so the app sends its reading prompts.</p>
       <div class="btns"><button class="b" onclick="openBatch()" ${S.cfg.sheetUrl ? "" : "disabled"}>Inbox scans</button>
-        <button class="b" onclick="openBatch();batchRunNow()" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Scan the inbox now</button>
+        <button class="b" onclick="batchOpenAndScan()" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Scan the inbox now</button>
         <button class="b" onclick="batchPushPrompts(true).then(function(ok){flash(ok?'ok':'err',ok?'Reading prompts sent to the sheet.':'Could not send the prompts \u2014 the edit key and a Code13 sheet are needed.')})" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Send reading prompts now</button></div>
       <p class="hint">${esc2(S.cfg.promptsSent === APP_VERSION + "@" + S.cfg.sheetUrl ? "This app version's prompts have been sent to this sheet." : "Prompts not yet sent from this version (sent automatically when an editor opens Inbox scans).")}</p>
       ${scheduleSettingsHtml()}
@@ -9932,7 +9932,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.42", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.43", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -11212,6 +11212,7 @@ async function batchPushPrompts(force) {
 }
 function openBatch() {
   S.step = "batch"; S.batch.q = "";
+  if (!S.batch.busy) { S.batch.said = ""; S.batch.saidBad = false; }
   render();
   loadBatch(false);
 }
@@ -11236,18 +11237,68 @@ async function loadBatch(force) {
   S.batch.busy = false;
   render();
 }
+/* 13.43 — a scan started here carries on by itself. One run in the sheet
+   stops starting new pages after 4 minutes; by day nothing picks the rest up
+   (the automatic scans wait for the night window), so a case used to be left
+   part-read until someone pressed again. The script now says when work is
+   left only because the run ran out of time ("more"): the app starts the
+   next run itself, BATCH_ROUNDS_MAX at most. What the scan came to is kept
+   on the screen (S.batch.said) until the next scan, not just flashed. */
+const BATCH_ROUNDS_MAX = 4;
+function batchScanSummary(j, scanned, failed, rounds, notes) {
+  if (!j.ran) return "The scanner did not run: " + (j.why || "unknown reason") + ".";
+  const p = S.batch.status && S.batch.status.schedule;
+  const auto = !p ? "" : p.mode === "closed" ? " Otherwise the automatic scan takes it up at " + p.next + "." : " Otherwise the automatic scan takes it up within 5 minutes.";
+  const left = Number(j.pending) || 0;
+  let t = !(j.cases || scanned || failed) ? "Scan finished \u2014 nothing new in the inbox."
+    : (left ? "Scan paused: " : "Scan finished: ") + scanned + " scanned, " + failed + " failed" + (rounds > 1 ? " (in " + rounds + " runs)" : "") + ".";
+  if (j.why) t += " " + j.why.charAt(0).toUpperCase() + j.why.slice(1) + ".";
+  if (left) t += " " + left + (left === 1 ? " case is" : " cases are") + " not finished yet \u2014 " +
+    (j.more === true ? "press Scan now again to carry on." : "the scanner could not get further just now; press Scan now again in a few minutes.") + auto;
+  const said = notes.filter(function (x, i) { return x && notes.indexOf(x) === i; });
+  if (said.length) t += " " + said.join("; ") + " \u2014 the other models do the reading meanwhile.";
+  return t;
+}
 async function batchRunNow(caseId) {
   if (S.batch.busy) return;
-  S.batch.busy = true; S.batch.running = caseId || true;
-  flash("ok", "Scanning the inbox now — each page is read in turn with a 3 s pause, so this can take a few minutes. Keep this screen open.");
+  S.batch.busy = true; S.batch.running = caseId || true; S.batch.round = 1; S.batch.said = ""; S.batch.saidBad = false;
+  flash("ok", "Scanning now \u2014 each page is read in turn with a 3 s pause, so this can take a few minutes. Keep this screen open.");
+  let scanned = 0, failed = 0, rounds = 0, j = null;
+  const notes = [];
   try {
-    const j = await sheetApi("batchRunNow", caseId ? { caseId: caseId } : {}, 330000);
-    flash("ok", !j.ran ? "The scanner did not run: " + (j.why || "unknown reason")
-      : j.cases ? "Ran now: " + j.scanned + " scanned, " + j.failed + " failed" + (j.why ? " (" + j.why + ")" : ".")
-      : "Ran now — nothing new in the inbox" + (j.why ? " (" + j.why + ")" : "."));
-  } catch (e) { flash("err", "Could not run the scanner: " + (e.message || e)); }
-  S.batch.busy = false; S.batch.running = false; S.batch.at = 0;
-  loadBatch(true);
+    for (;;) {
+      rounds++;
+      j = await sheetApi("batchRunNow", caseId ? { caseId: caseId } : {}, 330000);
+      scanned += Number(j.scanned) || 0; failed += Number(j.failed) || 0;
+      if (j.note) notes.push(j.note);
+      if (!(j.ran && j.more === true) || rounds >= BATCH_ROUNDS_MAX) break;
+      // more to read, and the run got somewhere: the next run starts at once
+      S.batch.round = rounds + 1;
+      S.batch.said = "Still reading \u2014 run " + (rounds + 1) + " of up to " + BATCH_ROUNDS_MAX + "." + (j.note ? " " + j.note + "; the other models are reading." : "") + " Keep this screen open.";
+      try { const l = await sheetApi("batchList", {}, 40000); S.batch.list = l.cases || []; } catch (e) {}
+      if (S.step === "batch") render();
+    }
+    S.batch.said = batchScanSummary(j, scanned, failed, rounds, notes);
+  } catch (e) {
+    // the wait ran out (5\u00bd minutes): the run may still be going in the sheet, and what it read is kept
+    S.batch.said = /did not answer in time/i.test(String(e && e.message))
+      ? "The scan did not report back within 5\u00bd minutes. It may still be running in the sheet, and what it has read is kept. Press Refresh in a minute to see where it stands, then Scan now again if pages are left."
+      : "Could not run the scanner: " + (e.message || e);
+    S.batch.saidBad = true;
+  }
+  S.batch.busy = false; S.batch.running = false; S.batch.round = 0; S.batch.at = 0;
+  await loadBatch(true);
+  // the outcome is at the top of the screen; the button pressed may be far down a list
+  try { const el = S.step === "batch" && document.getElementById("batchSaid"); if (el) el.scrollIntoView({ block: "center" }); } catch (e) {}
+}
+/* Settings \u2192 "Scan the inbox now": the Inbox scans screen opens and loads
+   first; the scan starts when that is done (it used to be dropped whenever
+   the list was still loading). */
+async function batchOpenAndScan() {
+  S.step = "batch"; S.batch.q = "";
+  render();
+  await loadBatch(false);
+  batchRunNow();
 }
 async function batchRetry(caseId) {
   if (!confirm("Read this case again from scratch? Its files go back to the inbox and it is picked up at the next 5-minute check.")) return;
@@ -11277,8 +11328,8 @@ function viewBatch() {
   const b = S.batch;
   const sheetWeb = (b.status && b.status.sheetWebUrl) || S.cfg.sheetWebUrl || "";
   let h = `<div class="cardhead pad"><b>Inbox scans</b>
-    <div class="btns">${b.canEdit ? `<button class="b primary" onclick="batchRunNow()" ${b.busy ? "disabled" : ""}>${b.running ? "Scanning…" : "Scan the inbox now"}</button>` : ""}
-    <button class="b" onclick="loadBatch(true)" ${b.busy ? "disabled" : ""}>${b.busy && !b.running ? "Loading…" : "Refresh"}</button></div></div>
+    <div class="btns">${b.canEdit ? `<button class="b primary" onclick="batchRunNow()" ${b.busy ? "disabled" : ""}>${b.running ? "Scanning…" + (b.round > 1 ? " (run " + b.round + ")" : "") : "Scan the inbox now"}</button>` : ""}
+    <button class="b" onclick="S.batch.said='';S.batch.saidBad=false;loadBatch(true)" ${b.busy ? "disabled" : ""}>${b.busy && !b.running ? "Loading…" : "Refresh"}</button></div></div>
     <div class="btns" style="margin:-6px 0 14px">
       <button class="b" onclick="S.step='capture';render()">Scan on this phone</button>
       <button class="b" onclick="openRegistry()">View cases</button>
@@ -11288,6 +11339,7 @@ function viewBatch() {
     </div>`;
   if (!S.cfg.sheetUrl) return h + `<div class="warn">Set the shared Google Sheet URL in Settings first — the inbox scanner runs in the sheet's script.</div>`;
   if (b.err) h += `<div class="warn err">${esc2(b.err)}</div>`;
+  if (b.said) h += `<div class="warn ${b.saidBad ? "err" : "blue"}" id="batchSaid">${esc2(b.said)}</div>`;
   const st = b.status;
   if (st) {
     const bits = [];
@@ -11296,11 +11348,15 @@ function viewBatch() {
     bits.push(st.promptsVersion ? "reading prompts from app v" + st.promptsVersion + (st.ptcaPrompts === false ? " (CAG only — tap Send reading prompts for PTCA)" : "") : "no reading prompts yet — an editor must open this app once");
     if (st.last && st.last.at) bits.push("last run " + String(st.last.at).replace("T", " ").slice(0, 16) + " UTC: " + st.last.scanned + " scanned, " + st.last.failed + " failed" + (st.last.secs ? ", " + st.last.secs + " s" : "") + (st.last.why ? " (" + st.last.why + ")" : ""));
     if (st.running) bits.push("a run is in progress now (started " + String(st.running.at).replace("T", " ").slice(11, 16) + " UTC)");
+    // 13.43: a model resting because it did not answer is told apart from one whose limit is used up
+    const restSlow = (st.resting || []).filter(function (r) { return r.why === "slow"; });
+    const restLimit = (st.resting || []).filter(function (r) { return r.why !== "slow"; });
     h += `<div class="card"><div class="cardhead"><b>Scanner</b><div class="btns" style="margin:0">${st.cagUrl ? `<a class="b" href="${esc2(st.cagUrl)}" target="_blank" rel="noopener">CAG folder</a>` : ""}${st.ptcaUrl ? `<a class="b" href="${esc2(st.ptcaUrl)}" target="_blank" rel="noopener">PTCA folder</a>` : ""}${st.inboxUrl ? `<a class="b" href="${esc2(st.inboxUrl)}" target="_blank" rel="noopener">${st.cagUrl ? "Inbox" : "Open the inbox folder"}</a>` : ""}</div></div>
       <p class="hint">${esc2(bits.join(" · "))}</p>
       ${st.cutOff ? `<p class="hint" style="color:#8a6a12">${esc2(st.cutOff)}</p>` : ""}
       ${scheduleLineHtml(st)}
-      ${(st.usage || []).length || st.last429 ? `<p class="hint">Scanner's Gemini requests today: ${esc2((st.usage || []).map(function (u) { return u.label + " " + u.n; }).join(", ") || "none")}${st.last429 ? ` · <b style="color:#c00000">limit hit: ${esc2(st.last429)}</b>` : ""}${(st.resting || []).length ? ` · resting until ${esc2(st.resting.map(function (r) { return r.label + " " + r.until; }).join(", "))} — the other free models are used meanwhile` : ""} — Google does not report what is left; a limit shows here as soon as it is hit. Each free model has its own daily limit, so the scanner moves to the next one when a limit is hit.</p>` : ""}
+      ${(st.usage || []).length || st.last429 ? `<p class="hint">Scanner's Gemini requests today: ${esc2((st.usage || []).map(function (u) { return u.label + " " + u.n; }).join(", ") || "none")}${st.last429 ? ` · <b style="color:#c00000">limit hit: ${esc2(st.last429)}</b>` : ""}${restLimit.length ? ` · resting until ${esc2(restLimit.map(function (r) { return r.label + " " + r.until; }).join(", "))} — the other free models are used meanwhile` : ""} — Google does not report what is left; a limit shows here as soon as it is hit. Each free model has its own daily limit, so the scanner moves to the next one when a limit is hit.</p>` : ""}
+      ${restSlow.length ? `<p class="hint" style="color:#8a6a12"><b>Not answering: ${esc2(restSlow.map(function (r) { return r.label; }).join(", "))}</b> — left alone until ${esc2(restSlow.map(function (r) { return r.until; }).join(", "))}; the other models do the reading meanwhile.${st.lastSlow ? " Last: " + esc2(st.lastSlow) + "." : ""} The scanner gives a model ${st.fetchSec || 90} s to answer.</p>` : ""}
       <p class="hint">Drive housekeeping: ${st.hkOn === false ? "<b>off</b> (files stay in Drive until turned on in Settings)" : "once more than " + (st.keep || 150) + " cases still have their files, the oldest " + (st.prune || 20) + " checked or failed cases lose their PDFs/photos (the readings and the report stay in the sheet; a case waiting to be checked is never touched)"}. Change it in Settings.</p>
       <p class="hint">The inbox has two folders: <b>CAG</b> for angiogram proformas and <b>PTCA</b> for PTCA proformas (with the utilization report). Residents put a case's pages in the right folder: the whole proforma as one PDF, or photos named like <b>1906_1.jpg, 1906_2.jpg …</b> (any shared name before _1, _2). Photos with no shared name are grouped by upload time and flagged.${st.cagUrl ? "" : " The folders appear after setupBatchScanner is run on Code13.13 (files in the inbox itself count as CAG)."}</p>
       ${b.canEdit ? `<div class="btns">
@@ -11676,7 +11732,7 @@ setMode,skipScan,buildPtcaReport,downloadPtcaDocx,addPtcaToRegistry,fetchCagData
 DEFAULT_HARDWARE,activeHardware,hwNorm,hwKind,hwFind,hwExpandDevice,hwMatchWords,hwExpandCell,hwExpandUtil,hwSheathFr,hwSiteText,hwNote,hwListProblems,hwStatusText,hwStatusShow,HW_ROW_KINDS,FH,utilExpandedNote,textToOperators,operatorsToText,
 UTIL_PX,UTIL_IMG_COL,UTIL_ROWS,UV,UV_STEPS,utilStoredUrl,utilReadHtml,utilSheetPanel,openUtilView,utilZoom,closeUtilView,currentUtilImage,noteUtilUrl,utilLink,
 PTCA_REVIEWERS,PROMPT_Q4,PROMPT_U,UTIL_VESSELS,blankUtilGrid,blankUtilCol,PTCA_SEG_GROUPS,PTCA_TO_TOKENS,segSiteInfo,segRangePhrase,segGroupOf,ptcaToVessels,splitDevices,deviceDia,stentParts,utilLookup,utilBalloonsOf,utilAllBalloons,utilStentsOf,pickPodBalloon,deriveTargets,prdMapText,podMapText,stentMapText,techniqueSentences,togUtilCol,rebuildPlan,stripWirePrefix,lcFirst,stentLabel,lesionSiteOf,
-openBatch,loadBatch,batchRunNow,batchRetry,batchDismiss,openBatchCase,batchToggleBig,batchPushPrompts,batchListsHtml,batchPanel,viewBatch,batchPromptSet,noTemperature,geminiRequest,mcCheckNow,mcChoose,mcCleanCat,mcDismissNote,mcRefresh,mcMaybeRefresh,mcApply,mcBoot,mcDue,mcLastFive,mcDeviceCheck,mcBlock,mcSettingsHtml,mcActiveCat,mcUsable,mcDefault,mcSheetCheckText,MODELS,MODEL_STATE,getModelFallbackChain,runModelChain,modelLabel,shortError,modelFailure});
+openBatch,loadBatch,batchRunNow,batchOpenAndScan,batchScanSummary,BATCH_ROUNDS_MAX,batchRetry,batchDismiss,openBatchCase,batchToggleBig,batchPushPrompts,batchListsHtml,batchPanel,viewBatch,batchPromptSet,noTemperature,geminiRequest,mcCheckNow,mcChoose,mcCleanCat,mcDismissNote,mcRefresh,mcMaybeRefresh,mcApply,mcBoot,mcDue,mcLastFive,mcDeviceCheck,mcBlock,mcSettingsHtml,mcActiveCat,mcUsable,mcDefault,mcSheetCheckText,MODELS,MODEL_STATE,getModelFallbackChain,runModelChain,modelLabel,shortError,modelFailure});
 </script>
 
 

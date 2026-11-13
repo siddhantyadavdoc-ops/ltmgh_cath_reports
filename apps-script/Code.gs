@@ -70,6 +70,8 @@
  *   BATCH_INBOX        folder name, default "CAG Inbox"
  *   BATCH_INBOX_SHARE  link-edit | private   default private (share by hand)
  *   BATCH_GAP_SEC      seconds between steps, default 3
+ *   BATCH_FETCH_SEC    seconds one request to a model may take, default 90
+ *                      (20 to 240) — see 13.43 below
  *   BATCH_MODEL_READ   Gemini model for reading pages (default: the best
  *                      Flash model the daily check found free)
  *   BATCH_MODEL_PAGE   Gemini model for recognising which page is which
@@ -80,6 +82,31 @@
  * New actions for the app: batchStatus, batchList, batchGet, batchFile
  * (anyone with the URL); batchPrompts, batchRetry, batchMark, batchRunNow
  * (edit key). "whoami" replies v: 13 and says whether the scanner is set up.
+ *
+ * What changed in 13.43 — a model that does not answer no longer stops the scanner
+ * - On 13 Nov 2026 Gemini 3.8 Flash, the first-choice reading model, held
+ *   requests for minutes without answering. Apps Script waits 6 minutes for
+ *   an answer by default, and Google ends a run at 6 minutes, so every run
+ *   was spent waiting: nothing was read, and the next run began with the same
+ *   model. "Scan now" in the app ended with "the sheet did not answer".
+ * - Every request to a model now has its own limit: 90 s (script property
+ *   BATCH_FETCH_SEC), and never past the 300th second of a run.
+ * - A model that does not answer in that time, or answers with a fault only
+ *   after 45 s, is left alone for 30 minutes; the next model of the chain
+ *   carries on with the same page. The log and the app say which model.
+ * - If Google still ends a run while it waits (the request "in the air" is
+ *   kept in BATCH_FLIGHT), the next run leaves that model alone for an hour
+ *   before doing anything else, and says so in the Batch log.
+ * - Each case row is written through to the sheet at once, so a run that is
+ *   cut off cannot lose the page it had just read.
+ * - A run that stops on an error of the script's own says so ("run: error"),
+ *   instead of looking like one cut off by Google.
+ * - The daily model check's requests have a limit as well (30 s each): that
+ *   morning's check had been lost the same way, waiting for the same model.
+ * - batchRunNow also answers with "more" (work is left only because the run
+ *   ran out of time, and it got somewhere) and "note" (models set aside), so
+ *   the app can carry on by itself. batchStatus adds lastSlow, fetchSec, and
+ *   why each resting model rests ("slow" or "limit").
  *
  * What changed in 13.41 — the hardware list
  * - The "Rosters" tab keeps a third list beside the doctors' and the
@@ -124,7 +151,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -807,6 +834,27 @@ var BATCH_MIN_AGE_MS = 2 * 60 * 1000;   // a file is picked up once it is this o
 var BATCH_BURST_MS = 3 * 60 * 1000;     // photos this close together, with no shared stem, are one case
 var BATCH_MAX_FILE = 20 * 1024 * 1024;  // Gemini's inline limit is 20 MB
 var BATCH_FETCH_TIMEOUT_NOTE = "Google did not answer within the time limit (the file may be too large or the service slow)";
+/* 13.43 — one request to a model may not take the whole run.
+   Apps Script waits up to 6 minutes for an answer unless told otherwise, and
+   6 minutes is also when Google ends the run: a model that stays silent
+   (Gemini 3.8 Flash did, on 13 Nov 2026) used to cost the whole run, nothing
+   was read, and the next run began with the same model again. Now:
+   - every request carries its own limit (timeoutSeconds), BATCH_FETCH_SEC
+     seconds (script property; default 90), and never past BATCH_RUN_END_MS
+     of the run;
+   - a model that does not answer in that time, or answers with a fault only
+     after BATCH_SLOW_MS, is left alone for BATCH_SLOW_REST_MS and the next
+     model of the chain carries on;
+   - should a run still be cut off while waiting (BATCH_FLIGHT is written
+     before each request and removed after it), the next run leaves that
+     model alone for BATCH_CUT_REST_MS before it does anything else. */
+var BATCH_FETCH_SEC_DEFAULT = 90;
+var BATCH_RUN_END_MS = 300000;          // no request may run past this point of a run (Google ends the run at 360 s; the app waits 330 s)
+var BATCH_SLOW_MS = 45000;              // a fault that took this long to arrive counts as "not answering"
+var BATCH_SLOW_REST_MS = 30 * 60000;    // a model that did not answer is left alone this long
+var BATCH_CUT_REST_MS = 60 * 60000;     // … one that a whole run was lost waiting for, this long
+var BATCH_RUN_ = { start: 0, ok: 0, rested: 0, notes: [] };   // this run: when it began, answers received, models set aside (and what to say about them)
+var BATCH_NO_TIMEOUT_ = false;          // an Apps Script that refuses timeoutSeconds: requests go without it for the rest of the run
 var BATCH_HEAD = ["Case id", "Status", "Created", "Updated", "Files", "File ids", "Pages", "Grouping",
                   "Name", "CAG No", "Page map", "Results", "Errors", "Log", "Models", "Opened by", "Saved by", "Run id", "Type",
                   "Uploaded", "Scanned at", "Checked at", "Files removed", "Draft", "Draft at", "Draft by", "Draft ms", "Read by"];
@@ -960,7 +1008,14 @@ function batchCallChain_(key, chain, prompt, item, pdfPage, pause, timeLeft) {
   // a model whose free limit was hit in the last hour is skipped outright
   var resting = batchResting_();
   var live = chain.filter(function (m) { return !resting[m]; });
-  if (!live.length) return { ok: false, quota: true, retry: true, reason: "every free model's limit is used up for now (" + chain.join(", ") + ") — the scanner carries on in a later run" };
+  if (!live.length) {
+    // 13.43: a model may also be resting because it did not answer
+    var why = batchUsage_().restWhy || {};
+    var silent = chain.filter(function (m) { return why[m] === "slow"; });
+    return { ok: false, quota: true, retry: true, reason: (!silent.length ? "every free model's limit is used up for now (" + chain.join(", ") + ")"
+      : silent.length === chain.length ? "none of the models is answering just now (" + chain.join(", ") + ")"
+      : "no model is free just now (" + chain.map(function (m) { return m + (why[m] === "slow" ? ": not answering" : ": limit used up"); }).join(", ") + ")") + " — the scanner carries on in a later run" };
+  }
   if (BATCH_GUARD_) {
     var cl = batchCappedLeft_(), caps0 = {};
     cl.models.forEach(function (x) { caps0[x.model] = 1; });
@@ -1094,6 +1149,7 @@ function batchCappedLeft_() {
 function batchTick(opts) {
   opts = opts || {};
   var start = Date.now();
+  BATCH_RUN_ = { start: start, ok: 0, rested: 0, notes: [] };
   var runId = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss");
   if (batchOff_()) return { ran: false, why: "off" };
   // an automatic run outside the scan window does nothing (a scan started from the app always runs)
@@ -1105,17 +1161,21 @@ function batchTick(opts) {
   }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(opts.fromApp ? 5000 : 1000)) { batchLogRow_(runId, "", "", "run", "skipped", "another run is in progress"); return { ran: false, why: "another run is in progress" }; }
-  var summary = { ran: true, runId: runId, cases: 0, scanned: 0, failed: 0, pending: 0, why: "" };
+  var summary = { ran: true, runId: runId, cases: 0, scanned: 0, failed: 0, pending: 0, why: "", more: false, note: "" };
+  var props = PropertiesService.getScriptProperties();
+  // 13.43: the run before this one never reached its end (this run holds the
+  // lock, so that one is over) — the model it was waiting for is set aside
+  batchPrevCutOff_(props, runId);
   // a heartbeat: a run that Google kills at its 6-minute limit never gets to
   // write BATCH_LAST, so the start is written first and a stale start is
   // reported by batchStatus_ as "cut off"
-  var props = PropertiesService.getScriptProperties();
   props.setProperty("BATCH_RUNNING", JSON.stringify({ at: new Date().toISOString(), runId: runId, fromApp: !!opts.fromApp, caseId: String(opts.caseId || "") }));
+  var ended = false;     // true once the run has reached an end of its own (so BATCH_RUNNING may go)
   try {
     var key = geminiKey_();
-    if (!key) { batchLogRow_(runId, "", "", "run", "skipped", "no GEMINI_KEY in the script properties"); summary.why = "no GEMINI_KEY"; return summary; }
+    if (!key) { batchLogRow_(runId, "", "", "run", "skipped", "no GEMINI_KEY in the script properties"); summary.why = "no GEMINI_KEY"; ended = true; return summary; }
     var prompts = batchPrompts_();
-    if (!prompts) { batchLogRow_(runId, "", "", "run", "skipped", "no reading prompts yet — open the app once as an editor"); summary.why = "no prompts"; return summary; }
+    if (!prompts) { batchLogRow_(runId, "", "", "run", "skipped", "no reading prompts yet — open the app once as an editor"); summary.why = "no prompts"; ended = true; return summary; }
     var models = batchModels_();
     var f = batchFolders_();
     var tab = batchTabRows_();
@@ -1124,7 +1184,7 @@ function batchTick(opts) {
     if (opts.caseId) {
       // "Scan now" on one case: that case alone, whatever its state
       work = tab.rows.filter(function (r) { return r.caseId === String(opts.caseId); });
-      if (!work.length) { summary.why = "case not found"; return summary; }
+      if (!work.length) { summary.why = "case not found"; ended = true; return summary; }
       if (work[0].status !== "reading" && work[0].status !== "queued") { work[0].status = "queued"; }
     } else {
       // a run started from the app takes what is in the inbox now: the
@@ -1136,25 +1196,62 @@ function batchTick(opts) {
     // one line per run that has something to do (quiet runs are not logged)
     if (work.length) batchLogRow_(runId, "", "", "run", opts.fromApp ? (opts.caseId ? "scan now (one case)" : "scan now") : "started",
       work.length + " case(s) to work on: " + work.map(function (c) { return c.caseId + " [" + c.status + "]"; }).join(", "));
+    var paused = 0, stopped = false;
     for (var i = 0; i < work.length; i++) {
-      if (Date.now() - start > BATCH_BUDGET_MS - 30000) { summary.why = "time budget used; the rest continue next run"; break; }
+      if (Date.now() - start > BATCH_BUDGET_MS - 30000) { summary.why = "time budget used; the rest continue next run"; paused++; break; }
       var c = work[i];
       var r = batchProcessCase_(c, f, prompts, models, key, start, runId);
       summary.cases++;
       if (r === "scanned") summary.scanned++;
       else if (r === "failed") summary.failed++;
-      else if (r === "stopped") { summary.why = c.stopWhy || "stopped"; break; }
+      else if (r === "stopped") { summary.why = c.stopWhy || "stopped"; stopped = true; break; }
+      else paused++;
     }
     summary.pending = Math.max(0, summary.pending - summary.scanned - summary.failed);
+    // 13.43, for a scan started from the app: work is left only because this
+    // run ran out of time, and it got somewhere (a page was answered, or a
+    // silent model was set aside) — the app starts the next run itself
+    summary.more = paused > 0 && !stopped && (BATCH_RUN_.ok > 0 || BATCH_RUN_.rested > 0);
+    summary.note = BATCH_RUN_.notes.join("; ");
     try { var hk = batchHousekeep_(f, runId); if (hk) summary.why = (summary.why ? summary.why + "; " : "") + hk; } catch (e) { batchLogRow_(runId, "", "", "housekeeping", "failed", String(e && e.message || e)); }
-    if (summary.cases || summary.why) batchLogRow_(runId, "", "", "run", "finished", summary.cases + " case(s) worked on, " + summary.scanned + " scanned, " + summary.failed + " failed" + (summary.why ? " \u2014 " + summary.why : "") + ", " + Math.round((Date.now() - start) / 1000) + " s");
+    if (summary.cases || summary.why) batchLogRow_(runId, "", "", "run", "finished", summary.cases + " case(s) worked on, " + summary.scanned + " scanned, " + summary.failed + " failed" + (summary.why ? " — " + summary.why : "") + (summary.note ? " — " + summary.note : "") + ", " + Math.round((Date.now() - start) / 1000) + " s");
     props.setProperty("BATCH_LAST", JSON.stringify({ at: new Date().toISOString(), runId: runId,
       cases: summary.cases, scanned: summary.scanned, failed: summary.failed, why: summary.why, secs: Math.round((Date.now() - start) / 1000) }));
-    props.deleteProperty("BATCH_RUNNING");
+    ended = true;
+  } catch (err) {
+    // an error of the script's own (Drive, the sheet): said so, rather than left looking like Google's time limit
+    var em = String(err && err.message || err);
+    batchLogRow_(runId, "", "", "run", "error", em);
+    try { props.setProperty("BATCH_LAST", JSON.stringify({ at: new Date().toISOString(), runId: runId,
+      cases: summary.cases, scanned: summary.scanned, failed: summary.failed, why: "stopped by an error: " + em.slice(0, 300), secs: Math.round((Date.now() - start) / 1000) })); } catch (x) {}
+    ended = true;
+    throw err;
   } finally {
+    if (ended) { try { props.deleteProperty("BATCH_RUNNING"); } catch (x) {} }
     try { lock.releaseLock(); } catch (x) {}
   }
   return summary;
+}
+/* The run before this one left its heartbeat behind: it never reached its
+   end. If a request to a model was in the air at that moment (BATCH_FLIGHT),
+   Google ended the run while it waited for that model — the model is left
+   alone for BATCH_CUT_REST_MS, so this run starts with the next one instead
+   of waiting for the same silence again. */
+function batchPrevCutOff_(props, runId) {
+  try {
+    var prev = null, flight = null;
+    try { prev = JSON.parse(props.getProperty("BATCH_RUNNING") || "null"); } catch (e) {}
+    try { flight = JSON.parse(props.getProperty("BATCH_FLIGHT") || "null"); } catch (e) {}
+    if (flight) props.deleteProperty("BATCH_FLIGHT");
+    if (!prev || !prev.at) return;
+    var when = String(prev.at).replace("T", " ").slice(0, 16) + " UTC";
+    if (flight && flight.model && Date.now() - Number(flight.at || 0) < 3 * 3600000) {
+      var until = batchRestSlow_(String(flight.model), BATCH_CUT_REST_MS, "a run was ended by Google while waiting for it");
+      batchLogRow_(runId, "", "", "run", "cut off earlier", "the run that started at " + when + " was ended by Google at its 6-minute limit while waiting for " + flight.model + " — that model is left alone until " + until + "; the other models carry on");
+    } else {
+      batchLogRow_(runId, "", "", "run", "cut off earlier", "the run that started at " + when + " did not finish (Google's 6-minute limit)");
+    }
+  } catch (e) {}
 }
 
 /* ---- the Batch scans tab ---- */
@@ -1218,6 +1315,9 @@ function batchWriteRow_(c) {
   } else sh.getRange(c.row, 1, 1, BATCH_HEAD.length).setValues([vals]);
   // ids and numbers as text, never dates or numbers
   sh.getRange(c.row, 1, 1, 10).setNumberFormat("@");
+  // 13.43: written through at once — a run that Google ends while it waits
+  // for a model must not take the last page's reading with it
+  try { SpreadsheetApp.flush(); } catch (e) {}
 }
 function batchLogRow_(runId, caseId, page, step, outcome, detail) {
   try {
@@ -1860,16 +1960,33 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
     generationConfig: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json" }
   };
   batchCount_(model);
-  var resp;
+  // 13.43: the request has a time limit of its own, and is marked as "in the
+  // air" while it waits — see BATCH_FETCH_SEC_DEFAULT
+  var limit = batchFetchSec_();
+  var resp, t0 = Date.now(), took;
+  batchFlight_(model);
   try {
-    resp = UrlFetchApp.fetch(GEMINI_API + "/models/" + model + ":generateContent", {
+    resp = batchFetch_(GEMINI_API + "/models/" + model + ":generateContent", {
       method: "post", contentType: "application/json", headers: { "x-goog-api-key": key },
-      payload: JSON.stringify(body), muteHttpExceptions: true });
+      payload: JSON.stringify(body), muteHttpExceptions: true }, limit);
   } catch (e) {
+    took = Date.now() - t0;
+    batchFlightEnd_();
     var msg = String(e && e.message || e);
-    return { ok: false, reason: /timed? ?out|Timeout/i.test(msg) ? BATCH_FETCH_TIMEOUT_NOTE : "the request to Google failed: " + msg, retry: true };
+    if (/timed? ?out|Timeout|deadline/i.test(msg) || took >= (limit - 2) * 1000) {
+      var till = batchRestSlow_(model, BATCH_SLOW_REST_MS, "no answer in " + Math.round(took / 1000) + " s");
+      return { ok: false, slow: true, retry: true, reason: model + " did not answer within " + Math.round(took / 1000) + " s — it is left alone until " + till + " and the other models are used" };
+    }
+    return { ok: false, reason: "the request to Google failed: " + msg, retry: true };
   }
+  took = Date.now() - t0;
+  batchFlightEnd_();
   var code = resp.getResponseCode(), text = resp.getContentText();
+  // a fault that took most of a minute to arrive — or, whatever its number, the
+  // whole time allowed — is the same trouble as no answer at all (a used-up
+  // limit, 429, has its own rest below)
+  var late = code !== 200 && code !== 429 && took >= (limit - 2) * 1000;
+  if ((code >= 500 && took >= BATCH_SLOW_MS) || late) batchRestSlow_(model, BATCH_SLOW_REST_MS, "answered " + code + " only after " + Math.round(took / 1000) + " s");
   if (code !== 200) {
     var cls = mcClassify(code, text, model);
     // either kind of 429 ends this run: a used-up limit resets later, a
@@ -1888,7 +2005,7 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
       : code === 400 && /too large|exceeds|size/i.test(text) ? item.name + " is too large for the model — re-upload it smaller"
       : code >= 500 ? "Google answered " + code + " (a temporary fault on their side)"
       : "Google answered " + code + ": " + cls.note;
-    return { ok: false, reason: reason, retry: code >= 500 || code === 0, quota: quota, nofree: nofree };
+    return { ok: false, reason: reason, retry: code >= 500 || code === 0 || late, quota: quota, nofree: nofree };
   }
   var j;
   try { j = JSON.parse(text); } catch (e) { return { ok: false, reason: "Google's reply was not readable", retry: true }; }
@@ -1903,7 +2020,72 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
   if (fin === "SAFETY" || fin === "RECITATION") return { ok: false, reason: "the model stopped (" + fin + ")", retry: false };
   var parsed = batchParseJson_(out);
   if (parsed === undefined) return { ok: false, reason: "the model's answer was not valid JSON (it wrote text instead of the form's fields)", retry: true };
+  BATCH_RUN_.ok++;
   return { ok: true, json: parsed, asImage: asImage };
+}
+/* how long this request may take: BATCH_FETCH_SEC (script property, 20 to
+   240 s; default 90), and never past BATCH_RUN_END_MS of the run */
+function batchFetchSec_() {
+  var raw = PropertiesService.getScriptProperties().getProperty("BATCH_FETCH_SEC");
+  var v = Number(raw);
+  var sec = raw != null && String(raw).trim() !== "" && isFinite(v) ? Math.max(20, Math.min(240, Math.round(v))) : BATCH_FETCH_SEC_DEFAULT;
+  if (BATCH_RUN_.start) sec = Math.min(sec, Math.floor((BATCH_RUN_END_MS - (Date.now() - BATCH_RUN_.start)) / 1000));
+  return Math.max(15, sec);
+}
+/* UrlFetchApp with the time limit.
+   An Apps Script that will not take timeoutSeconds throws at once instead of
+   sending. When it names the option ("Attribute provided with invalid value:
+   timeoutseconds") the request is sent again as before, and so are the rest
+   of this run's. When it throws at once without naming it, that may be a
+   passing fault ("Unexpected error"), so the first such request simply fails
+   (the next model, or the next run, carries on); a second in a row is sent
+   again without the option, and if that goes through the option is dropped
+   for the rest of the run. A request that waited before failing is never
+   taken for a refusal — the limit stays. */
+var BATCH_REFUSED_RE = /timeout[ _]?seconds|attribute provided/i;
+var BATCH_REFUSALS_ = 0;       // requests in a row that were thrown back at once
+function batchFetch_(url, opt, limitSec) {
+  if (BATCH_NO_TIMEOUT_) return UrlFetchApp.fetch(url, opt);
+  var withLimit = { timeoutSeconds: limitSec };
+  Object.keys(opt).forEach(function (k) { withLimit[k] = opt[k]; });
+  var t0 = Date.now(), resp;
+  try { resp = UrlFetchApp.fetch(url, withLimit); }
+  catch (e) {
+    if (Date.now() - t0 >= 3000) { BATCH_REFUSALS_ = 0; throw e; }
+    var named = BATCH_REFUSED_RE.test(String(e && e.message || e));
+    if (!named && ++BATCH_REFUSALS_ < 2) throw e;
+    resp = UrlFetchApp.fetch(url, opt);           // a fault of its own is thrown on from here
+    BATCH_NO_TIMEOUT_ = true;
+    return resp;
+  }
+  BATCH_REFUSALS_ = 0;
+  return resp;
+}
+/* the request now in the air (written before it, removed after it): what a
+   run that Google ended was waiting for */
+function batchFlight_(model) {
+  try { PropertiesService.getScriptProperties().setProperty("BATCH_FLIGHT", JSON.stringify({ model: model, at: Date.now() })); } catch (e) {}
+}
+function batchFlightEnd_() {
+  try { PropertiesService.getScriptProperties().deleteProperty("BATCH_FLIGHT"); } catch (e) {}
+}
+/* a model that is not answering is left alone for a while (kept with the
+   limit rests, so batchCallChain_ passes over it); a longer rest it already
+   has stays. Returns the time it is left alone until, on the sheet's clock. */
+function batchRestSlow_(model, restMs, note) {
+  var until = Date.now() + restMs;
+  try {
+    var u = batchUsage_();
+    var had = u.rest[model] != null ? Number(u.rest[model]) + BATCH_REST_MS : 0;
+    if (had > until) until = had;
+    else { u.rest[model] = until - BATCH_REST_MS; u.restWhy = u.restWhy || {}; u.restWhy[model] = "slow"; }
+    u.lastSlow = model + " (" + note + ") at " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
+    PropertiesService.getScriptProperties().setProperty("BATCH_USAGE", JSON.stringify(u));
+  } catch (e) {}
+  var till = Utilities.formatDate(new Date(until), Session.getScriptTimeZone(), "HH:mm");
+  BATCH_RUN_.rested++;
+  BATCH_RUN_.notes.push(mcLabel(model) + " did not answer (" + note + ") and is left alone until " + till);
+  return till;
 }
 function batchParseJson_(s) {
   s = String(s == null ? "" : s).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
@@ -1958,7 +2140,8 @@ function batchCount_(model, hit429, restModel, restMs) {
     var u = batchUsage_();
     if (model) u.counts[model] = (u.counts[model] || 0) + 1;
     if (hit429) u.last429 = hit429 + " at " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
-    if (restModel) u.rest[restModel] = Date.now() + (restMs || BATCH_REST_MS) - BATCH_REST_MS;   // "until" stored as start + rest − hour
+    if (restModel) { u.rest[restModel] = Date.now() + (restMs || BATCH_REST_MS) - BATCH_REST_MS;   // "until" stored as start + rest − hour
+      if (u.restWhy) delete u.restWhy[restModel]; }
     PropertiesService.getScriptProperties().setProperty("BATCH_USAGE", JSON.stringify(u));
   } catch (e) {}
 }
@@ -1984,13 +2167,19 @@ function batchStatus_() {
   var cutOff = "";
   if (running && running.at) {
     var age = Date.now() - new Date(running.at).getTime();
-    if (age > 7 * 60000) cutOff = "a run that started at " + String(running.at).replace("T", " ").slice(0, 16) + " UTC did not finish \u2014 cut off at Google's 6-minute limit; what it had read is kept and the rest continues";
+    if (age > 7 * 60000) {
+      // 13.43: what it was waiting for, when that is known
+      var flight = null; try { flight = JSON.parse(props.getProperty("BATCH_FLIGHT") || "null"); } catch (e) {}
+      cutOff = "a run that started at " + String(running.at).replace("T", " ").slice(0, 16) + " UTC did not finish \u2014 cut off at Google's 6-minute limit" +
+        (flight && flight.model ? " while waiting for " + mcLabel(flight.model) + "; the next scan leaves that model alone and uses the others" : "") + "; what it had read is kept and the rest continues";
+    }
     else running = Object.assign(running, { live: true });
   }
   var u = batchUsage_();
   var usage = Object.keys(u.counts).map(function (m) { return { model: m, label: mcLabel(m), n: u.counts[m] }; });
   var rest = batchResting_();
-  var resting = Object.keys(rest).map(function (m) { return { model: m, label: mcLabel(m), until: Utilities.formatDate(new Date(rest[m] + BATCH_REST_MS), Session.getScriptTimeZone(), "HH:mm") }; });
+  var restWhy = u.restWhy || {};
+  var resting = Object.keys(rest).map(function (m) { return { model: m, label: mcLabel(m), why: restWhy[m] === "slow" ? "slow" : "limit", until: Utilities.formatDate(new Date(rest[m] + BATCH_REST_MS), Session.getScriptTimeZone(), "HH:mm") }; });
   var p = batchPrompts_();
   var inboxUrl = "", cagUrl = "", ptcaUrl = "";
   try {
@@ -2006,7 +2195,7 @@ function batchStatus_() {
     promptsVersion: p ? String(p.appVersion || "") : "", promptsSentAt: p ? String(p.sentAt || "") : "",
     inboxUrl: inboxUrl, cagUrl: cagUrl, ptcaUrl: ptcaUrl, ptcaPrompts: !!(p && p.ptcaReady),
     everyMin: BATCH_EVERY_MIN, gapSec: batchGapMs_() / 1000, models: batchModels_(), last: last, keep: batchKeepN_(), prune: batchPruneN_(), hkOn: !batchHousekeepOff_(),
-    running: running && running.live ? running : null, cutOff: cutOff, usage: usage, last429: u.last429 || "", resting: resting,
+    running: running && running.live ? running : null, cutOff: cutOff, usage: usage, last429: u.last429 || "", lastSlow: u.lastSlow || "", resting: resting, fetchSec: batchFetchSec_(),
     schedule: batchPlan_(), reserveLeft: batchCappedLeft_() };
 }
 function batchList_() {
@@ -2187,10 +2376,22 @@ function checkGeminiModels() {
   }
 }
 
+/* 13.43 — the daily check's requests have a time limit too. A model that
+   holds a request without answering kept the whole check waiting until
+   Google ended it at 6 minutes, and the day's list was never written (13 Nov
+   2026). Each test request, and the model list itself, is now given
+   MC_PROBE_SEC; a model that stays silent is marked "no answer", as a
+   request that failed outright always was. No new test request is sent once
+   the check has run for MC_BUDGET_MS. */
+var MC_PROBE_SEC = 30;
+var MC_BUDGET_MS = 240000;
+var MC_T0_ = 0;            // when this check began
 function runModelCheck_(key, prev, nowIso) {
+  MC_T0_ = Date.now();
   var cands = mcCandidates(listGeminiModels_(key));
   var results = {};
   for (var round = 0; round < 8; round++) {
+    if (Date.now() - MC_T0_ > MC_BUDGET_MS) break;
     var batch = mcNextBatch(cands, results);
     if (!batch.length) break;
     var answers = fetchAllSafe_(batch.map(function (c) {
@@ -2207,11 +2408,22 @@ function runModelCheck_(key, prev, nowIso) {
    silent model only marks that model as "no answer". */
 function fetchAllSafe_(reqs) {
   var read = function (a) { return { code: a.getResponseCode(), body: a.getContentText() }; };
+  var limited = !BATCH_NO_TIMEOUT_;
+  var list = !limited ? reqs : reqs.map(function (r) {
+    var o = { timeoutSeconds: MC_PROBE_SEC };
+    Object.keys(r).forEach(function (k) { o[k] = r[k]; });
+    return o;
+  });
+  var t0 = Date.now();
   try {
-    return UrlFetchApp.fetchAll(reqs).map(read);
+    return UrlFetchApp.fetchAll(list).map(read);
   } catch (e) {
+    // an Apps Script that will not take timeoutSeconds refuses it at once, naming it: the same again
+    // without it (a refusal that does not name it is found out one request at a time, by batchFetch_)
+    if (limited && Date.now() - t0 < 3000 && BATCH_REFUSED_RE.test(String(e && e.message || e))) { BATCH_NO_TIMEOUT_ = true; return fetchAllSafe_(reqs); }
     return reqs.map(function (r) {
-      try { return read(UrlFetchApp.fetch(r.url, r)); }
+      if (MC_T0_ && Date.now() - MC_T0_ > MC_BUDGET_MS) return { code: 0, body: "not tested (the check ran out of time)" };
+      try { return read(batchFetch_(r.url, r, MC_PROBE_SEC)); }
       catch (e2) { return { code: 0, body: String((e2 && e2.message) || e2) }; }
     });
   }
@@ -2220,8 +2432,13 @@ function fetchAllSafe_(reqs) {
 function listGeminiModels_(key) {
   var all = [], token = "";
   for (var page = 0; page < 10; page++) {
-    var r = UrlFetchApp.fetch(GEMINI_API + "/models?pageSize=1000" + (token ? "&pageToken=" + encodeURIComponent(token) : ""),
-      { headers: { "x-goog-api-key": key }, muteHttpExceptions: true });
+    var listUrl = GEMINI_API + "/models?pageSize=1000" + (token ? "&pageToken=" + encodeURIComponent(token) : "");
+    var listOpt = { headers: { "x-goog-api-key": key }, muteHttpExceptions: true };
+    var r;
+    // 13.43: with a time limit, and asked once more when it fails (a passing fault, or
+    // an Apps Script that will not take the limit — batchFetch_ finds that out on the second request)
+    try { r = batchFetch_(listUrl, listOpt, MC_PROBE_SEC); }
+    catch (e0) { r = batchFetch_(listUrl, listOpt, MC_PROBE_SEC); }
     var code = r.getResponseCode(), text = r.getContentText();
     if (code !== 200) {
       var c = mcClassify(code, text, "");
