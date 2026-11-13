@@ -1,0 +1,8 @@
+# Netlify publishes the app from site/. A push that does not change anything in
+# site/ (the Apps Script code, versioned copies in releases/, proformas, notes)
+# is skipped, so it does not use a production deploy (15 credits each).
+# Exit 0 = nothing changed in site/ -> skip; exit 1 = changed -> build.
+# CACHED_COMMIT_REF is the last commit Netlify actually published, so changes
+# made while deploys were skipped are still picked up by the next build.
+[build]
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- site/"
