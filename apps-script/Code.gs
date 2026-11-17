@@ -83,6 +83,39 @@
  * (anyone with the URL); batchPrompts, batchRetry, batchMark, batchRunNow
  * (edit key). "whoami" replies v: 13 and says whether the scanner is set up.
  *
+ * What changed in 13.44 — the cath lab's technicians: stents and inventory
+ * - A key of their own: script property TECH_KEY (different from EDIT_KEY).
+ *   An editor can set it from the app (Settings → Technicians' key → "Make
+ *   this the technicians' key"). A device with it has the "Stents &
+ *   inventory" page; nobody else does. With no TECH_KEY, nobody has it.
+ * - Stent stickers: the inbox gets two more folders, "Stents uploads" and
+ *   "Stents scanned" (created by the first run; share "Stents uploads" with
+ *   the technicians, or they upload from the app). One photo per patient:
+ *   name and PTCA / Cath No. written on a sheet, the device labels stuck
+ *   beside them. The inbox scanner reads each photo after the proformas of a
+ *   run, writes one row per sticker to the "Stents" tab (brand, size, REF,
+ *   LOT, serial, expiry, GTIN, the barcode / QR numbers), keeps a row per
+ *   photo in "Stent uploads", and moves the photo to "Stents scanned", where
+ *   only the newest STENT_KEEP (default 200) photos stay.
+ * - Bills: the app sends a bill's photo (stentReadBill), the script reads it
+ *   with its Gemini key and the app finds the sticker (and the case) it
+ *   belongs to. A sticker can be marked billed (bill no., date, vendor).
+ * - Inventory: "Inventory" (one row per Type / Brand / Size, with the stock
+ *   now, coloured by type) and "Inventory moves" (every received, used,
+ *   reused, counted or corrected unit). Each saved PTCA brings its hardware
+ *   from the app ("invUse"); a device marked ox / oxy on the utilization
+ *   sheet is reused and subtracts nothing. Saving the case again replaces its
+ *   entries; removing the case gives them back. PTCAs dated before
+ *   INV_START (default 2026-11-17) are listed but not deducted.
+ * - New actions: techStatus, invGet, stentList, stentUploads, stentPhoto,
+ *   stentReadBill, stentUpload (technicians' key, no lock); invSave,
+ *   invApplyPending, stentSave, stentRetry, stentDismiss, stentScanNow
+ *   (technicians' key). A PTCA saved from an app older than 13.44 is noted
+ *   (INV_PENDING) and its hardware taken off from the technicians' page;
+ *   techKeySet (edit key). whoami also says canTech / techSet.
+ * - Optional script properties: STENT_KEEP (photos kept, default 200),
+ *   STENT_IN / STENT_DONE (folder names), INV_START (yyyy-mm-dd).
+ *
  * What changed in 13.43 — a model that does not answer no longer stops the scanner
  * - On 13 Nov 2026 Gemini 3.8 Flash, the first-choice reading model, held
  *   requests for minutes without answering. Apps Script waits 6 minutes for
@@ -151,7 +184,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -196,6 +229,20 @@ function handle(e) {
     try { return out(Object.assign({ ok: true, canEdit: editAllowed(req.key), v: SCRIPT_VERSION }, batchFile_(req))); }
     catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
   }
+  // 13.44 — the technicians' page: what it reads, a bill read by Gemini and a
+  // photo dropped into Stents uploads never wait behind a running batch
+  if (action === "techStatus") {
+    try { return out(Object.assign({ ok: true }, techStatus_(req))); }
+    catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
+  }
+  if (action === "invGet" || action === "stentList" || action === "stentUploads" || action === "stentPhoto" || action === "stentReadBill" || action === "stentUpload") {
+    try {
+      if (!techAllowed(req.tkey)) return out({ ok: false, error: techRefused_(), canTech: false });
+      var rt = action === "invGet" ? invGet_(req) : action === "stentList" ? stentList_() : action === "stentUploads" ? stentUploads_()
+        : action === "stentPhoto" ? stentPhoto_(req) : action === "stentReadBill" ? stentReadBill_(req) : stentUpload_(req);
+      return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, rt));
+    } catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
+  }
   if (action === "batchStatus" || action === "batchList" || action === "batchGet") {
     // read-only; the sheet is only read, so no lock is needed either
     try {
@@ -209,11 +256,14 @@ function handle(e) {
     // case waits a little, then is told to try again rather than hanging
     if (!lock.tryLock(25000)) return out({ ok: false, error: "The sheet is busy (the batch scanner is reading a case) — try again in a minute.", busy: true });
     var canEdit = editAllowed(req.key);
-    var needEdit = { append: 1, remove: 1, otSave: 1, batchPrompts: 1, batchRetry: 1, batchMark: 1, batchRunNow: 1, rosterSave: 1, batchDraft: 1, batchHousekeepSet: 1, batchScheduleSet: 1 };
+    var needEdit = { append: 1, remove: 1, otSave: 1, batchPrompts: 1, batchRetry: 1, batchMark: 1, batchRunNow: 1, rosterSave: 1, batchDraft: 1, batchHousekeepSet: 1, batchScheduleSet: 1, techKeySet: 1 };
     if (needEdit[action] && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to make changes.", canEdit: false });
+    // 13.44 — what changes the inventory or the stents needs the technicians' key
+    var needTech = { invSave: 1, invApplyPending: 1, stentSave: 1, stentRetry: 1, stentDismiss: 1, stentScanNow: 1 };
+    if (needTech[action] && !techAllowed(req.tkey)) return out({ ok: false, error: techRefused_(), canTech: false });
     switch (action) {
-      case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_() });
-      case "append": { var r = appendCase(req); return out({ ok: true, canEdit: true, diagramUrl: r.diagramUrl || "", utilUrl: r.utilUrl || "", utilError: r.utilError || "", replaced: !!r.replaced, v: SCRIPT_VERSION }); }
+      case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_(), canTech: techAllowed(req.tkey), techSet: techKeyIsSet_() });
+      case "append": { var r = appendCase(req); return out({ ok: true, canEdit: true, diagramUrl: r.diagramUrl || "", utilUrl: r.utilUrl || "", utilError: r.utilError || "", replaced: !!r.replaced, inv: r.inv || null, v: SCRIPT_VERSION }); }
       case "list":   return out({ ok: true, canEdit: canEdit, cases: listCases() });
       case "lookup": return out(Object.assign({ ok: true, canEdit: canEdit }, lookupCase(String(req.q || ""))));
       case "fetchCase": return out(Object.assign({ ok: true, canEdit: canEdit }, fetchCase(req)));
@@ -234,6 +284,14 @@ function handle(e) {
       }
       case "batchScheduleSet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, batchScheduleSet_(req)));
       case "batchRunNow": { lock.releaseLock(); return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, batchTick({ fromApp: true, caseId: String(req.caseId || "") }))); }
+      // 13.44 — the technicians' key, the inventory and the stents
+      case "techKeySet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, techKeySet_(req)));
+      case "invSave": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, invSave_(req)));
+      case "invApplyPending": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, invApplyPending_(req)));
+      case "stentSave": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentSave_(req)));
+      case "stentRetry": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentRetry_(req)));
+      case "stentDismiss": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentDismiss_(req)));
+      case "stentScanNow": { lock.releaseLock(); return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentScanNow_())); }
       default: return out({ ok: false, error: "unknown action " + action });
     }
   } catch (err) {
@@ -455,7 +513,22 @@ function appendCase(req) {
   }
   // v13 — a case that came through the inbox is marked saved in the Batch tab
   if (req.batchCaseId) { try { batchMark_(String(req.batchCaseId), "saved", g("Saved by") || String(req.by || "")); } catch (e) {} }
-  return { diagramUrl: diagramUrl, utilUrl: utilUrl, utilError: utilError, replaced: replaced };
+  // 13.44 — the PTCA's hardware, worked out by the app from its utilization
+  // sheet, into the inventory (an app older than 13.44 sends none: nothing changes)
+  var inv = null;
+  if (type === "PTCA") {
+    try {
+      var caseKey = invCaseKey_(year, ptcaNo, cagNo, name);
+      var origKey = orig && String(orig.type || "") === "PTCA"
+        ? invCaseKey_(/^\d{4}$/.test(String(orig.year || "")) ? String(orig.year) : year, origWant.ptcaNo, origWant.cagNo, origWant.name) : "";
+      if (Array.isArray(req.invUse)) {
+        inv = invApplyCase_({ caseKey: caseKey, origKey: origKey, ptcaNo: ptcaNo || cagNo, patient: name,
+          caseDate: /^\d{4}-\d{2}-\d{2}$/.test(String(req.invDate || "")) ? String(req.invDate) : cathToday_(), uses: req.invUse, by: g("Saved by") || String(req.by || "") });
+        invPendingDrop_([caseKey, origKey]);
+      } else inv = invPendingNote_(cj, { key: caseKey, year: year, ptcaNo: ptcaNo, cagNo: cagNo, name: name });
+    } catch (eI) { inv = { error: String(eI && eI.message || eI) }; }
+  }
+  return { diagramUrl: diagramUrl, utilUrl: utilUrl, utilError: utilError, replaced: replaced, inv: inv };
 }
 
 /* ---------- finding one case's row (v6) ----------
@@ -625,8 +698,15 @@ function removeCase(id) {
   var have = headersOf(sh);
   var cag = have.indexOf("CAG No") >= 0 ? String(sh.getRange(row, have.indexOf("CAG No") + 1).getValue() || "").trim() : "";
   var isPtca = /^PTCA /.test(sh.getName());
+  // 13.44 — the ledger's name for this PTCA, read before the row goes
+  var invKey = "";
+  if (isPtca) {
+    var gv = function (h) { var i = have.indexOf(h); return i >= 0 ? String(cell(sh.getRange(row, i + 1).getValue())).trim() : ""; };
+    invKey = invCaseKey_((/^PTCA (\d{4})$/.exec(sh.getName()) || [])[1] || "", gv("PTCA No"), cag, gv("Name"));
+  }
   sh.deleteRow(row);
   if (cag && !isPtca) deleteRowsWhere(sheet(LES, LES_HEAD), 1, cag);
+  if (invKey) { try { invRemoveCase_(invKey); invPendingDrop_([invKey]); } catch (e) {} }
   return true;
 }
 
@@ -898,6 +978,7 @@ function setupBatchScanner() {
   Logger.log("  CAG proformas go in: " + f.cag.getUrl());
   Logger.log("  PTCA proformas go in: " + f.ptca.getUrl());
   Logger.log("  Read files move to Processed/CAG, Processed/PTCA, Failed/CAG, Failed/PTCA.");
+  Logger.log("  Technicians' stent photos go in: " + f.stentsIn.getUrl() + " (read ones move to " + f.stentsDone.getName() + ")");
   Logger.log(share === "link-edit" ? "Anyone with that link can add files." : "Share that folder with the residents (Editor) so they can upload.");
   Logger.log(installed ? "The inbox is now checked every " + BATCH_EVERY_MIN + " minutes." : "The " + BATCH_EVERY_MIN + "-minute check was already set up.");
   var p = batchPrompts_();
@@ -942,7 +1023,10 @@ function batchFolders_() {
   var it = DriveApp.getFoldersByName(name);
   var inbox = it.hasNext() ? it.next() : DriveApp.createFolder(name);
   var sub = function (n) { var s = inbox.getFoldersByName(n); return s.hasNext() ? s.next() : inbox.createFolder(n); };
-  return { inbox: inbox, cag: sub(BATCH_SUB_CAG), ptca: sub(BATCH_SUB_PTCA), done: sub(BATCH_DONE), fail: sub(BATCH_FAIL) };
+  var props = PropertiesService.getScriptProperties();
+  // 13.44 — the technicians' stent photos: in, and once read
+  return { inbox: inbox, cag: sub(BATCH_SUB_CAG), ptca: sub(BATCH_SUB_PTCA), done: sub(BATCH_DONE), fail: sub(BATCH_FAIL),
+    stentsIn: sub(props.getProperty("STENT_IN") || STENT_IN_DEFAULT), stentsDone: sub(props.getProperty("STENT_DONE") || STENT_DONE_DEFAULT) };
 }
 
 /* ---- the prompts the app sent ---- */
@@ -1174,23 +1258,29 @@ function batchTick(opts) {
   try {
     var key = geminiKey_();
     if (!key) { batchLogRow_(runId, "", "", "run", "skipped", "no GEMINI_KEY in the script properties"); summary.why = "no GEMINI_KEY"; ended = true; return summary; }
-    var prompts = batchPrompts_();
-    if (!prompts) { batchLogRow_(runId, "", "", "run", "skipped", "no reading prompts yet — open the app once as an editor"); summary.why = "no prompts"; ended = true; return summary; }
+    // 13.44: "Scan now" on the technicians' page reads the stent photos only
+    // (they need no prompt from the app — the script has its own)
+    var onlyStents = opts.only === "stents";
+    var prompts = onlyStents ? null : batchPrompts_();
+    if (!onlyStents && !prompts) { batchLogRow_(runId, "", "", "run", "skipped", "no reading prompts yet — open the app once as an editor"); summary.why = "no prompts"; ended = true; return summary; }
     var models = batchModels_();
     var f = batchFolders_();
-    var tab = batchTabRows_();
-    // resume anything a previous run left half-read, then take new files
-    var work = tab.rows.filter(function (r) { return r.status === "reading" || r.status === "queued"; });
-    if (opts.caseId) {
-      // "Scan now" on one case: that case alone, whatever its state
-      work = tab.rows.filter(function (r) { return r.caseId === String(opts.caseId); });
-      if (!work.length) { summary.why = "case not found"; ended = true; return summary; }
-      if (work[0].status !== "reading" && work[0].status !== "queued") { work[0].status = "queued"; }
-    } else {
-      // a run started from the app takes what is in the inbox now: the
-      // upload-still-in-progress wait drops to 20 s and a lone photo is not held back
-      var fresh = batchGroupInbox_(f, tab, !!opts.fromApp);
-      fresh.forEach(function (c) { work.push(c); });
+    var work = [];
+    if (!onlyStents) {
+      var tab = batchTabRows_();
+      // resume anything a previous run left half-read, then take new files
+      work = tab.rows.filter(function (r) { return r.status === "reading" || r.status === "queued"; });
+      if (opts.caseId) {
+        // "Scan now" on one case: that case alone, whatever its state
+        work = tab.rows.filter(function (r) { return r.caseId === String(opts.caseId); });
+        if (!work.length) { summary.why = "case not found"; ended = true; return summary; }
+        if (work[0].status !== "reading" && work[0].status !== "queued") { work[0].status = "queued"; }
+      } else {
+        // a run started from the app takes what is in the inbox now: the
+        // upload-still-in-progress wait drops to 20 s and a lone photo is not held back
+        var fresh = batchGroupInbox_(f, tab, !!opts.fromApp);
+        fresh.forEach(function (c) { work.push(c); });
+      }
     }
     summary.pending = work.length;
     // one line per run that has something to do (quiet runs are not logged)
@@ -1208,14 +1298,30 @@ function batchTick(opts) {
       else paused++;
     }
     summary.pending = Math.max(0, summary.pending - summary.scanned - summary.failed);
+    // 13.44 — then the technicians' stent photos, with the time this run has
+    // left (not on "Scan now" of one case, nor once a limit stopped the run)
+    if (!opts.caseId && !stopped) {
+      try {
+        var gapS = batchGapMs_();
+        var st = stentTick_(f, models, key, runId, !!opts.fromApp, function () { Utilities.sleep(gapS); },
+          function () { return BATCH_BUDGET_MS - (Date.now() - start); });
+        summary.stents = st;
+        if (st.stopped) { stopped = true; summary.why = (summary.why ? summary.why + "; " : "") + "stent photos: " + st.why; }
+        else if (st.pending) { paused++; summary.why = (summary.why ? summary.why + "; " : "") + st.pending + " stent photo(s) continue next run"; }
+      } catch (eS) { batchLogRow_(runId, "", "", "stent photos", "error", String(eS && eS.message || eS)); }
+    }
     // 13.43, for a scan started from the app: work is left only because this
     // run ran out of time, and it got somewhere (a page was answered, or a
     // silent model was set aside) — the app starts the next run itself
     summary.more = paused > 0 && !stopped && (BATCH_RUN_.ok > 0 || BATCH_RUN_.rested > 0);
     summary.note = BATCH_RUN_.notes.join("; ");
     try { var hk = batchHousekeep_(f, runId); if (hk) summary.why = (summary.why ? summary.why + "; " : "") + hk; } catch (e) { batchLogRow_(runId, "", "", "housekeeping", "failed", String(e && e.message || e)); }
-    if (summary.cases || summary.why) batchLogRow_(runId, "", "", "run", "finished", summary.cases + " case(s) worked on, " + summary.scanned + " scanned, " + summary.failed + " failed" + (summary.why ? " — " + summary.why : "") + (summary.note ? " — " + summary.note : "") + ", " + Math.round((Date.now() - start) / 1000) + " s");
-    props.setProperty("BATCH_LAST", JSON.stringify({ at: new Date().toISOString(), runId: runId,
+    var stDone = summary.stents && (summary.stents.scanned || summary.stents.failed) ? summary.stents : null;
+    if (summary.cases || summary.why || stDone) batchLogRow_(runId, "", "", "run", "finished", summary.cases + " case(s) worked on, " + summary.scanned + " scanned, " + summary.failed + " failed" +
+      (stDone ? "; stent photos " + stDone.scanned + " read (" + stDone.stickers + " sticker(s)), " + stDone.failed + " failed" : "") +
+      (summary.why ? " — " + summary.why : "") + (summary.note ? " — " + summary.note : "") + ", " + Math.round((Date.now() - start) / 1000) + " s");
+    // a stent-only run leaves the proformas' last-run line as it was
+    if (!onlyStents) props.setProperty("BATCH_LAST", JSON.stringify({ at: new Date().toISOString(), runId: runId,
       cases: summary.cases, scanned: summary.scanned, failed: summary.failed, why: summary.why, secs: Math.round((Date.now() - start) / 1000) }));
     ended = true;
   } catch (err) {
@@ -2700,4 +2806,1004 @@ function mcBuild(cands, results, prev, source, nowIso) {
   else if (!shown.length) error = tested.length ? "No model answered as free." : "Google listed no model that can read forms.";
   return { v: 1, source: source, ok: !error, error: error, checkedAt: nowIso,
     models: models, shown: shown.map(function (m) { return m.id; }) };
+}
+
+/* ============================================================
+   13.44 — the cath lab's technicians: their key, the stents, the inventory
+   ============================================================
+   The technicians get a page of their own in the app ("Stents & inventory"),
+   opened by a key of their own: script property TECH_KEY (an editor can set
+   it from the app's Settings; techKeySet). It must differ from EDIT_KEY.
+   With no TECH_KEY set, nobody has the technicians' page.
+
+   STENT STICKERS
+   - The technicians photograph a sheet with the patient's name and PTCA /
+     Cath number written on it and the peel-off labels of the stents (and
+     any other device) stuck beside them, and drop the photo in the inbox's
+     "Stents uploads" folder (or upload it from the app, stentUpload).
+   - The inbox scanner reads each photo with the same Gemini models and
+     pauses as the proformas (after the proformas of the run, with the time
+     left), one row per sticker in the "Stents" tab: patient, number, device,
+     brand, size, REF, LOT, serial, expiry, GTIN and the numbers printed under
+     the barcode / QR code (GS1 — "(01)…(17)…(10)…" — taken apart into GTIN,
+     expiry, lot and serial when the sticker does not print them itself).
+     Every photo has a row in "Stent uploads" (status, errors, the log).
+   - A read photo moves to "Stents scanned". Only the newest STENT_KEEP
+     (default 200) photos are kept there; older ones are deleted — what was
+     read from them stays in the sheet.
+   - Bills: the app sends the photo of a bill (stentReadBill), the script
+     reads it with Gemini, and the app matches what it says (LOT, serial,
+     REF, size, brand, patient) against the Stents tab and opens the case.
+     A matched sticker can be marked billed (bill no., date, vendor).
+
+   INVENTORY
+   - "Inventory": one row per item — Type, Brand, Size — with what is in
+     stock now, worked out from "Inventory moves" (the ledger: received,
+     used in a PTCA, reused, counted, corrected). Colour by type.
+   - Every saved PTCA brings its hardware list ("invUse", worked out by the
+     app from the utilization sheet): one "used" move per device, a device
+     marked ox / oxy a "reused" move that subtracts nothing. Saving the case
+     again replaces its moves; removing it from the registry removes them.
+   - Items start at zero and go below zero as PTCAs use them, until the
+     technicians record what came in (received +N) or what is on the shelf
+     (counted = N).
+   - PTCAs done before INV_START (default INV_START_DEFAULT) are listed with
+     their hardware but subtract nothing — so an old case corrected later
+     does not take from today's stock.
+*/
+var TECH_KEY_PROP = "TECH_KEY";
+function techAllowed(tkey) {
+  var want = String(PropertiesService.getScriptProperties().getProperty(TECH_KEY_PROP) || "").trim();
+  return !!want && String(tkey == null ? "" : tkey).trim() === want;
+}
+function techKeyIsSet_() { return !!String(PropertiesService.getScriptProperties().getProperty(TECH_KEY_PROP) || "").trim(); }
+/* an editor sets (or, with an empty key, removes) the technicians' key */
+function techKeySet_(req) {
+  var k = String(req.newTechKey == null ? "" : req.newTechKey).trim();
+  var props = PropertiesService.getScriptProperties();
+  if (!k) { props.deleteProperty(TECH_KEY_PROP); return { techSet: false }; }
+  if (k.length < 4) throw new Error("the technicians' key must be at least 4 characters long");
+  if (k === String(props.getProperty("EDIT_KEY") || "").trim()) throw new Error("the technicians' key must not be the edit key — it would let them edit cases too");
+  props.setProperty(TECH_KEY_PROP, k);
+  return { techSet: true };
+}
+function cathNow_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"); }
+function cathToday_() { return Utilities.formatDate(new Date(), BATCH_TZ, "yyyy-MM-dd"); }
+var CATH_SEQ_ = 0;
+function cathId_(prefix) { return prefix + Date.now().toString(36).toUpperCase() + (++CATH_SEQ_).toString(36).toUpperCase(); }
+function cathStr_(v, max) { var s = String(v == null ? "" : v).replace(/\s+/g, " ").trim(); return max && s.length > max ? s.slice(0, max) : s; }
+
+/* ---------------- inventory ---------------- */
+var INV_TAB = "Inventory", INV_MOVES = "Inventory moves";
+var INV_HEAD = ["Item id", "Type", "Brand", "Size", "In stock", "Received", "Used", "Adjusted (+/−)", "Reused (not deducted)",
+  "Low at", "Tracked", "Notes", "Keys", "Last used", "Updated", "By"];
+var MOVE_HEAD = ["Move id", "Time", "Item id", "Kind", "Units", "Qty", "Case key", "PTCA No", "Patient", "Case date",
+  "Written as", "Where", "By", "Note"];
+var INV_START_DEFAULT = "2026-11-17";     // the day 13.44 went out
+/* the kinds of equipment, in the order the app and the tab list them; the
+   same keys as the app's hardware list types, plus the inventory's own */
+var INV_KIND_ORDER = ["stent", "balloon", "dcb", "cutting", "wire", "guide", "ge", "mc", "asp", "rota", "imaging", "sheath", "other"];
+var INV_KIND_LABEL = { stent: "Stent", balloon: "Balloon", dcb: "Drug-coated balloon", cutting: "Cutting balloon", wire: "Guide wire",
+  guide: "Guide catheter", ge: "Guide extension", mc: "Microcatheter", asp: "Aspiration catheter", rota: "Rota burr",
+  imaging: "IVUS / OCT / ELCA", sheath: "Sheath", other: "Other" };
+var INV_KIND_TINT = { stent: "#fde7e5", balloon: "#f1e8fb", dcb: "#fff0dc", cutting: "#f3e9df", wire: "#e1f3f4", guide: "#e3edfb",
+  ge: "#e8eaf6", mc: "#e5f3e6", asp: "#fce4ef", rota: "#efe7e4", imaging: "#e0f4f6", sheath: "#eceff1", other: "#f2f2f2" };
+function invKindOf_(t) {
+  var r = String(t == null ? "" : t).toLowerCase().trim();
+  if (!r) return "other";
+  if (INV_KIND_LABEL[r]) return r;
+  if (/exten|\bge\b|zilla|telescope/.test(r)) return "ge";
+  if (/micro|\bmc\b/.test(r)) return "mc";
+  if (/aspir|thromb/.test(r)) return "asp";
+  if (/sheath|introducer/.test(r)) return "sheath";
+  if (/rota|burr/.test(r)) return "rota";
+  if (/ivus|\boct\b|elca|laser|imaging/.test(r)) return "imaging";
+  if (/wire/.test(r)) return "wire";
+  if (/dcb|\bdeb\b|drug/.test(r)) return "dcb";
+  if (/cut|scor/.test(r)) return "cutting";
+  if (/bal+oon|poba/.test(r)) return "balloon";
+  if (/stent|\bdes\b/.test(r)) return "stent";
+  if (/guid|cath/.test(r)) return "guide";
+  return "other";
+}
+function invNorm_(s) { return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, ""); }
+/* "2.50 x 12 mm" = "2.5×12" = "2.5*12"; "6 Fr" = "6F"; "3.0" = "3" */
+function invSizeKey_(s) {
+  return String(s == null ? "" : s).toLowerCase()
+    .replace(/mm\b/g, "").replace(/[×*]/g, "x").replace(/\s+/g, "")
+    .replace(/fr?\.?$/, "f")
+    .replace(/(\d+\.\d*?)0+(?=\D|$)/g, "$1").replace(/\.(?=\D|$)/g, "")
+    .replace(/[^0-9a-z.]/g, "");
+}
+function invKey_(kind, brand, size) { return invKindOf_(kind) + "|" + invNorm_(brand) + "|" + invSizeKey_(size); }
+function invItemKey_(it) { return invKey_(it.kind, it.brand, it.size); }
+
+function invTab_() { var sh = sheet(INV_TAB, INV_HEAD); ensureCols(sh, INV_HEAD.length); return sh; }
+function invMovesSheet_() { var sh = sheet(INV_MOVES, MOVE_HEAD); ensureCols(sh, MOVE_HEAD.length); return sh; }
+/* the items as the Inventory tab lists them; a row typed into the tab by hand
+   (no Item id yet) is taken in and given one */
+function invItems_() {
+  var sh = invTab_();
+  var out = [];
+  if (sh.getLastRow() < 2) return out;
+  var vals = sh.getRange(2, 1, sh.getLastRow() - 1, INV_HEAD.length).getValues();
+  vals.forEach(function (v) {
+    var brand = cathStr_(cell(v[2]), 120), size = cathStr_(cell(v[3]), 60), type = cathStr_(cell(v[1]), 60);
+    if (!brand && !size) return;
+    var kind = invKindOf_(type);
+    var tracked = String(cell(v[10])).trim().toLowerCase();
+    var low = String(cell(v[9])).trim();
+    // a row typed in by hand has no id yet: one made from what it says, the
+    // same on every read until the tab is next written
+    out.push({ id: cathStr_(cell(v[0]), 40) || invHandId_(kind, brand, size), kind: kind, type: INV_KIND_LABEL[kind], brand: brand || INV_KIND_LABEL[kind], size: size,
+      low: low !== "" && isFinite(Number(low)) ? Number(low) : null, tracked: !(tracked === "no" || tracked === "false" || tracked === "0"),
+      notes: cathStr_(cell(v[11]), 500), keys: cell(v[12]).split("\n").map(function (k) { return k.trim(); }).filter(Boolean),
+      updated: cell(v[14]), by: cell(v[15]) });
+  });
+  return out;
+}
+function invHandId_(kind, brand, size) {
+  var k = invKey_(kind, brand, size), h = 5381;
+  for (var i = 0; i < k.length; i++) h = ((h * 33) ^ k.charCodeAt(i)) >>> 0;
+  return "IH" + h.toString(36).toUpperCase();
+}
+function invMovesAll_() {
+  var sh = invMovesSheet_();
+  var out = [];
+  if (sh.getLastRow() < 2) return out;
+  var vals = sh.getRange(2, 1, sh.getLastRow() - 1, MOVE_HEAD.length).getValues();
+  vals.forEach(function (v, i) {
+    if (!cell(v[0]) && !cell(v[2])) return;
+    out.push({ row: i + 2, id: cell(v[0]), t: cell(v[1]), item: cell(v[2]), kind: cell(v[3]), units: Number(v[4]) || 0, qty: Number(v[5]) || 0,
+      caseKey: cell(v[6]), ptcaNo: cell(v[7]), patient: cell(v[8]), caseDate: cell(v[9]).slice(0, 10), raw: cell(v[10]), where: cell(v[11]),
+      by: cell(v[12]), note: cell(v[13]) });
+  });
+  return out;
+}
+function invStart_() {
+  var s = String(PropertiesService.getScriptProperties().getProperty("INV_START") || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : INV_START_DEFAULT;
+}
+function invTotals_(items, moves) {
+  var by = {};
+  items.forEach(function (it) { by[it.id] = { stock: 0, received: 0, used: 0, adjusted: 0, reused: 0, early: 0, lastUsed: "", cases: 0 }; });
+  moves.forEach(function (m) {
+    var t = by[m.item];
+    if (!t) return;
+    t.stock += m.qty;
+    if (m.kind === "received") t.received += m.qty;
+    else if (m.kind === "used") { t.used += -m.qty; t.cases++; if (m.caseDate > t.lastUsed) t.lastUsed = m.caseDate; }
+    else if (m.kind === "reused") { t.reused += m.units; if (m.caseDate > t.lastUsed) t.lastUsed = m.caseDate; }
+    else if (m.kind === "early") t.early += m.units;
+    else t.adjusted += m.qty;              // count, correction
+  });
+  return by;
+}
+/* sizes in the order a shelf has them: by diameter, then length */
+function invSizeSort_(a, b) {
+  var na = String(a || "").match(/\d+(?:\.\d+)?/g) || [], nb = String(b || "").match(/\d+(?:\.\d+)?/g) || [];
+  for (var i = 0; i < Math.max(na.length, nb.length); i++) {
+    if (na[i] == null) return -1;
+    if (nb[i] == null) return 1;
+    var d = Number(na[i]) - Number(nb[i]);
+    if (d) return d;
+  }
+  return String(a || "").localeCompare(String(b || ""));
+}
+function invSort_(items) {
+  return items.slice().sort(function (a, b) {
+    return (INV_KIND_ORDER.indexOf(a.kind) - INV_KIND_ORDER.indexOf(b.kind)) ||
+      a.brand.toLowerCase().localeCompare(b.brand.toLowerCase()) || invSizeSort_(a.size, b.size);
+  });
+}
+/* the Inventory tab, written afresh: sorted by type, brand and size, each
+   type in its own colour, a stock below zero in red */
+function invWriteTab_(items, moves) {
+  var sh = invTab_();
+  var tot = invTotals_(items, moves || invMovesAll_());
+  var list = invSort_(items);
+  var rows = list.map(function (it) {
+    var t = tot[it.id];
+    return [it.id, it.type, it.brand, it.size, t.stock, t.received, t.used, t.adjusted, t.reused,
+      it.low == null ? "" : it.low, it.tracked ? "yes" : "no", it.notes, (it.keys || []).join("\n"), t.lastUsed, it.updated || "", it.by || ""];
+  });
+  var last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, INV_HEAD.length).clearContent().setBackground(null).setFontColor(null).setFontWeight(null);
+  if (!rows.length) return tot;
+  // text columns stay text (a size "3.0" or "12/15" must not become a number or a date)
+  sh.getRange(2, 1, rows.length, 4).setNumberFormat("@");
+  sh.getRange(2, 5, rows.length, 5).setNumberFormat("0");
+  sh.getRange(2, 10, rows.length, INV_HEAD.length - 9).setNumberFormat("@");
+  sh.getRange(2, 1, rows.length, INV_HEAD.length).setValues(rows.map(function (r) { return r.map(function (v) { return typeof v === "number" ? v : String(v); }); }));
+  sh.getRange(2, 1, rows.length, INV_HEAD.length).setBackgrounds(list.map(function (it) {
+    var c = INV_KIND_TINT[it.kind] || "#ffffff"; var r = []; for (var k = 0; k < INV_HEAD.length; k++) r.push(c); return r; }));
+  sh.getRange(2, 5, rows.length, 1).setFontColors(list.map(function (it) { var s = tot[it.id].stock; return [s < 0 ? "#c00000" : s === 0 ? "#8a6a12" : "#1c7a55"]; }))
+    .setFontWeights(list.map(function () { return ["bold"]; }));
+  try { sh.setFrozenRows(1); } catch (e) {}
+  return tot;
+}
+/* the item a device belongs to: same type, brand and size (or a name it had
+   before — an edit or a merge keeps the old one among its keys), else the
+   only item of that brand and size whatever its type */
+function invFind_(items, kind, brand, size) {
+  var key = invKey_(kind, brand, size);
+  for (var i = 0; i < items.length; i++) {
+    if (invItemKey_(items[i]) === key || (items[i].keys || []).indexOf(key) >= 0) return items[i];
+  }
+  var tail = key.slice(key.indexOf("|"));
+  var hits = items.filter(function (it) {
+    if (invItemKey_(it).slice(invItemKey_(it).indexOf("|")) === tail) return true;
+    return (it.keys || []).some(function (k) { return k.slice(k.indexOf("|")) === tail; });
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+function invEnsure_(items, kind, brand, size, by) {
+  kind = invKindOf_(kind);
+  var it = invFind_(items, kind, brand, size);
+  if (it) return it;
+  it = { id: cathId_("I"), kind: kind, type: INV_KIND_LABEL[kind], brand: brand || INV_KIND_LABEL[kind], size: size || "",
+    low: null, tracked: true, notes: "", keys: [], updated: cathNow_(), by: by || "", isNew: true };
+  items.push(it);
+  return it;
+}
+function invMoveRow_(m) {
+  return [m.id || cathId_("M"), m.t || cathNow_(), m.item, m.kind, m.units || 0, m.qty || 0, m.caseKey || "", m.ptcaNo || "", m.patient || "",
+    m.caseDate || "", m.raw || "", m.where || "", m.by || "", m.note || ""];
+}
+function invAppendMoves_(rows) {
+  if (!rows.length) return;
+  var sh = invMovesSheet_();
+  var at = sh.getLastRow() + 1;
+  sh.getRange(at, 1, rows.length, MOVE_HEAD.length).setNumberFormat("@").setValues(rows.map(function (r) { return r.map(function (v) { return String(v == null ? "" : v); }); }));
+  sh.getRange(at, 5, rows.length, 2).setNumberFormat("0").setValues(rows.map(function (r) { return [Number(r[4]) || 0, Number(r[5]) || 0]; }));
+}
+/* rows of the ledger deleted, bottom up, a run of neighbours at a time */
+function invDeleteRows_(rowNums) {
+  if (!rowNums.length) return;
+  var sh = invMovesSheet_();
+  var r = rowNums.slice().sort(function (a, b) { return b - a; });
+  var i = 0;
+  while (i < r.length) {
+    var end = r[i], start = end;
+    while (i + 1 < r.length && r[i + 1] === start - 1) { i++; start = r[i]; }
+    sh.deleteRows(start, end - start + 1);
+    i++;
+  }
+}
+/* the ledger's name for a PTCA: its tab's year and its number */
+function invCaseKey_(year, ptcaNo, cagNo, name) {
+  var n = String(ptcaNo || "").trim() ? "PTCA " + String(ptcaNo).trim()
+    : String(cagNo || "").trim() ? "CAG " + String(cagNo).trim()
+    : String(name || "").trim() ? "name " + String(name).trim().toLowerCase() : "";
+  return n ? "PTCA " + year + " · " + n : "";
+}
+/* A saved PTCA's hardware (from appendCase): its moves are replaced by the
+   ones sent now. Nothing is written when nothing changed. */
+function invApplyCase_(c) {
+  if (!c.caseKey) return { n: 0, note: "the case has no number or name" };
+  var items = invItems_();
+  var moves = invMovesAll_();
+  var keys = [c.caseKey]; if (c.origKey && c.origKey !== c.caseKey) keys.push(c.origKey);
+  var old = moves.filter(function (m) { return keys.indexOf(m.caseKey) >= 0 && (m.kind === "used" || m.kind === "reused" || m.kind === "early"); });
+  var start = invStart_();
+  var early = c.caseDate && c.caseDate < start;
+  var now = cathNow_(), rows = [];
+  (c.uses || []).slice(0, 80).forEach(function (u) {
+    if (!u || typeof u !== "object") return;
+    var kind = invKindOf_(u.kind || u.type);
+    var brand = cathStr_(u.brand, 120), size = cathStr_(u.size, 60);
+    if (!brand && !size) return;
+    var it = invEnsure_(items, kind, brand || INV_KIND_LABEL[kind], size, c.by);
+    var units = Math.max(1, Math.min(20, Math.round(Number(u.units) || 1)));
+    var kindOf = early ? "early" : u.reused ? "reused" : "used";
+    rows.push({ id: cathId_("M"), t: now, item: it.id, kind: kindOf, units: units, qty: kindOf === "used" ? -units : 0,
+      caseKey: c.caseKey, ptcaNo: c.ptcaNo, patient: c.patient, caseDate: c.caseDate, raw: cathStr_(u.raw, 200), where: cathStr_(u.where, 60), by: c.by,
+      note: early ? "PTCA before the inventory start (" + start + ") — not deducted" : u.reused ? "marked ox / oxy — reused, not deducted" : (u.note ? cathStr_(u.note, 200) : "") });
+  });
+  var sig = function (list) {
+    return list.map(function (m) { return [m.item, m.kind, m.units, m.raw, m.where, m.caseKey, m.caseDate, m.ptcaNo, m.patient].join("|"); }).sort().join("\n");
+  };
+  var anyNew = items.some(function (it) { return it.isNew; });
+  if (sig(old) === sig(rows)) {
+    if (anyNew) invWriteTab_(items, moves);
+    return { n: rows.length, same: true, early: !!early };
+  }
+  invDeleteRows_(old.map(function (m) { return m.row; }));
+  invAppendMoves_(rows.map(invMoveRow_));
+  // the totals from what is now in the ledger, without reading it again
+  invWriteTab_(items, moves.filter(function (m) { return old.indexOf(m) < 0; }).concat(rows));
+  return { n: rows.length, early: !!early, start: start };
+}
+/* A PTCA saved from an app older than 13.44 brings no hardware list. When its
+   case data has a utilization sheet (and it is not a planned PTCA, nor done
+   before the inventory start) it is noted here; the technicians' page reads
+   the case and takes its hardware off with invApplyPending — or saving the
+   case again from a 13.44 app does it. At most 60 are kept. */
+var INV_PENDING_PROP = "INV_PENDING";
+function invPending_() {
+  try { var l = JSON.parse(PropertiesService.getScriptProperties().getProperty(INV_PENDING_PROP) || "[]"); return Array.isArray(l) ? l : []; } catch (e) { return []; }
+}
+function invPendingSave_(list) {
+  var p = PropertiesService.getScriptProperties();
+  if (!list.length) { p.deleteProperty(INV_PENDING_PROP); return; }
+  var keep = list.slice(-60), sj = JSON.stringify(keep);
+  while (sj.length > 8500 && keep.length > 1) { keep = keep.slice(1); sj = JSON.stringify(keep); }
+  p.setProperty(INV_PENDING_PROP, sj);
+}
+function invPendingDrop_(keys) {
+  var list = invPending_();
+  var left = list.filter(function (x) { return keys.indexOf(x.key) < 0; });
+  if (left.length !== list.length) invPendingSave_(left);
+}
+function invLooseIso_(v) {
+  var m = /^\s*(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s*$/.exec(String(v == null ? "" : v));
+  if (!m) return "";
+  var y = Number(m[3]); if (y < 100) y += 2000;
+  var mo = Number(m[2]), d = Number(m[1]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return "";
+  return y + "-" + ("0" + mo).slice(-2) + "-" + ("0" + d).slice(-2);
+}
+function invPendingNote_(caseJson, c) {
+  if (!c.key) return null;
+  var o = null; try { o = JSON.parse(String(caseJson || "")); } catch (e) {}
+  if (!o || typeof o !== "object" || o.planned || !o.util || typeof o.util !== "object") return null;
+  var grid = o.util.grid && typeof o.util.grid === "object" ? o.util.grid : {};
+  var any = Object.keys(grid).some(function (v) { var col = grid[v] || {}; return Object.keys(col).some(function (k) { return String(col[k] || "").trim(); }); }) ||
+    ["cutting", "microcatheter", "guideExtension", "rotaBurr", "aspiration", "ivusOctElca", "otherHardware", "accessSheath"].some(function (k) { return String(o.util[k] || "").trim(); });
+  if (!any) return null;
+  var d = invLooseIso_(o.date) || invLooseIso_(o.util.date);
+  if (d && d < invStart_()) return null;
+  // a case already in the ledger (saved earlier from 13.44) keeps its entries
+  var list = invPending_().filter(function (x) { return x.key !== c.key; });
+  list.push({ key: c.key, year: c.year, ptcaNo: c.ptcaNo, cagNo: c.cagNo, name: c.name, date: d, at: cathNow_() });
+  invPendingSave_(list);
+  return { pending: true };
+}
+/* the technicians' page sends the hardware of a case the sheet noted */
+function invApplyPending_(req) {
+  var p = req.pend && typeof req.pend === "object" ? req.pend : null;
+  if (!p || !p.key) throw new Error("which case?");
+  if (!invPending_().some(function (x) { return x.key === String(p.key); })) throw new Error("this case is no longer waiting \u2014 refresh the list");
+  var r = null;
+  if (Array.isArray(req.invUse)) {
+    r = invApplyCase_({ caseKey: String(p.key), origKey: "", ptcaNo: cathStr_(p.ptcaNo || p.cagNo, 40), patient: cathStr_(p.name, 120),
+      caseDate: /^\d{4}-\d{2}-\d{2}$/.test(String(req.invDate || "")) ? String(req.invDate) : (p.date || cathToday_()), uses: req.invUse, by: cathStr_(req.by, 60) });
+  }
+  invPendingDrop_([String(p.key)]);
+  return Object.assign(invGet_({}), { said: r ? (p.name || p.ptcaNo) + ": " + r.n + " device(s) recorded" + (r.early ? " (before the start date \u2014 not taken off)" : "") + "." : (p.name || p.ptcaNo) + " taken off the waiting list." });
+}
+/* a PTCA removed from the registry gives its hardware back */
+function invRemoveCase_(caseKey) {
+  if (!caseKey) return 0;
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(INV_MOVES);
+  if (!sh || sh.getLastRow() < 2) return 0;
+  var moves = invMovesAll_().filter(function (m) { return m.caseKey === caseKey; });
+  if (!moves.length) return 0;
+  invDeleteRows_(moves.map(function (m) { return m.row; }));
+  invWriteTab_(invItems_());
+  return moves.length;
+}
+function invMoveOut_(m) {
+  return { id: m.id, t: m.t, item: m.item, kind: m.kind, units: m.units, qty: m.qty, caseKey: m.caseKey, ptcaNo: m.ptcaNo,
+    patient: m.patient, caseDate: m.caseDate, raw: m.raw, where: m.where, by: m.by, note: m.note };
+}
+/* what the technicians' page shows: every item with its stock, and the
+   ledger's latest moves (all of one item's with req.item) */
+function invGet_(req) {
+  req = req || {};
+  var items = invItems_();
+  var moves = invMovesAll_();
+  var tot = invTotals_(items, moves);
+  var list = invSort_(items).map(function (it) {
+    var t = tot[it.id];
+    return { id: it.id, kind: it.kind, type: it.type, brand: it.brand, size: it.size, low: it.low, tracked: it.tracked, notes: it.notes,
+      stock: t.stock, received: t.received, used: t.used, adjusted: t.adjusted, reused: t.reused, early: t.early, lastUsed: t.lastUsed, cases: t.cases };
+  });
+  var o = { items: list, start: invStart_(), moves: moves.slice(-400).reverse().map(invMoveOut_), moveCount: moves.length, pending: invPending_(),
+    kinds: INV_KIND_ORDER.map(function (k) { return { kind: k, label: INV_KIND_LABEL[k] }; }) };
+  // one item's whole history, for the item open on the page
+  if (req.item) { o.item = String(req.item); o.itemMoves = moves.filter(function (m) { return m.item === String(req.item); }).reverse().map(invMoveOut_); }
+  return o;
+}
+/* One change from the technicians' page (req.op). Each is applied and the
+   tab rewritten; the answer is the inventory as it now stands. */
+function invSave_(req) {
+  var op = req.op && typeof req.op === "object" ? req.op : null;
+  if (!op) throw new Error("nothing to change");
+  var by = cathStr_(req.by, 60);
+  var items = invItems_();
+  var find = function (id) { for (var i = 0; i < items.length; i++) if (items[i].id === String(id || "")) return items[i]; return null; };
+  var note = cathStr_(op.note, 300);
+  var said = "", moves;
+  var whole = function (v, lo, hi, what) {
+    var n = Number(v);
+    if (!isFinite(n) || Math.round(n) !== n) throw new Error(what + " must be a whole number");
+    if (n < lo || n > hi) throw new Error(what + " must be between " + lo + " and " + hi);
+    return n;
+  };
+  var label = function (it) { return [it.brand, it.size].filter(Boolean).join(" ") + " (" + it.type + ")"; };
+  var kind, brand, size, it;
+  switch (String(op.op || "")) {
+    case "add":
+      kind = invKindOf_(op.kind || op.type); brand = cathStr_(op.brand, 120); size = cathStr_(op.size, 60);
+      if (!brand) throw new Error("give the brand (the device's name)");
+      it = invFind_(items, kind, brand, size);
+      if (it && invItemKey_(it) === invKey_(kind, brand, size)) throw new Error(label(it) + " is already on the list");
+      it = { id: cathId_("I"), kind: kind, type: INV_KIND_LABEL[kind], brand: brand, size: size, low: null, tracked: true, notes: cathStr_(op.notes, 500), keys: [], updated: cathNow_(), by: by };
+      if (op.low != null && String(op.low).trim() !== "") it.low = whole(op.low, 0, 100000, "The low-stock level");
+      items.push(it);
+      if (op.units != null && String(op.units).trim() !== "" && Number(op.units) !== 0) {
+        invAppendMoves_([invMoveRow_({ item: it.id, kind: "received", units: whole(op.units, 1, 100000, "The number received"), qty: Number(op.units), by: by, note: note || "on adding the item" })]);
+      }
+      said = "Added " + label(it) + ".";
+      break;
+    case "edit":
+      it = find(op.id); if (!it) throw new Error("that item is no longer on the list");
+      var oldKey = invItemKey_(it);
+      kind = op.kind || op.type ? invKindOf_(op.kind || op.type) : it.kind;
+      brand = op.brand != null ? cathStr_(op.brand, 120) : it.brand;
+      size = op.size != null ? cathStr_(op.size, 60) : it.size;
+      if (!brand) throw new Error("the brand cannot be empty");
+      var newKey = invKey_(kind, brand, size);
+      if (newKey !== oldKey) {
+        var clash = items.filter(function (x) { return x !== it && (invItemKey_(x) === newKey || (x.keys || []).indexOf(newKey) >= 0); })[0];
+        if (clash) throw new Error(label(clash) + " is already on the list — use Merge to put the two together");
+        if ((it.keys || []).indexOf(oldKey) < 0) it.keys = (it.keys || []).concat([oldKey]);
+      }
+      it.kind = kind; it.type = INV_KIND_LABEL[kind]; it.brand = brand; it.size = size;
+      if (op.low !== undefined) it.low = op.low == null || String(op.low).trim() === "" ? null : whole(op.low, 0, 100000, "The low-stock level");
+      if (op.tracked !== undefined) it.tracked = !!op.tracked;
+      if (op.notes !== undefined) it.notes = cathStr_(op.notes, 500);
+      it.updated = cathNow_(); it.by = by;
+      said = "Saved " + label(it) + ".";
+      break;
+    case "merge":
+      it = find(op.id); var into = find(op.into);
+      if (!it || !into) throw new Error("one of the two items is no longer on the list");
+      if (it === into) throw new Error("pick a different item to merge into");
+      var sh = invMovesSheet_();
+      if (sh.getLastRow() >= 2) {
+        var col = sh.getRange(2, 3, sh.getLastRow() - 1, 1).getValues();
+        var changed = false;
+        col.forEach(function (r) { if (String(r[0]) === it.id) { r[0] = into.id; changed = true; } });
+        if (changed) sh.getRange(2, 3, col.length, 1).setValues(col);
+      }
+      into.keys = (into.keys || []).concat([invItemKey_(it)], it.keys || []).filter(function (k, i, a) { return k && a.indexOf(k) === i && k !== invItemKey_(into); });
+      if (it.notes && into.notes.indexOf(it.notes) < 0) into.notes = cathStr_((into.notes ? into.notes + "; " : "") + it.notes, 500);
+      into.updated = cathNow_(); into.by = by;
+      items.splice(items.indexOf(it), 1);
+      said = label(it) + " merged into " + label(into) + ".";
+      break;
+    case "delete":
+      it = find(op.id); if (!it) throw new Error("that item is no longer on the list");
+      moves = invMovesAll_().filter(function (m) { return m.item === it.id; });
+      var used = moves.filter(function (m) { return m.kind === "used" || m.kind === "reused" || m.kind === "early"; });
+      if (used.length) throw new Error(label(it) + " is in " + used.length + " PTCA record(s) — merge it into the right item, or mark it Not tracked, instead of deleting it");
+      invDeleteRows_(moves.map(function (m) { return m.row; }));
+      items.splice(items.indexOf(it), 1);
+      said = label(it) + " deleted.";
+      break;
+    case "receive":
+      it = op.id ? find(op.id) : null;
+      if (!it && !op.id) {
+        brand = cathStr_(op.brand, 120); if (!brand) throw new Error("give the brand (the device's name)");
+        it = invEnsure_(items, op.kind || op.type, brand, cathStr_(op.size, 60), by);
+      }
+      if (!it) throw new Error("that item is no longer on the list");
+      var nIn = whole(op.units, 1, 100000, "The number received");
+      invAppendMoves_([invMoveRow_({ item: it.id, kind: "received", units: nIn, qty: nIn, by: by, note: note })]);
+      said = nIn + " × " + label(it) + " received.";
+      break;
+    case "count":
+      it = find(op.id); if (!it) throw new Error("that item is no longer on the list");
+      var counted = whole(op.counted, 0, 100000, "The count");
+      var had = invTotals_(items, invMovesAll_())[it.id].stock;
+      invAppendMoves_([invMoveRow_({ item: it.id, kind: "count", units: counted, qty: counted - had, by: by,
+        note: "counted " + counted + " (the list said " + had + ")" + (note ? " — " + note : "") })]);
+      said = label(it) + ": " + counted + " on the shelf (was " + had + " on the list).";
+      break;
+    case "correct":
+      it = find(op.id); if (!it) throw new Error("that item is no longer on the list");
+      var q = whole(op.qty, -100000, 100000, "The correction");
+      if (!q) throw new Error("the correction cannot be 0");
+      invAppendMoves_([invMoveRow_({ item: it.id, kind: "correction", units: Math.abs(q), qty: q, by: by, note: note })]);
+      said = label(it) + " " + (q > 0 ? "+" : "") + q + ".";
+      break;
+    case "undo":
+      var mv = invMovesAll_().filter(function (m) { return m.id === String(op.moveId || ""); })[0];
+      if (!mv) throw new Error("that entry is no longer in the ledger");
+      if (["received", "count", "correction"].indexOf(mv.kind) < 0) throw new Error("a PTCA's own entries change only when the case is saved again or removed");
+      invDeleteRows_([mv.row]);
+      said = "Entry of " + mv.t + " undone.";
+      break;
+    case "start":
+      var d = String(op.date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error("give the date as yyyy-mm-dd");
+      PropertiesService.getScriptProperties().setProperty("INV_START", d);
+      said = "PTCAs done from " + d + " on are deducted (from the next save of each case).";
+      break;
+    default:
+      throw new Error("unknown change " + op.op);
+  }
+  invWriteTab_(items);
+  return Object.assign(invGet_({ item: req.item }), { said: said });
+}
+
+/* ---------------- stent stickers ---------------- */
+var STENT_TAB = "Stents", STENT_UP_TAB = "Stent uploads";
+var STENT_IN_DEFAULT = "Stents uploads", STENT_DONE_DEFAULT = "Stents scanned";
+var STENT_KEEP_DEFAULT = 200;
+var STENT_HEAD = ["Sticker id", "Upload id", "Patient", "PTCA / Cath No", "IP No", "Date", "Device", "Brand", "Manufacturer", "Size",
+  "Diameter (mm)", "Length (mm)", "REF", "LOT", "Serial No", "Expiry", "Mfg date", "GTIN", "Barcode / QR text", "Other",
+  "Unsure", "Photo", "Scanned at", "Read by", "Bill no", "Bill date", "Vendor", "Billed at", "Billed by", "Edited", "Notes", "File id", "Photo removed"];
+var STENT_UP_HEAD = ["Upload id", "Status", "File", "File id", "Uploaded", "Scanned at", "Stickers", "Patient", "Number",
+  "Errors", "Log", "Tries", "Read by", "Photo removed", "By"];
+/* the fields of a sticker row as the app knows them (index = column) */
+var STENT_KEYS = ["id", "up", "patient", "ptcaNo", "ipNo", "date", "device", "brand", "mfr", "size", "dia", "len", "ref", "lot", "serial",
+  "expiry", "mfg", "gtin", "codes", "other", "unsure", "photo", "scannedAt", "readBy", "billNo", "billDate", "vendor", "billedAt", "billedBy",
+  "edited", "notes", "fileId", "photoGone"];
+var STENT_EDITABLE = ["patient", "ptcaNo", "ipNo", "date", "device", "brand", "mfr", "size", "dia", "len", "ref", "lot", "serial", "expiry", "mfg", "gtin", "codes", "other", "notes"];
+function stentKeepN_() {
+  var v = Number(PropertiesService.getScriptProperties().getProperty("STENT_KEEP"));
+  return isFinite(v) && v >= 20 ? Math.round(v) : STENT_KEEP_DEFAULT;
+}
+function stentTab_() { var sh = sheet(STENT_TAB, STENT_HEAD); ensureCols(sh, STENT_HEAD.length); return sh; }
+function stentUpTab_() { var sh = sheet(STENT_UP_TAB, STENT_UP_HEAD); ensureCols(sh, STENT_UP_HEAD.length); return sh; }
+
+/* What the scanner asks Gemini about a photo of stickers. Kept here, not in
+   the app: only the sheet's script ever reads these photos. */
+var STENT_PROMPT = "You are reading a photograph (or scan) taken in the cardiac catheterisation laboratory of the Department of Cardiology, LTMG Hospital, Sion, Mumbai. " +
+  "A technician has HANDWRITTEN a patient's details on a sheet of paper — the patient's name, the PTCA / Cath number, sometimes the IP number and the date — " +
+  "and stuck beside them the peel-off labels (\"stickers\") from the boxes of the devices used for that patient: mostly coronary stents, sometimes balloons, drug-coated balloons or other devices.\n\n" +
+  "Every manufacturer prints its own label (Abbott, Medtronic, Boston Scientific, Terumo, Meril, SMT, Sahajanand, Translumina, Biotronik, MicroPort and others), so find each field by its printed label or symbol, wherever it is on the sticker:\n" +
+  "- device: Stent, Balloon, DCB (drug-coated / drug-eluting balloon) or Other.\n" +
+  "- brand: the product name as printed (for example XIENCE Alpine, Resolute Onyx, Ultimaster Tansei, BioMime Aura, Supraflex Cruz, Yukon Choice PC); the company goes in manufacturer.\n" +
+  "- size: diameter × length as printed (\"3.00 x 38 mm\", \"Ø 2.75 mm / L 28 mm\"); also diameter and length as plain numbers in mm.\n" +
+  "- ref: REF, Cat. No., Catalogue No., Model or Product code, or the REF symbol.\n" +
+  "- lot: LOT, Lot No., Batch, Batch No. or B.No., or the LOT symbol (a small box with LOT in it).\n" +
+  "- serial: SN, S/N or Serial No., or the SN symbol — only when printed.\n" +
+  "- expiry: Use by, Exp. or Expiry, or the hourglass symbol — as printed. mfgDate: Mfg. / Manufactured, or the factory symbol with a date — as printed.\n" +
+  "- gtin: a GTIN / UDI-DI number printed on its own (often after GTIN or (01)).\n" +
+  "- codes: every line of characters printed under or beside a barcode, a QR code or a Data Matrix square, copied exactly, for example \"(01)08717648200274(17)270930(10)0012345678\". Copy only text that is printed; never decode the bars or squares yourself.\n" +
+  "- other: any other number printed that identifies the unit.\n\n" +
+  "Rules:\n" +
+  "- One entry per sticker, in reading order (top to bottom, left to right), even when two stickers look identical — two stents of the same size and lot are two entries.\n" +
+  "- Copy letters and digits exactly, never guess. Mark a character you cannot read with \"?\". Leave a field empty when it is not on the sticker.\n" +
+  "- The patient's details are handwritten on the sheet, not printed on the stickers. If the photo holds two or more patients' sheets, give each its own entry in sheets.\n\n" +
+  "Return ONLY minified JSON, no fences:\n" +
+  "{\"sheets\":[{\"patient\":{\"name\":\"\",\"ptcaNo\":\"\",\"ipNo\":\"\",\"date\":\"\"},\"stickers\":[{\"device\":\"Stent\",\"brand\":\"\",\"manufacturer\":\"\",\"size\":\"\",\"diameter\":\"\",\"length\":\"\",\"ref\":\"\",\"lot\":\"\",\"serial\":\"\",\"expiry\":\"\",\"mfgDate\":\"\",\"gtin\":\"\",\"codes\":[\"\"],\"other\":\"\"}]}]}";
+var BILL_PROMPT = "You are reading a photograph of a bill, invoice, delivery challan or consumption form for coronary devices (stents, balloons and other cath-lab hardware) supplied to the Department of Cardiology, LTMG Hospital, Sion, Mumbai. " +
+  "A device's peel-off label may be stuck on it, or the photo may be of such a label alone.\n\n" +
+  "Read:\n" +
+  "- bill: number (Invoice / Bill / Challan No.), date, vendor (the company that issued it), patient (the patient's name, when written), ipNo, ptcaNo (PTCA / Cath No., when written), amount (the grand total).\n" +
+  "- items: one entry per device line, and one per stuck-on label: device (Stent, Balloon, DCB or Other), brand (the product name), description (the line as written), " +
+  "size (diameter × length) with diameter and length as plain numbers in mm, ref (REF / Cat. No. / Model / Product code), lot (LOT / Batch / B.No.), serial (SN), expiry, gtin, " +
+  "codes (every line of characters printed under or beside a barcode or QR code, copied exactly), qty, amount.\n\n" +
+  "Rules: copy letters and digits exactly, never guess; mark a character you cannot read with \"?\"; leave a field empty when it is not there. Never decode the bars of a barcode yourself — only copy text that is printed.\n\n" +
+  "Return ONLY minified JSON, no fences:\n" +
+  "{\"bill\":{\"number\":\"\",\"date\":\"\",\"vendor\":\"\",\"patient\":\"\",\"ipNo\":\"\",\"ptcaNo\":\"\",\"amount\":\"\"},\"items\":[{\"device\":\"Stent\",\"brand\":\"\",\"description\":\"\",\"size\":\"\",\"diameter\":\"\",\"length\":\"\",\"ref\":\"\",\"lot\":\"\",\"serial\":\"\",\"expiry\":\"\",\"gtin\":\"\",\"codes\":[\"\"],\"qty\":\"\",\"amount\":\"\"}]}";
+
+/* GS1 — the numbers under a medical device's barcode: "(01)…(17)…(10)…(21)…"
+   as printed, or the raw data a scanner gives ("]d2" + digits, fields of
+   varying length ended by the group separator \u001d). Returns { "01": …,
+   "10": …, … } or null. */
+var GS1_FIXED_ = { "00": 18, "01": 14, "02": 14, "11": 6, "12": 6, "13": 6, "15": 6, "16": 6, "17": 6, "20": 2 };
+var GS1_VAR_ = { "10": 20, "21": 20, "22": 20, "30": 8, "240": 30, "241": 30, "250": 30 };
+function gs1Parse_(text) {
+  var s = String(text == null ? "" : text);
+  var out = {}, m;
+  if (/\(\d{2,4}\)/.test(s)) {
+    var re = /\((\d{2,4})\)\s*([^()]*)/g;
+    while ((m = re.exec(s))) { var v = m[2].replace(/[\u001d\s]+$/, "").replace(/^\s+/, ""); if (v && out[m[1]] == null) out[m[1]] = v; }
+  } else {
+    s = s.replace(/^\][A-Za-z]\d/, "").replace(/^\u001d+/, "");
+    if (!/^\d{4}/.test(s)) return null;
+    var i = 0, guard = 0;
+    while (i < s.length && guard++ < 20) {
+      if (s.charAt(i) === "\u001d") { i++; continue; }
+      var a2 = s.substr(i, 2), a3 = s.substr(i, 3);
+      if (GS1_FIXED_[a2] != null) { out[a2] = s.substr(i + 2, GS1_FIXED_[a2]); i += 2 + GS1_FIXED_[a2]; continue; }
+      var ai = GS1_VAR_[a3] != null ? a3 : GS1_VAR_[a2] != null ? a2 : "";
+      if (!ai) break;
+      var st = i + ai.length, end = s.indexOf("\u001d", st);
+      if (end < 0) end = s.length;
+      out[ai] = s.slice(st, Math.min(end, st + GS1_VAR_[ai]));
+      i = end;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+function gs1Date_(yymmdd) {
+  var m = /^(\d{2})(\d{2})(\d{2})$/.exec(String(yymmdd || ""));
+  if (!m) return "";
+  return "20" + m[1] + "-" + m[2] + (m[3] === "00" ? "" : "-" + m[3]);
+}
+function stentNum_(v) { var m = /\d+(?:\.\d+)?/.exec(String(v == null ? "" : v).replace(",", ".")); return m ? String(Number(m[0])) : ""; }
+function stentDevice_(d) {
+  var r = String(d || "").toLowerCase();
+  if (/dcb|deb|drug.*(coat|elut).*bal|bal.*drug/.test(r)) return "DCB";
+  if (/stent|scaffold|\bdes\b/.test(r)) return "Stent";
+  if (/bal+oon/.test(r)) return "Balloon";
+  return r ? "Other" : "Stent";
+}
+/* one sticker (or one line of a bill) as read, tidied: diameter and length
+   from the size, GTIN / lot / serial / expiry from the barcode text when the
+   sticker does not print them on their own */
+function stentNormItem_(s) {
+  s = s && typeof s === "object" ? s : {};
+  var o = { device: stentDevice_(s.device || s.type), brand: cathStr_(s.brand, 120), mfr: cathStr_(s.manufacturer || s.mfr, 80),
+    size: cathStr_(s.size, 60), dia: stentNum_(s.diameter), len: stentNum_(s.length), ref: cathStr_(s.ref, 60), lot: cathStr_(s.lot, 60),
+    serial: cathStr_(s.serial, 60), expiry: cathStr_(s.expiry, 30), mfg: cathStr_(s.mfgDate || s.mfg, 30), gtin: cathStr_(s.gtin, 40),
+    codes: (Array.isArray(s.codes) ? s.codes : s.codes ? [s.codes] : []).map(function (c) { return cathStr_(c, 200); }).filter(Boolean).slice(0, 8),
+    other: cathStr_(s.other, 200), description: cathStr_(s.description, 200), qty: cathStr_(s.qty, 10), amount: cathStr_(s.amount, 30) };
+  if ((!o.dia || !o.len) && o.size) {
+    var sz = /(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*(?:[x×*\/]|by)\s*(?:l\s*)?(\d+(?:[.,]\d+)?)/i.exec(o.size);
+    if (sz) { if (!o.dia) o.dia = stentNum_(sz[1]); if (!o.len) o.len = stentNum_(sz[2]); }
+  }
+  o.codes.forEach(function (c) {
+    var g = gs1Parse_(c);
+    if (!g) return;
+    if (!o.gtin && g["01"]) o.gtin = g["01"];
+    if (!o.lot && g["10"]) o.lot = g["10"];
+    if (!o.serial && g["21"]) o.serial = g["21"];
+    if (!o.expiry && g["17"]) o.expiry = gs1Date_(g["17"]);
+    if (!o.mfg && g["11"]) o.mfg = gs1Date_(g["11"]);
+    if (!o.ref && g["240"]) o.ref = g["240"];
+  });
+  var unsure = [];
+  ["brand", "size", "ref", "lot", "serial", "expiry", "gtin"].forEach(function (k) { if (String(o[k]).indexOf("?") >= 0) unsure.push(k); });
+  o.unsure = unsure.join(", ");
+  return o;
+}
+/* a photo's reading → [{ patient, stickers: [...] }] */
+function stentNormRead_(j) {
+  j = j && typeof j === "object" ? j : {};
+  var sheets = Array.isArray(j.sheets) ? j.sheets : (j.patient || j.stickers ? [j] : []);
+  return sheets.map(function (sh) {
+    sh = sh && typeof sh === "object" ? sh : {};
+    var p = sh.patient && typeof sh.patient === "object" ? sh.patient : {};
+    return { patient: { name: cathStr_(p.name, 120), ptcaNo: cathStr_(p.ptcaNo || p.cathNo || p.number, 40), ipNo: cathStr_(p.ipNo, 40), date: cathStr_(p.date, 30) },
+      stickers: (Array.isArray(sh.stickers) ? sh.stickers : []).map(stentNormItem_).filter(function (s) {
+        return s.brand || s.lot || s.ref || s.serial || s.gtin || s.codes.length || s.size; }) };
+  });
+}
+function stentRowOf_(id, up, p, s, photo, fileId, readBy) {
+  var size = s.dia && s.len ? s.dia + " × " + s.len + " mm" : s.size;
+  var o = { id: id, up: up, patient: p.name, ptcaNo: p.ptcaNo, ipNo: p.ipNo, date: p.date, device: s.device, brand: s.brand, mfr: s.mfr, size: size,
+    dia: s.dia, len: s.len, ref: s.ref, lot: s.lot, serial: s.serial, expiry: s.expiry, mfg: s.mfg, gtin: s.gtin, codes: s.codes.join("\n"), other: s.other,
+    unsure: s.unsure, photo: photo || "", scannedAt: cathNow_(), readBy: readBy || "", billNo: "", billDate: "", vendor: "", billedAt: "", billedBy: "",
+    edited: "", notes: "", fileId: fileId || "", photoGone: "" };
+  return STENT_KEYS.map(function (k) { return String(o[k] == null ? "" : o[k]); });
+}
+function stentRowsAll_() {
+  var sh = stentTab_();
+  if (sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, STENT_HEAD.length).getValues().map(function (v, i) {
+    var o = { row: i + 2 };
+    STENT_KEYS.forEach(function (k, c) { o[k] = cell(v[c]); });
+    return o;
+  }).filter(function (o) { return o.id; });
+}
+function stentWriteRows_(rows) {
+  if (!rows.length) return;
+  var sh = stentTab_();
+  var at = sh.getLastRow() + 1;
+  sh.getRange(at, 1, rows.length, STENT_HEAD.length).setNumberFormat("@").setValues(rows);
+}
+/* the uploads tab: one row per photo */
+function stentUpRows_() {
+  var sh = stentUpTab_();
+  var rows = [];
+  if (sh.getLastRow() >= 2) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, STENT_UP_HEAD.length).getValues().forEach(function (v, i) {
+      if (!cell(v[0])) return;
+      var errs = []; try { errs = JSON.parse(cell(v[9]) || "[]") || []; } catch (e) { errs = cell(v[9]) ? [cell(v[9])] : []; }
+      rows.push({ row: i + 2, id: cell(v[0]), status: cell(v[1]), file: cell(v[2]), fileId: cell(v[3]), uploaded: cell(v[4]), scannedAt: cell(v[5]),
+        stickers: Number(v[6]) || 0, patient: cell(v[7]), number: cell(v[8]), errors: errs, log: cell(v[10]), tries: Number(v[11]) || 0,
+        readBy: cell(v[12]), photoGone: cell(v[13]), by: cell(v[14]) });
+    });
+  }
+  var byId = {}, byFile = {};
+  rows.forEach(function (r) { byId[r.id] = r; if (r.fileId) byFile[r.fileId] = r; });
+  return { rows: rows, byId: byId, byFile: byFile };
+}
+function stentUpWrite_(r) {
+  var sh = stentUpTab_();
+  var vals = [r.id, r.status, r.file || "", r.fileId || "", r.uploaded || "", r.scannedAt || "", r.stickers || 0, r.patient || "", r.number || "",
+    JSON.stringify(r.errors || []).slice(0, 20000), String(r.log || "").slice(-20000), r.tries || 0, r.readBy || "", r.photoGone || "", r.by || ""];
+  // formatted as text before the values go in, so a time is never turned into a date
+  if (!r.row) r.row = sh.getLastRow() + 1;
+  var rg = sh.getRange(r.row, 1, 1, STENT_UP_HEAD.length);
+  rg.setNumberFormat("@");
+  rg.setValues([vals.map(function (v) { return String(v == null ? "" : v); })]);
+  try { SpreadsheetApp.flush(); } catch (e) {}
+}
+function stentNote_(r, runId, step, outcome, detail) {
+  var t = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm:ss");
+  r.log = (r.log ? r.log + "\n" : "") + t + " " + step + ": " + outcome + (detail ? " — " + detail : "");
+  batchLogRow_(runId, r.id, r.file, "stent photo · " + step, outcome, detail);
+}
+function stentPhotoUrl_(fileId) { return fileId ? "https://drive.google.com/file/d/" + fileId + "/view" : ""; }
+/* the photos waiting in Stents uploads become rows of the uploads tab */
+function stentTakeNew_(f, tab, manual) {
+  var minAge = manual ? 20 * 1000 : BATCH_MIN_AGE_MS;
+  var now = Date.now(), fresh = [];
+  var it = f.stentsIn.getFiles();
+  while (it.hasNext()) {
+    var file = it.next();
+    var mime = String(file.getMimeType() || "").toLowerCase();
+    var ok = mime === "application/pdf" || /^image\/(jpeg|jpg|png|webp|heic|heif)$/.test(mime);
+    if (!ok || tab.byFile[file.getId()]) continue;
+    if (now - file.getLastUpdated().getTime() < minAge) continue;
+    fresh.push({ file: file, t: file.getDateCreated().getTime() });
+  }
+  fresh.sort(function (a, b) { return a.t - b.t; });
+  return fresh.map(function (x) {
+    var stem = String(x.file.getName()).replace(/\.[A-Za-z0-9]+$/, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
+    var id = "ST" + Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + (stem ? "-" + stem : "");
+    var n = 2; while (tab.byId[id]) id = id.replace(/~\d+$/, "") + "~" + (n++);
+    var r = { id: id, status: "queued", file: x.file.getName(), fileId: x.file.getId(),
+      uploaded: Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm"), errors: [], log: "", tries: 0, row: 0 };
+    stentUpWrite_(r);
+    tab.rows.push(r); tab.byId[id] = r; tab.byFile[r.fileId] = r;
+    return r;
+  });
+}
+/* One run's share of the stent photos: new ones taken in, every queued one
+   read in turn with the usual pause, its stickers written to the Stents tab
+   and the photo moved to Stents scanned. Returns what happened. */
+function stentTick_(f, models, key, runId, manual, pause, timeLeft) {
+  var out = { scanned: 0, failed: 0, stickers: 0, pending: 0, stopped: false, why: "", taken: 0 };
+  var tab = stentUpRows_();
+  out.taken = stentTakeNew_(f, tab, manual).length;
+  var work = tab.rows.filter(function (r) { return r.status === "queued"; });
+  if (work.length) batchLogRow_(runId, "", "", "stent photos", "started", work.length + " photo(s) to read");
+  for (var i = 0; i < work.length; i++) {
+    if (timeLeft() < 100000) { out.pending = work.length - i; out.why = "time budget used; the other stent photos continue next run"; break; }
+    var r = work[i];
+    var file = null;
+    try { file = DriveApp.getFileById(r.fileId); if (file.isTrashed()) file = null; } catch (e) { file = null; }
+    if (!file) { r.status = "failed"; r.errors = [{ step: "file", reason: "the photo is no longer in Drive" }]; stentNote_(r, runId, "file", "failed", "the photo is no longer in Drive"); stentUpWrite_(r); out.failed++; continue; }
+    if (file.getSize() > BATCH_MAX_FILE) { r.status = "failed"; r.errors = [{ step: "file", reason: "larger than 20 MB, which Gemini will not accept — upload it smaller" }]; stentNote_(r, runId, "file", "failed", "larger than 20 MB"); stentFinishMove_(f, file, r, runId); stentUpWrite_(r); out.failed++; continue; }
+    var mime = String(file.getMimeType() || "").toLowerCase();
+    var item = { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" };
+    var res = batchCallChain_(key, models.readChain || [models.read], STENT_PROMPT, item, null, pause, timeLeft);
+    if (res.quota && !res.ok) { out.stopped = true; out.why = res.reason; stentNote_(r, runId, "reading", "stopped", res.reason); stentUpWrite_(r); break; }
+    r.tries = (r.tries || 0) + 1;
+    if (!res.ok && res.retry && r.tries < BATCH_MAX_TRIES) { stentNote_(r, runId, "reading", "will retry", res.reason + " — tried again next run"); stentUpWrite_(r); pause(); continue; }
+    if (!res.ok) {
+      r.status = "failed"; r.errors = [{ step: "reading", reason: res.reason }];
+      stentNote_(r, runId, "reading", "failed", res.reason); stentFinishMove_(f, file, r, runId); stentUpWrite_(r); out.failed++; pause(); continue;
+    }
+    var sheets = stentNormRead_(res.json);
+    var n = 0; sheets.forEach(function (s) { n += s.stickers.length; });
+    if (!n) {
+      r.status = "failed"; r.errors = [{ step: "reading", reason: "no sticker could be read on this photo — photograph the stickers flat and close, then upload again" }];
+      stentNote_(r, runId, "reading", "failed", "no sticker found"); stentFinishMove_(f, file, r, runId); stentUpWrite_(r); out.failed++; pause(); continue;
+    }
+    // a photo read again replaces its earlier stickers
+    var olds = stentRowsAll_().filter(function (x) { return x.up === r.id; }).map(function (x) { return x.row; });
+    if (olds.length) stentDeleteRows_(olds);
+    var rows = [], k = 0, photo = stentPhotoUrl_(r.fileId);
+    sheets.forEach(function (s) { s.stickers.forEach(function (st) { k++; rows.push(stentRowOf_(r.id + "-" + k, r.id, s.patient, st, photo, r.fileId, res.model || "")); }); });
+    stentWriteRows_(rows);
+    r.status = "scanned"; r.stickers = n; r.errors = []; r.readBy = res.model || "";
+    r.patient = sheets.map(function (s) { return s.patient.name; }).filter(Boolean).join("; ");
+    r.number = sheets.map(function (s) { return s.patient.ptcaNo; }).filter(Boolean).join("; ");
+    r.scannedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
+    stentNote_(r, runId, "reading", "ok", n + " sticker(s)" + (r.patient ? " · " + r.patient : "") + (r.number ? " · " + r.number : "") + (res.via ? " (via " + res.via + ")" : ""));
+    stentFinishMove_(f, file, r, runId);
+    stentUpWrite_(r);
+    out.scanned++; out.stickers += n;
+    pause();
+  }
+  if (out.scanned || out.failed) {
+    try { var hk = stentHousekeep_(f, runId); if (hk) out.why = (out.why ? out.why + "; " : "") + hk; }
+    catch (e) { batchLogRow_(runId, "", "", "stent housekeeping", "failed", String(e && e.message || e)); }
+  }
+  if (out.scanned || out.failed || out.stopped) {
+    try { PropertiesService.getScriptProperties().setProperty("STENT_LAST", JSON.stringify({ at: new Date().toISOString(), scanned: out.scanned, failed: out.failed, stickers: out.stickers, why: out.why })); } catch (e) {}
+  }
+  return out;
+}
+function stentFinishMove_(f, file, r, runId) {
+  try { file.moveTo(f.stentsDone); }
+  catch (e) { stentNote_(r, runId, "move", "failed", "could not move the photo to " + STENT_DONE_DEFAULT + ": " + String(e && e.message || e)); }
+}
+function stentDeleteRows_(rowNums) {
+  var sh = stentTab_();
+  rowNums.slice().sort(function (a, b) { return b - a; }).forEach(function (n) { sh.deleteRow(n); });
+}
+/* Only the newest STENT_KEEP photos stay in Stents scanned: older ones are
+   deleted (what was read from them stays in the Stents tab, marked "photo
+   removed"). Returns a one-line note or "". */
+function stentHousekeep_(f, runId) {
+  var keep = stentKeepN_();
+  var files = [], it = f.stentsDone.getFiles();
+  while (it.hasNext()) { var x = it.next(); files.push({ f: x, id: x.getId(), t: x.getDateCreated().getTime() }); }
+  if (files.length <= keep) return "";
+  files.sort(function (a, b) { return a.t - b.t; });
+  var drop = files.slice(0, files.length - keep);
+  var gone = {}, failed = 0;
+  drop.forEach(function (x) { try { x.f.setTrashed(true); gone[x.id] = true; } catch (e) { failed++; } });
+  var day = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var tab = stentUpRows_();
+  tab.rows.forEach(function (r) { if (gone[r.fileId] && !r.photoGone) { r.photoGone = day; stentUpWrite_(r); } });
+  var sh = stentTab_();
+  if (sh.getLastRow() >= 2) {
+    var fc = STENT_KEYS.indexOf("fileId") + 1, gc = STENT_KEYS.indexOf("photoGone") + 1;
+    var ids = sh.getRange(2, fc, sh.getLastRow() - 1, 1).getValues();
+    var g = sh.getRange(2, gc, sh.getLastRow() - 1, 1).getValues();
+    var changed = false;
+    ids.forEach(function (v, i) { if (gone[String(v[0])] && !String(g[i][0])) { g[i][0] = day; changed = true; } });
+    if (changed) sh.getRange(2, gc, g.length, 1).setNumberFormat("@").setValues(g);
+  }
+  var n = Object.keys(gone).length;
+  var note = "stent photos: the " + n + " oldest deleted from " + STENT_DONE_DEFAULT + " (the newest " + keep + " are kept; what was read stays in the sheet)" +
+    (failed ? "; " + failed + " could not be deleted (owned by another account) — delete them by hand" : "");
+  batchLogRow_(runId, "", "", "stent housekeeping", "ok", note);
+  return note;
+}
+/* ---- what the app asks ---- */
+function stentList_() {
+  return { stents: stentRowsAll_().map(function (o) { var c = {}; STENT_KEYS.forEach(function (k) { c[k] = o[k]; }); return c; }) };
+}
+function stentStatus_() {
+  var f = batchFolders_();
+  var tab = stentUpRows_();
+  var count = function (s) { return tab.rows.filter(function (r) { return r.status === s; }).length; };
+  var waiting = 0; try { var it = f.stentsIn.getFiles(); while (it.hasNext()) { var x = it.next(); if (!tab.byFile[x.getId()]) waiting++; } } catch (e) {}
+  var inDone = 0; try { var it2 = f.stentsDone.getFiles(); while (it2.hasNext()) { it2.next(); inDone++; } } catch (e) {}
+  var last = null; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty("STENT_LAST") || "null"); } catch (e) {}
+  return { inUrl: f.stentsIn.getUrl(), doneUrl: f.stentsDone.getUrl(), inName: f.stentsIn.getName(), doneName: f.stentsDone.getName(),
+    keep: stentKeepN_(), inDone: inDone, waiting: waiting + count("queued"), failed: count("failed"), scanned: count("scanned"),
+    last: last, schedule: batchPlan_(), keySet: !!geminiKey_(), scheduled: batchTriggers_().length > 0 && !batchOff_() };
+}
+function stentUploads_() {
+  var tab = stentUpRows_();
+  return { uploads: tab.rows.slice(-300).reverse().map(function (r) {
+    return { id: r.id, status: r.status, file: r.file, fileId: r.fileId, uploaded: r.uploaded, scannedAt: r.scannedAt, stickers: r.stickers,
+      patient: r.patient, number: r.number, errors: r.errors, log: String(r.log || "").split("\n").slice(-12).join("\n"), tries: r.tries, readBy: r.readBy, photoGone: r.photoGone, by: r.by };
+  }) };
+}
+/* a sticker row corrected, added by hand, marked billed, or deleted */
+function stentSave_(req) {
+  var by = cathStr_(req.by, 60), now = cathNow_();
+  var sh = stentTab_();
+  if (req.add && typeof req.add === "object") {
+    var a = req.add;
+    var s = stentNormItem_(a);
+    var row = stentRowOf_(cathId_("SH"), "by hand", { name: cathStr_(a.patient, 120), ptcaNo: cathStr_(a.ptcaNo, 40), ipNo: cathStr_(a.ipNo, 40), date: cathStr_(a.date, 30) }, s, "", "", "");
+    row[STENT_KEYS.indexOf("edited")] = "added by " + (by || "?") + " " + now;
+    row[STENT_KEYS.indexOf("notes")] = cathStr_(a.notes, 300);
+    stentWriteRows_([row]);
+    return { saved: row[0] };
+  }
+  var all = stentRowsAll_();
+  var r = all.filter(function (x) { return x.id === String(req.id || ""); })[0];
+  if (!r) throw new Error("that sticker is no longer in the sheet — refresh the list");
+  if (req.remove) {
+    if (r.billNo || r.billedAt) throw new Error("this sticker is marked billed — take the bill off it first");
+    sh.deleteRow(r.row);
+    return { removed: r.id };
+  }
+  var vals = sh.getRange(r.row, 1, 1, STENT_HEAD.length).getValues()[0].map(cell);
+  var set = req.set && typeof req.set === "object" ? req.set : null;
+  var changed = [];
+  if (set) {
+    STENT_EDITABLE.forEach(function (k) {
+      if (set[k] === undefined) return;
+      var c = STENT_KEYS.indexOf(k), v = cathStr_(set[k], k === "codes" ? 1000 : 200);
+      if (k === "codes") v = String(set[k] == null ? "" : set[k]).split(/\n+/).map(function (x) { return cathStr_(x, 200); }).filter(Boolean).join("\n");
+      if (vals[c] !== v) { vals[c] = v; changed.push(k); }
+    });
+    // a corrected size gives its diameter and length; corrected barcode text its numbers
+    if (changed.indexOf("size") >= 0 && changed.indexOf("dia") < 0 && changed.indexOf("len") < 0) {
+      var n = stentNormItem_({ size: vals[STENT_KEYS.indexOf("size")] });
+      vals[STENT_KEYS.indexOf("dia")] = n.dia; vals[STENT_KEYS.indexOf("len")] = n.len;
+    }
+    vals[STENT_KEYS.indexOf("unsure")] = ["brand", "size", "ref", "lot", "serial", "expiry", "gtin"].filter(function (k) { return vals[STENT_KEYS.indexOf(k)].indexOf("?") >= 0; }).join(", ");
+    if (changed.length) vals[STENT_KEYS.indexOf("edited")] = (by || "?") + " " + now + " (" + changed.join(", ") + ")";
+  }
+  if (req.bill && typeof req.bill === "object") {
+    vals[STENT_KEYS.indexOf("billNo")] = cathStr_(req.bill.no, 60);
+    vals[STENT_KEYS.indexOf("billDate")] = cathStr_(req.bill.date, 30);
+    vals[STENT_KEYS.indexOf("vendor")] = cathStr_(req.bill.vendor, 120);
+    vals[STENT_KEYS.indexOf("billedAt")] = now;
+    vals[STENT_KEYS.indexOf("billedBy")] = by;
+    changed.push("bill");
+  } else if (req.unbill) {
+    ["billNo", "billDate", "vendor", "billedAt", "billedBy"].forEach(function (k) { vals[STENT_KEYS.indexOf(k)] = ""; });
+    changed.push("bill taken off");
+  }
+  sh.getRange(r.row, 1, 1, STENT_HEAD.length).setNumberFormat("@").setValues([vals]);
+  var o = {}; STENT_KEYS.forEach(function (k, i) { o[k] = vals[i]; });
+  return { saved: r.id, changed: changed, stent: o };
+}
+/* a photo read again from the start (its file is wherever it now is) */
+function stentRetry_(req) {
+  var tab = stentUpRows_();
+  var r = tab.byId[String(req.id || "")];
+  if (!r) throw new Error("that photo is no longer in the uploads list");
+  if (r.photoGone) throw new Error("this photo was deleted on " + r.photoGone + " (only the newest " + stentKeepN_() + " are kept) — upload it again");
+  var billed = stentRowsAll_().filter(function (x) { return x.up === r.id && (x.billNo || x.billedAt || x.edited); });
+  if (billed.length) throw new Error("a sticker from this photo has been corrected or marked billed — reading it again would lose that; correct the stickers by hand instead");
+  r.status = "queued"; r.tries = 0; r.errors = [];
+  r.log = (r.log ? r.log + "\n" : "") + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm:ss") + " retry: queued again from the app" + (req.by ? " by " + cathStr_(req.by, 60) : "");
+  stentUpWrite_(r);
+  return { queued: r.id };
+}
+function stentDismiss_(req) {
+  var tab = stentUpRows_();
+  var r = tab.byId[String(req.id || "")];
+  if (!r) throw new Error("that photo is no longer in the uploads list");
+  r.status = "dismissed";
+  r.log = (r.log ? r.log + "\n" : "") + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm:ss") + " dismissed" + (req.by ? " by " + cathStr_(req.by, 60) : "");
+  stentUpWrite_(r);
+  return { dismissed: r.id };
+}
+/* the photo of one upload, for the app to show (only photos the uploads tab knows) */
+function stentPhoto_(req) {
+  var id = String(req.fileId || "");
+  var tab = stentUpRows_();
+  if (!id || !tab.byFile[id]) throw new Error("that photo is not one of the stent uploads");
+  var f = DriveApp.getFileById(id);
+  if (f.isTrashed()) throw new Error("this photo has been deleted (only the newest " + stentKeepN_() + " are kept)");
+  var blob = f.getBlob();
+  if (blob.getBytes().length > 15 * 1024 * 1024) throw new Error("the photo is too large to show here — open it in Drive");
+  return { fileId: id, name: f.getName(), mime: String(blob.getContentType() || f.getMimeType() || ""), b64: Utilities.base64Encode(blob.getBytes()) };
+}
+/* a photo taken in the app goes into Stents uploads like any other */
+function stentUpload_(req) {
+  var b64 = String(req.b64 || "");
+  if (!b64) throw new Error("no photo");
+  var mime = String(req.mime || "image/jpeg").toLowerCase();
+  if (!/^image\/(jpeg|png|webp|heic|heif)$|^application\/pdf$/.test(mime)) throw new Error("only photos (JPEG/PNG) and PDFs can be uploaded");
+  var bytes = Utilities.base64Decode(b64);
+  if (bytes.length > 15 * 1024 * 1024) throw new Error("the photo is larger than 15 MB");
+  var f = batchFolders_();
+  var ext = mime === "application/pdf" ? ".pdf" : mime === "image/png" ? ".png" : ".jpg";
+  var who = cathStr_(req.label, 40).replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  var name = "stent_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + (who ? "_" + who : "") + ext;
+  var file = f.stentsIn.createFile(Utilities.newBlob(bytes, mime, name));
+  if (req.by) { try { file.setDescription("uploaded from the app by " + cathStr_(req.by, 60)); } catch (e) {} }
+  return { fileId: file.getId(), name: name };
+}
+/* a bill (or a sticker) photographed in the app: read now, with the
+   scanner's models; nothing is written */
+function stentReadBill_(req) {
+  var key = geminiKey_();
+  if (!key) throw new Error("the sheet has no GEMINI_KEY in its script properties, so it cannot read photos");
+  var b64 = String(req.b64 || "");
+  if (!b64) throw new Error("no photo");
+  var mime = String(req.mime || "image/jpeg").toLowerCase();
+  var t0 = Date.now();
+  BATCH_RUN_ = { start: t0, ok: 0, rested: 0, notes: [] };
+  var item = { bytes: Utilities.base64Decode(b64), name: "bill", mime: mime, isPdf: mime === "application/pdf" };
+  var models = batchModels_();
+  var res = batchCallChain_(key, (models.readChain || [models.read]).slice(0, 3), BILL_PROMPT, item, null,
+    function () { Utilities.sleep(1500); }, function () { return 200000 - (Date.now() - t0); });
+  if (!res || !res.ok) throw new Error("the bill could not be read: " + ((res && res.reason) || "no answer") + " — type what it says below instead");
+  var j = res.json && typeof res.json === "object" ? res.json : {};
+  var b = j.bill && typeof j.bill === "object" ? j.bill : {};
+  return { model: res.model || "", bill: { number: cathStr_(b.number, 60), date: cathStr_(b.date, 30), vendor: cathStr_(b.vendor, 120),
+      patient: cathStr_(b.patient, 120), ipNo: cathStr_(b.ipNo, 40), ptcaNo: cathStr_(b.ptcaNo, 40), amount: cathStr_(b.amount, 30) },
+    items: (Array.isArray(j.items) ? j.items : []).slice(0, 30).map(stentNormItem_) };
+}
+/* "Scan now" on the technicians' page: the stent photos only */
+function stentScanNow_() {
+  return batchTick({ fromApp: true, only: "stents" });
+}
+/* the technicians' page: is this device let in, and how do things stand */
+function techStatus_(req) {
+  var ok = techAllowed(req.tkey);
+  var o = { canTech: ok, techSet: techKeyIsSet_(), canEdit: editAllowed(req.key), v: SCRIPT_VERSION, cath: 1 };
+  if (!ok) return o;
+  try { o.stents = stentStatus_(); } catch (e) { o.stentsError = String(e && e.message || e); }
+  o.invStart = invStart_();
+  return o;
+}
+function techRefused_() {
+  return techKeyIsSet_() ? "This device does not have the technicians' key (or it has been changed) \u2014 enter it in Settings."
+    : "No technicians' key has been set yet \u2014 an editor sets one in Settings (Technicians' key).";
 }

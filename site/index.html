@@ -272,7 +272,55 @@ fieldset.otlock:disabled{opacity:.55}
 .legend i.BPTCA{border-color:#1f5fc2;border-style:dashed;background:#f6f8fd}.legend i.BCAG{border-color:#1c7a55;border-style:dashed;background:#f5faf7}
 .legend i.done{border-color:#9a9ea8;background:#eeeff2}.legend i.deferred{border-color:#d9a400;background:#fff7d6}
 .ro{font-size:12px;color:var(--steel);background:var(--panel);border:1px solid var(--hair);border-radius:6px;padding:6px 10px;display:inline-block;margin-top:8px}
-@media print{header,.btns,.search,.actions,.card.reg,#crashbox,.noprint,#utilview{display:none!important}#app{padding:0}}
+@media print{header,.btns,.search,.actions,.card.reg,#crashbox,.noprint,#utilview,#techview{display:none!important}#app{padding:0}}
+/* ---- 13.44: the technicians' page — inventory, stents, bills ---- */
+.tab .n.bad{background:#c00000;color:#fff}
+.tab.on .n.bad{background:#ff8080;color:#fff}
+.invtype{border:1px solid var(--hair);border-left:7px solid #757575;border-radius:9px;margin:10px 0;background:var(--paper);overflow:hidden}
+.invth{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;user-select:none}
+.invth b{flex:1 1 auto;font-size:14px}
+.invth .n{font-size:11.5px;color:var(--steel);background:rgba(255,255,255,.75);border-radius:999px;padding:1px 8px}
+.invth .fold{color:var(--steel);width:14px;text-align:center}
+.invbrand{font-weight:700;font-size:13px;padding:8px 12px 3px;border-top:1px solid #eceef1}
+.invrow{display:flex;align-items:center;gap:10px;padding:7px 12px 7px 22px;cursor:pointer}
+.invrow:hover,.invrow.open{background:#f4f5f7}
+.invrow .sz{flex:0 0 auto;min-width:76px;font-weight:600}
+.invrow .meta{flex:1 1 auto;font-size:11.5px;color:var(--dim);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.invrow.off{opacity:.55}
+.stk{flex:0 0 auto;min-width:46px;text-align:center;font-weight:700;border-radius:999px;padding:2px 9px;font-size:13px}
+.stk.neg{background:#c00000;color:#fff}.stk.zero{background:#eceef1;color:#5f6470}.stk.low{background:#ffe7a3;color:#6b5110}.stk.ok{background:#dff3e8;color:#1c7a55}
+.invpanel{padding:10px 12px 12px 22px;background:#fafbfc;border-top:1px dashed var(--hair);border-bottom:1px dashed var(--hair)}
+.invpanel .row{gap:8px;margin-bottom:6px}
+.invform,.stedit,.billform{border:1px solid var(--hair);border-radius:9px;background:var(--paper);padding:10px 12px;margin:10px 0}
+.billitem{border-top:1px dashed var(--hair);margin-top:8px;padding-top:4px}
+.ckline{display:flex;gap:7px;align-items:center;font-size:13px;margin:4px 0 2px}
+.ckline input{width:17px;height:17px;accent-color:var(--wine)}
+.invmv{display:flex;gap:4px 10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid #eceef1;font-size:12.5px}
+.invmv .q{font-weight:700;min-width:34px}
+.invmv .q.minus{color:#c00000}.invmv .q.plus{color:#1c7a55}.invmv .q.zero{color:var(--dim)}
+.invmv .d{color:var(--steel);min-width:86px}
+.invmv .w{flex:1 1 200px;color:var(--slate)}
+.invmv .b{padding:4px 9px;font-size:12px}
+.invhelp{margin-top:12px;font-size:13px}
+.invhelp summary{cursor:pointer;color:var(--steel);font-weight:600}
+.stcard{border:1px solid var(--hair);border-left:6px solid #b3261e;border-radius:9px;padding:9px 11px;margin:8px 0;background:var(--paper);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.stcard .who{flex:1 1 240px;min-width:0}
+.stcard .who b{display:block}
+.stcard .who span{display:block;font-size:12px;color:var(--steel)}
+.stcard .who span.why{font-weight:600}
+.stcard.billed{border-left-color:#1c7a55;background:#f5fbf8}
+.stcard .stedit{flex:1 1 100%}
+.stcard .who span.tag,.casecard .tag,.uplist .pick .who span.tag{display:inline-block;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:4px;vertical-align:1px}
+.casecard{border-color:#1f5fc2;background:#f4f8fe}
+.casecard .kv{font-size:13px;margin:4px 0}
+.casecard .kv b{color:var(--steel);font-weight:600}
+#techview{position:fixed;top:0;right:0;bottom:0;left:0;z-index:90;display:flex;flex-direction:column;background:var(--paper);color:var(--ink)}
+#techview .uvbar{display:flex;gap:8px;align-items:center;padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;border-bottom:1px solid var(--hair);background:var(--panel)}
+#techview .uvtitle{flex:1 1 140px;min-width:0;font-size:14px;font-weight:700}
+#techview .uvtitle span{display:block;font-weight:400;font-size:12px;color:var(--steel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#techview .uvbody{flex:1 1 auto;min-height:0;overflow:auto;padding:10px 12px}
+#techview img{display:block;width:100%;height:auto;cursor:zoom-in}
+#techview img.z{width:250%;max-width:none;cursor:zoom-out}
 /* ---- in-app camera: several sheets in one go ---- */
 #cam{position:fixed;top:0;right:0;bottom:0;left:0;z-index:100;display:flex;flex-direction:column;
   background:#000;color:#fff}
@@ -3522,9 +3570,23 @@ function stripPrePost(s) {
     .replace(/^\s*(pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod)\b\s*[-–:]?\s*(?=\S)/i, "")
     .replace(/\s{2,}/g, " ").trim();
 }
+/* 13.44 — "ox" / "oxy" beside a device on the utilization sheet: a reused,
+   re-sterilised device. The inventory does not subtract it; the report never
+   prints the mark. isReused tells one device; stripReuse takes the mark out
+   of a device or a whole cell ("XB3 ox", "RNS (oxy)", "FC-ox"). */
+function isReused(s) { return /(^|[^a-z0-9])(ox|oxy)(?![a-z0-9])/i.test(String(s == null ? "" : s)); }
+function stripReuse(s) {
+  const t = String(s == null ? "" : s);
+  if (!isReused(t)) return t;
+  return t.replace(/\s*[\(\[\{]\s*(?:ox|oxy)\.?\s*[\)\]\}]/gi, "")
+    .replace(/(^|[\s,;\/])\s*[-\u2013]?\s*(?:ox|oxy)\.?(?=$|[\s,;\/\)\]\}])/gi, "$1")
+    .replace(/[-\u2013]\s*(?:ox|oxy)\.?(?=$|[\s,;\/\)\]\}])/gi, "")
+    .replace(/[ \t]{2,}/g, " ").replace(/\s+([,;])/g, "$1").replace(/([,;])(?=\S)/g, "$1 ").replace(/([,;]\s*){2,}/g, "$1")
+    .replace(/^[\s,;]+|[\s,;]+$/g, "");
+}
 function splitDevices(cell) {
   return String(cell == null ? "" : cell).split(/[,;\n]+/)
-    .map(function (x) { return stripPrePost(x.trim().replace(/\.+$/, "")); }).filter(Boolean);
+    .map(function (x) { return stripPrePost(stripReuse(x.trim()).replace(/\.+$/, "")); }).filter(Boolean);
 }
 /* "2.75*44 Biomime Aura" → diameter 2.75 (mm). Bare "2.5" also parses. */
 function deviceDia(s) {
@@ -3641,6 +3703,8 @@ function hwFind(text, rowKind, list) {
 const HW_SIZE_SRC = "\\d+(?:\\.\\d+)?\\s*[*×xX]\\s*\\d+(?:\\.\\d+)?";
 const HW_TOK_RE = new RegExp("([\\(\\[\\{][^\\)\\]\\}]*[\\)\\]\\}]?)|(" + HW_SIZE_SRC + ")|(\\s+)|((?:(?!" + HW_SIZE_SRC + ")[^\\s\\(\\[\\{])+)", "g");
 const HW_TAG_RE = /^(?:pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod)[:\-–]?$/i;
+/* 13.44: "ox" / "oxy" (a reused device) beside a name is not part of it either */
+const HW_REUSE_RE = /^[-–]?(?:ox|oxy)[.,:]?$/i;
 const HW_SITE_RE = /^[opmd](?:[-–—\/][opmd])?$/i;
 /* a stent's site written as a code — o, p, m, d, alone or as a pair — in
    words: "m-d" → "Mid-Distal", "o-p" → "Ostio-Proximal", "d" → "Distal".
@@ -3690,6 +3754,11 @@ function hwExpandDevice(seg, rowKind, list, notes, opt) {
     toks.push({ t: note != null ? "note" : size != null ? "size" : sp != null ? "sp" : "word", s: m });
     return m;
   });
+  // 13.44: an ox / oxy mark written against a name ("BS-ox") is a word of its own
+  for (let k = toks.length - 1; k >= 0; k--) {
+    const om = toks[k].t === "word" ? /^(.*[a-z0-9.)])([-\u2013](?:ox|oxy)\.?)$/i.exec(toks[k].s) : null;
+    if (om) toks.splice(k, 1, { t: "word", s: om[1] }, { t: "word", s: om[2] });
+  }
   // a mark standing by itself ("/", "-", "&", "+") is not part of any name: it
   // ends a run of words and stays where it is
   toks.forEach(function (t) { if (t.t === "word" && !/[a-z0-9]/i.test(t.s)) t.t = "mark"; });
@@ -3718,8 +3787,8 @@ function hwExpandDevice(seg, rowKind, list, notes, opt) {
     for (let k = i; k <= end; k++) if (toks[k].t === "word") idx.push(k);
     // the technician's pre / post tags at either end are not part of the name
     let a = 0, b = idx.length;
-    while (a < b && HW_TAG_RE.test(toks[idx[a]].s)) a++;
-    while (b > a && HW_TAG_RE.test(toks[idx[b - 1]].s)) b--;
+    while (a < b && (HW_TAG_RE.test(toks[idx[a]].s) || HW_REUSE_RE.test(toks[idx[a]].s))) a++;
+    while (b > a && (HW_TAG_RE.test(toks[idx[b - 1]].s) || HW_REUSE_RE.test(toks[idx[b - 1]].s))) b--;
     let hit = "", pre = "", post = "";
     if (a < b) {
       // punctuation written against the name ("RS.", "-RS") stays around it
@@ -3884,6 +3953,200 @@ document.addEventListener("change", function (ev) {
   el.value = out;
   if (typeof el.oninput === "function") el.oninput();
 });
+/* ============================================================
+   13.44 — what a PTCA used, for the cath lab's inventory
+   ============================================================
+   Every device written on a saved PTCA's utilization sheet comes off the
+   inventory the technicians keep in the shared sheet: the vessel grid, the
+   adjunct cells (cutting balloon, microcatheter, guide extension, rota burr,
+   aspiration catheter, IVUS / OCT / ELCA, other hardware) and the sheath.
+   - One device written is one unit; "x2" after it is two ("RS x2", "3×38 UT
+     ×2" — never the end of a size like "1.5 x 6").
+   - A device marked "ox" / "oxy" is a reused, re-sterilised one: listed with
+     the case, never subtracted.
+   - Names go through the hardware list first (Settings), so "2.5×12 RS" and
+     "2.5x12 NC Rockstar" land on the same shelf; a size is the diameter ×
+     length, a catheter's French size, or a burr's diameter.
+   The list (invUse) travels with the case to the sheet; the sheet's script
+   keeps the ledger, and a case saved again replaces its own entries. */
+const INV_KINDS = [
+  { kind: "stent", one: "Stent", label: "Stents", color: "#b3261e", tint: "#fde7e5" },
+  { kind: "balloon", one: "Balloon", label: "Balloons", color: "#7b3fb5", tint: "#f1e8fb" },
+  { kind: "dcb", one: "Drug-coated balloon", label: "Drug-coated balloons", color: "#c26a00", tint: "#fff0dc" },
+  { kind: "cutting", one: "Cutting balloon", label: "Cutting balloons", color: "#8a5a2b", tint: "#f3e9df" },
+  { kind: "wire", one: "Guide wire", label: "Guide wires", color: "#0f7f8a", tint: "#e1f3f4" },
+  { kind: "guide", one: "Guide catheter", label: "Guide catheters", color: "#1f5fc2", tint: "#e3edfb" },
+  { kind: "ge", one: "Guide extension", label: "Guide extensions", color: "#3f51b5", tint: "#e8eaf6" },
+  { kind: "mc", one: "Microcatheter", label: "Microcatheters", color: "#2e7d32", tint: "#e5f3e6" },
+  { kind: "asp", one: "Aspiration catheter", label: "Aspiration catheters", color: "#ad1457", tint: "#fce4ef" },
+  { kind: "rota", one: "Rota burr", label: "Rota burrs", color: "#6d4c41", tint: "#efe7e4" },
+  { kind: "imaging", one: "IVUS / OCT / ELCA", label: "IVUS / OCT / ELCA", color: "#00838f", tint: "#e0f4f6" },
+  { kind: "sheath", one: "Sheath", label: "Sheaths", color: "#546e7a", tint: "#eceff1" },
+  { kind: "other", one: "Other", label: "Other", color: "#757575", tint: "#f2f2f2" },
+];
+const INV_KIND_BY = {};
+INV_KINDS.forEach(function (k) { INV_KIND_BY[k.kind] = k; });
+const INV_GRID_ROWS = [["guide", "Guide"], ["wire", "Wire"], ["balloon1", "Balloon 1"], ["balloon2", "Balloon 2"],
+  ["stent1", "Stent 1"], ["stent2", "Stent 2"], ["stent3", "Stent 3"]];
+const INV_ADJ_CELLS = [["cutting", "cutting", "Cutting balloon"], ["microcatheter", "mc", "Microcatheter"],
+  ["guideExtension", "ge", "Guide extension"], ["rotaBurr", "rota", "Rota burr"], ["aspiration", "asp", "Aspiration catheter"],
+  ["ivusOctElca", "imaging", "IVUS / OCT / ELCA"], ["otherHardware", "other", "Other hardware"]];
+/* a type as written ("Guide wire", "DEB", "Guidezilla") → its kind; the same
+   reading as the sheet's script (invKindOf_) */
+function invKindOf(t) {
+  const r = String(t == null ? "" : t).toLowerCase().trim();
+  if (!r) return "other";
+  if (INV_KIND_BY[r]) return r;
+  if (/exten|\bge\b|zilla|telescope/.test(r)) return "ge";
+  if (/micro|\bmc\b/.test(r)) return "mc";
+  if (/aspir|thromb/.test(r)) return "asp";
+  if (/sheath|introducer/.test(r)) return "sheath";
+  if (/rota|burr/.test(r)) return "rota";
+  if (/ivus|\boct\b|elca|laser|imaging/.test(r)) return "imaging";
+  if (/wire/.test(r)) return "wire";
+  if (/dcb|\bdeb\b|drug/.test(r)) return "dcb";
+  if (/cut|scor/.test(r)) return "cutting";
+  if (/bal+oon|poba/.test(r)) return "balloon";
+  if (/stent|\bdes\b/.test(r)) return "stent";
+  if (/guid|cath/.test(r)) return "guide";
+  return "other";
+}
+/* a cell's devices: commas, semicolons and new lines part them, and so does a
+   "/", "&" or "+" between two names ("RS/LN") — never inside brackets, nor
+   between a name and a number ("XB 3.0/3.5") */
+function invSplitCell(text) {
+  const out = [];
+  String(text == null ? "" : text).split(/[,;\n]+/).forEach(function (part) {
+    part = part.trim();
+    if (!part) return;
+    if (!/[\(\[\{]/.test(part)) {
+      const bits = part.split(/\s*[\/&+]\s*/);
+      if (bits.length > 1 && bits.every(function (b) { return (b.match(/[a-z]/gi) || []).length >= 2; })) {
+        bits.forEach(function (b) { if (b.trim()) out.push(b.trim()); });
+        return;
+      }
+    }
+    out.push(part);
+  });
+  return out;
+}
+/* "RS x2" → two; a multiplier counts after a name or a whole size, never
+   where it would be the end of a balloon's or stent's size ("2.5x2",
+   "1.5 x 6"); in a row whose devices have no such size ("XB 3.0 x2") a
+   multiplier set apart by a space always counts */
+const INV_NO_DL_ROWS = ["guide", "wire", "ge", "mc", "asp", "imaging"];
+function invUnits(text, rowKind) {
+  const t = String(text == null ? "" : text).trim();
+  const m = /^(.*?\S)\s*[x×*]\s*([2-9])$/i.exec(t);
+  if (!m) return { text: t, units: 1 };
+  const head = m[1];
+  const spaced = /\s[x×*]\s*[2-9]$/i.test(t);
+  const afterName = /[a-z\)\]\}]$/i.test(head);
+  const afterSize = spaced && new RegExp(HW_SIZE_SRC + "\\s*$").test(head);
+  const noDl = spaced && INV_NO_DL_ROWS.indexOf(rowKind) >= 0;
+  if (!afterName && !afterSize && !noDl) return { text: t, units: 1 };
+  return { text: head.trim(), units: Number(m[2]) };
+}
+/* the kind a free-text device names, or "" ("Trapper balloon", "Finecross microcatheter") */
+function invKindFromText(t) {
+  const r = String(t || "").toLowerCase();
+  if (!/exten|zilla|micro|aspir|thromb|sheath|introducer|rota|burr|ivus|\boct\b|elca|laser|wire|dcb|\bdeb\b|drug|cutting|scor|bal+oon|stent|guid/.test(r)) return "";
+  return invKindOf(r);
+}
+/* One device as written → { kind, type, brand, size, units, reused, raw, where }
+   or null. rowKind is the row or cell it was written in. */
+function invDevice(raw, rowKind, where, list, opt) {
+  raw = String(raw == null ? "" : raw).trim();
+  if (!raw) return null;
+  const reused = isReused(raw);
+  // a "?" the scanner left (and nobody corrected) stays: the item shows it was doubtful
+  let t = stripPrePost(stripReuse(raw));
+  const q = invUnits(t, rowKind);
+  t = q.text;
+  // the name in full, as the report has it ("RS" → "NC Rockstar", "XB3" → "6F XB 3.0")
+  if (list && list.length && HW_ROW_KINDS[rowKind]) t = hwExpandDevice(t, rowKind, list, null, opt);
+  // notes in brackets (a site, "pre") are not the device
+  t = t.replace(/[\(\[\{][^\)\]\}]*[\)\]\}]?/g, " ");
+  let kind = INV_KIND_BY[rowKind] ? rowKind : "other";
+  let size = "";
+  const sm = new RegExp(HW_SIZE_SRC).exec(t);
+  if (sm) {
+    size = sm[0].replace(/\s+/g, "").replace(/[*xX]/g, "×");
+    t = t.slice(0, sm.index) + " " + t.slice(sm.index + sm[0].length);
+  }
+  if (!size) {
+    const fm = /(^|\s)([4-9])\s*fr?\.?(?=\s|$)/i.exec(t) || /^()([4-9])\s*fr?\.?(?=[a-z])/i.exec(t);
+    if (fm) { size = fm[2] + "F"; t = t.slice(0, fm.index) + " " + t.slice(fm.index + fm[0].length); }
+  }
+  if (!size && ["balloon", "stent", "cutting", "rota", "imaging", "other"].indexOf(kind) >= 0) {
+    const dm = /(^|\s)(\d+(?:\.\d+)?)\s*(?:mm)?(?=\s|$)/i.exec(t);
+    if (dm && Number(dm[2]) > 0 && Number(dm[2]) <= 6) { size = dm[2]; t = t.slice(0, dm.index) + " " + t.slice(dm.index + dm[0].length); }
+  }
+  // a stent's site written as a code and not put in words: not part of its name
+  if (rowKind === "stent") t = t.replace(/\s[opmd](?:\s*[-–\/]\s*[opmd])?\s*$/i, " ");
+  if (rowKind === "wire") t = stripWirePrefix(t.trim());
+  let brand = t.replace(/\s+/g, " ").replace(/^[\s,;:\-–.]+|[\s,;:\-–.]+$/g, "").trim();
+  // the hardware list knows the device: its own name and type win
+  const e = !brand || !list ? null : HW_ROW_KINDS[rowKind] ? hwFind(brand, rowKind, list)
+    : (hwNorm(brand).length >= HW_CODE_LEN ? hwFind(brand, "", list) : null);
+  if (e) { brand = e.name; const k = hwKind(e.role); if (k && INV_KIND_BY[k] && k !== "other") kind = k; }
+  else if (kind === "other") { const k2 = invKindFromText(brand); if (k2) kind = k2; }
+  if (kind === "rota" && /^(?:rota(?:blator)?\s*)?(?:burr)?$/i.test(brand)) brand = "Rota burr";
+  if (!brand && !size) return null;
+  if (!brand) brand = "(no name written)";
+  return { kind: kind, type: INV_KIND_BY[kind].one, brand: brand, size: size, units: q.units, reused: reused, raw: raw, where: where };
+}
+/* the sheath(s) written in "Access / Sheath": "Rt Radial 6F", "R Fem 7F" */
+function invSheaths(text) {
+  const out = [];
+  String(text == null ? "" : text).split(/[,;+&]|\band\b/i).forEach(function (part) {
+    part = part.trim();
+    if (!part) return;
+    const fr = /([4-9])\s*fr?\b/i.exec(part);
+    const route = /fem/i.test(part) ? "Femoral" : /rad|\bd?ra\b/i.test(part) ? "Radial" : /brach/i.test(part) ? "Brachial" : "";
+    if (!fr && !route && !/sheath/i.test(part)) return;
+    out.push({ kind: "sheath", type: "Sheath", brand: route ? route + " sheath" : "Sheath", size: fr ? fr[1] + "F" : "",
+      units: 1, reused: isReused(part), raw: part, where: "Access / Sheath" });
+  });
+  return out;
+}
+/* everything a PTCA's utilization sheet used — what the inventory is charged */
+function invUseOf(P) {
+  const u = (P && P.util) || null;
+  if (!u || typeof u !== "object") return [];
+  const list = activeHardware();
+  const opt = { fr: hwSheathFr(u.accessSheath) };
+  const out = [];
+  const grid = u.grid && typeof u.grid === "object" ? u.grid : {};
+  UTIL_VESSELS.forEach(function (v) {
+    const c = grid[v];
+    if (!c || typeof c !== "object") return;
+    INV_GRID_ROWS.forEach(function (r) {
+      invSplitCell(c[r[0]]).forEach(function (d) {
+        const x = invDevice(d, HW_GRID_KIND[r[0]], v + " · " + r[1], list, opt);
+        if (x) out.push(x);
+      });
+    });
+  });
+  INV_ADJ_CELLS.forEach(function (a) {
+    invSplitCell(u[a[0]]).forEach(function (d) { const x = invDevice(d, a[1], a[2], list, opt); if (x) out.push(x); });
+  });
+  invSheaths(u.accessSheath).forEach(function (x) { out.push(x); });
+  return out;
+}
+/* "6F XB 3.0", "2 × 2.5×12 NC Rockstar" — one line of the list */
+function invUseText(x) { return (x.units > 1 ? x.units + " × " : "") + j([x.size, x.brand], " "); }
+/* the review screen's line: what saving this PTCA takes from the inventory */
+function invUseHintHtml(P) {
+  if (!S.cfg.sheetUrl || (P && P.planned)) return "";
+  const use = invUseOf(P);
+  if (!use.length) return `<p class="hint">Inventory: nothing on this utilization sheet to take off the stock list.</p>`;
+  const taken = use.filter(function (x) { return !x.reused; }), back = use.filter(function (x) { return x.reused; });
+  return `<p class="hint invhint">Inventory, when this case is saved: ${taken.length ? "takes off <b>" + esc2(taken.map(invUseText).join(" · ")) + "</b>" : "takes off nothing"}` +
+    (back.length ? `; reused (ox / oxy), not taken off: ${esc2(back.map(invUseText).join(" · "))}` : "") +
+    `. One unit per device written; saving again corrects it rather than taking it twice.</p>`;
+}
+
 const UTIL_LEFT = ["LM", "LAD", "D1", "LCx", "Ramus", "OM"], UTIL_RIGHT = ["RCA", "PDA", "PLV"];
 const UTIL_PARENT = { D1: "LAD", OM: "LCx", PDA: "RCA", PLV: "RCA", LM: "LAD", Ramus: "LM" };
 function utilCol(P, v) { return ((P.util || {}).grid || {})[v] || blankUtilCol(); }
@@ -3898,7 +4161,7 @@ function utilLookup(P, vesselKey, field) {
     if (chain.indexOf(v) < 0) chain.push(v);
   });
   for (const v of chain) {
-    const val = String(utilCol(P, v)[field] || "").trim();
+    const val = stripReuse(String(utilCol(P, v)[field] || "").trim());   // 13.44: never the ox mark
     if (val) return val;
   }
   return "";
@@ -4132,7 +4395,7 @@ function deriveBifurcation(P) {
   mb.pot1 = !!T.bifPot1; mb.pot2 = !!T.bifPot2;
   // wires: the SB's own column, else the second wire written in the MB column
   var mbWires = splitDevices(mb.wire);
-  var sbWire = sb ? String(utilCol(P, sb).wire || "").trim() : "";
+  var sbWire = sb ? stripReuse(String(utilCol(P, sb).wire || "").trim()) : "";
   if (!sbWire && mbWires.length > 1) { sbWire = mbWires[1]; mb.wire = mbWires[0]; }
   mb.sbWire = sbWire;
   // predilation: the SB column's balloon, else the smaller of the PrD balloons
@@ -4241,10 +4504,10 @@ function deriveThrombus(P) {
   }
   if (thrombusAspirates(T) && !has(th.device)) {
     var t0 = (P.proc.targets || [])[0] || {};
-    if (ticks.indexOf("guide extension") >= 0 && has(u.guideExtension)) th.device = String(u.guideExtension).trim() + " guide extension catheter";
+    if (ticks.indexOf("guide extension") >= 0 && has(u.guideExtension)) th.device = stripReuse(String(u.guideExtension).trim()) + " guide extension catheter";
     else if (ticks.indexOf("guide catheter") >= 0) th.device = (has(t0.guide) ? t0.guide.trim() + " " : "") + "guiding catheter";
-    else if (has(u.aspiration)) th.device = String(u.aspiration).trim() + " thrombus aspiration catheter";
-    else if (has(u.guideExtension)) th.device = String(u.guideExtension).trim() + " guide extension catheter";
+    else if (has(u.aspiration)) th.device = stripReuse(String(u.aspiration).trim()) + " thrombus aspiration catheter";
+    else if (has(u.guideExtension)) th.device = stripReuse(String(u.guideExtension).trim()) + " guide extension catheter";
     else if (ticks.indexOf("thrombus catheter") >= 0 || ticks.indexOf("aspiration") >= 0) th.device = "thrombus aspiration catheter";
     else if (has(t0.guide)) th.device = t0.guide.trim() + " guiding catheter";
   }
@@ -4296,12 +4559,12 @@ function deriveRota(P) {
   var cal = (P.tech || {}).calcium;
   if (!cal || typeof cal !== "object") return false;
   var u = P.util || {};
-  if ((cal.rota || has(cal.rotaName)) && !has(cal.rotaName) && has(u.rotaBurr)) cal.rotaName = String(u.rotaBurr).trim();
+  if ((cal.rota || has(cal.rotaName)) && !has(cal.rotaName) && has(u.rotaBurr)) cal.rotaName = stripReuse(String(u.rotaBurr).trim());
   if (has(cal.rotaName) && !has(u.rotaBurr)) u.rotaBurr = cal.rotaName;
   if ((cal.rota || has(cal.rotaName)) && !has(cal.runSec)) cal.runSec = "10";
   // the cutting balloon: size and brand from the proforma's blank, else the
   // utilization sheet; high pressure, 16 atm unless written
-  if ((cal.cutting || has(cal.cuttingName)) && !has(cal.cuttingName) && has(u.cutting)) cal.cuttingName = String(u.cutting).trim();
+  if ((cal.cutting || has(cal.cuttingName)) && !has(cal.cuttingName) && has(u.cutting)) cal.cuttingName = stripReuse(String(u.cutting).trim());
   if (has(cal.cuttingName) && !has(u.cutting)) u.cutting = cal.cuttingName;
   if (cal.cutting || has(cal.cuttingName)) { if (!has(cal.cuttingAtm)) cal.cuttingAtm = "16"; if (!has(cal.cuttingSec)) cal.cuttingSec = "10"; }
   if (cal.elca && !has(cal.elcaRunSec)) cal.elcaRunSec = "10";
@@ -4550,7 +4813,10 @@ function hardwareLines(P) {
   const stents = uniqList(stentDeployed(P).map(function (s) { return j([s.size, s.name], " "); }));
   if (stents.length) out.push(stents.join(", ") + " Balloon mounted stent systems");
   /* adjunct hardware, from the utilization sheet and the calcium/thrombus boxes */
-  const u = P.util || {}, cal = (P.tech || {}).calcium || {};
+  const u0 = P.util || {}, cal = (P.tech || {}).calcium || {};
+  // 13.44: the adjunct cells as they print — without an ox / oxy mark
+  const u = {};
+  ["cutting", "rotaBurr", "microcatheter", "guideExtension", "aspiration", "ivusOctElca", "otherHardware"].forEach(function (k) { u[k] = stripReuse(u0[k]); });
   const cutting = has(u.cutting) ? u.cutting : cal.cuttingName;
   if (has(cutting) || cal.cutting) out.push(j([String(cutting || "").trim(), "Cutting balloon"], " "));
   const rota = has(u.rotaBurr) ? u.rotaBurr : cal.rotaName;
@@ -5115,10 +5381,10 @@ function ptcaRecord(P) {
     ["Thrombus detail", (function () { const th = tt.thrombus || {}; return [has(th.dotter) ? "dottered with " + th.dotter : "", has(th.device) ? "aspiration via " + th.device : "",
       has(th.runs) ? th.runs + " runs" : "", th.failed ? "failed to restore flow" : (has(th.timi) ? "TIMI " + th.timi : "")].filter(Boolean).join(", "); })()],
     ["Calcium Mx", calBits.join("; ")],
-    ["Adjunct hardware", [has(uu.cutting) ? "Cutting balloon " + uu.cutting : "",
-      has(uu.microcatheter) ? "MC " + uu.microcatheter : "", has(uu.guideExtension) ? "GE " + uu.guideExtension : "",
-      has(uu.rotaBurr) ? "Rota burr " + uu.rotaBurr : "", has(uu.aspiration) ? "Aspiration " + uu.aspiration : "",
-      has(uu.ivusOctElca) ? uu.ivusOctElca : ""].filter(Boolean).join("; ")],
+    ["Adjunct hardware", [has(uu.cutting) ? "Cutting balloon " + stripReuse(uu.cutting) : "",
+      has(uu.microcatheter) ? "MC " + stripReuse(uu.microcatheter) : "", has(uu.guideExtension) ? "GE " + stripReuse(uu.guideExtension) : "",
+      has(uu.rotaBurr) ? "Rota burr " + stripReuse(uu.rotaBurr) : "", has(uu.aspiration) ? "Aspiration " + stripReuse(uu.aspiration) : "",
+      has(uu.ivusOctElca) ? stripReuse(uu.ivusOctElca) : ""].filter(Boolean).join("; ")],
     ["AK", has(P.proc.akNo) ? P.proc.akNo : uu.ak || ""],
     ["Fluoro time", has(P.proc.fluoroTime) ? P.proc.fluoroTime : uu.ft || ""],
     ["Heparin (U)", P.proc.heparin], ["ACT (sec)", P.proc.act],
@@ -6202,6 +6468,7 @@ TOP TABLE (patient & team)
 VESSEL GRID — the big table. Its header row reads "Vessel →" then the columns LM, LAD, D1, LCx, Ramus, OM, RCA, PDA, PLV (an older printing has no Ramus column). Its rows are Guiding Catheter, Guide Wire, Balloon 1, Balloon 2, Stent 1, Stent 2 and (on the current printing) Stent 3. Report every handwritten cell under util.grid, keyed by column then row: util.grid.LAD = {"guide":"...","wire":"...","balloon1":"...","balloon2":"...","stent1":"...","stent2":"...","stent3":"..."}. Use exactly these column keys: LM, LAD, D1, LCx, Ramus, OM, RCA, PDA, PLV. Omit empty cells and empty columns entirely.
 - Copy each cell verbatim: balloons and stents are written as name and size, e.g. "Sapphire 1.5×10" or "2.75*44 Biomime Aura". Keep the size characters exactly (* or ×). A cell can carry two devices separated by a comma — keep the comma.
 - A device is often written as a SHORT FORM — a code of two to four capital letters, or a short code with a number — beside its size, sometimes followed by a site code made of the letters o, p, m, d: for example "2.5×12 RS", "3×38 UT p-m", "XB3", "RNS, FC". Copy short forms and site codes exactly as written, letter for letter; never expand them, translate them or guess what they stand for.
+- Some devices have "ox" or "oxy" written beside them (sometimes in brackets): it marks a re-sterilised, reused device. Copy it exactly where it is written, in the same cell right after that device — never drop it and never move it to another device.
 - Be careful to keep each device in ITS OWN column: the column says which vessel the device was used in.
 
 BOTTOM TABLE (adjunct hardware & dose)
@@ -6432,6 +6699,11 @@ const S = {
   // and the inbox case currently open on the review screen
   batch: { list: null, status: null, canEdit: false, busy: false, err: "", at: 0, open: "", q: "", said: "", saidBad: false, round: 0 },
   batchCase: null,
+  // 13.44 — the technicians' page (stents & inventory), see viewTech
+  tech: { tab: "inv", status: null, statusAt: 0, loading: false, err: "", said: "", saidBad: false, saving: false,
+    inv: null, invAt: 0, invQ: "", invShow: "all", invOpen: "", invEdit: "", invForm: null, invClosed: {}, hist: null,
+    stents: null, stAt: 0, stQ: "", stType: "", stBrand: "", stSize: "", stLot: "", stNum: "", stBilled: "", stEdit: "", stAdd: false,
+    bill: techBillBlank(), uploads: null, upAt: 0, uploading: false, upSaid: "", scanning: false, scanSaid: "", caseView: null },
   busy: false, phase: "", err: "", ok: "", cancelled: false, failed: [],
   usage: { daily: [], minute: [] },
   // the day's Gemini models (see mcRefresh): the list in use, this phone's own
@@ -8571,7 +8843,7 @@ function casesFromXlsx(files) {
   return cases;
 }
 function appendPayload(rec) {
-  return {
+  return Object.assign({
     headers: rec.fields.map(function (p) { return p[0]; }),
     values: rec.fields.map(function (p) { return String(p[1] == null ? "" : p[1]); }),
     lesions: rec.lesions || [],
@@ -8580,7 +8852,19 @@ function appendPayload(rec) {
     ptcaNo: String(rec.ptcaNo || ""),
     // the whole case, so a PTCA can later rebuild this CAG's vessel prose
     caseJson: rec.caseJson || "",
-  };
+  }, invPayload(rec));
+}
+/* 13.44 — a PTCA's hardware for the inventory (none for a planned PTCA, nor
+   for a case saved without its full data); the sheet replaces the case's
+   own entries with these */
+function invPayload(rec) {
+  if (rec.type !== "PTCA") return {};
+  try {
+    const P = JSON.parse(rec.caseJson || "null");
+    if (!P || typeof P !== "object" || P.planned) return {};
+    return { invUse: invUseOf(P).map(function (x) { return { kind: x.kind, type: x.type, brand: x.brand, size: x.size, units: x.units, reused: !!x.reused, raw: x.raw, where: x.where }; }),
+      invDate: isoFromLoose(P.date) || isoFromLoose((P.util || {}).date) || "" };
+  } catch (e) { return {}; }
 }
 /* Sends one case to the shared sheet. The reply is read, so a refused save
    (no edit key, old script) is reported rather than lost quietly. With a
@@ -8604,6 +8888,8 @@ function syncToSheet(rec, diagramImg, ed, utilImg) {
       if (j && j.utilUrl) noteUtilUrl(rec, j.utilUrl, utilFiled ? quickHash(utilImg.b64 || "") : "");
       // the case itself is saved either way; a photo Drive would not take is only logged
       if (j && j.utilError) addLog("Notice", "Utilization sheet copy", "The case was saved, but the sheet's photo could not be filed in Drive", String(j.utilError));
+      // …and so is a hardware list the inventory could not take (13.44)
+      if (j && j.inv && j.inv.error) addLog("Notice", "Inventory", "The case was saved, but its hardware could not be taken off the inventory", String(j.inv.error));
       if (ed) editSynced(ed, rec, orig, j);
     });
   };
@@ -9747,6 +10033,13 @@ function viewSettings() {
         oninput="S.cfg.editKey=this.value;saveCfg();S.shared.at=0"></label>
     <p class="hint">The key is set once, as EDIT_KEY in the Google Sheet's Apps Script properties. Anyone who saves, edits or removes cases in the shared sheet, or builds the OT list,
       needs it; everyone else just views.</p>
+    <label class="fld" style="flex:1 1 100%;margin-top:14px"><span>Technicians' key (cath lab: stents and inventory)</span>
+      <input type="password" value="${esc2(S.cfg.techKey || "")}" placeholder="the technicians' key"
+        oninput="S.cfg.techKey=this.value;saveCfg();S.tech.status=null;S.tech.statusAt=0"></label>
+    <p class="hint">Opens the <b>Stents &amp; inventory</b> page on this device: the stock list that saved PTCAs take their hardware from, the stent stickers read from the photos, and matching a bill to its case. A phone with this key and no edit key opens straight on that page. It is a key of its own, different from the edit key.</p>
+    <div class="btns">${S.cfg.editKey ? `<button class="b" onclick="techKeyMake()" ${S.cfg.sheetUrl ? "" : "disabled"}>${String(S.cfg.techKey || "").trim() ? "Make this the technicians' key" : "Remove the technicians' key"}</button>` : ""}
+      <button class="b" onclick="openTech()" ${techOn() ? "" : "disabled"}>Stents &amp; inventory</button></div>
+    ${S.cfg.editKey ? `<p class="hint">Editors: type a key above and press “Make this the technicians' key” to set it in the shared sheet (it must differ from the edit key), then give it to the technicians — they put it here, without the edit key.</p>` : ""}
     <label class="fld" style="flex:1 1 100%;margin-top:14px"><span>Your name (recorded as “Saved by” on shared cases)</span>
       <input value="${esc2(S.cfg.userName || "")}" placeholder="e.g. Dr Priyanka"
         oninput="S.cfg.userName=this.value;saveCfg()"></label>
@@ -9932,7 +10225,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.43", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.44", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -9945,14 +10238,15 @@ async function testSheet() {
     say("Connected. This device can " + (j.canEdit ? "edit" : "view only") + ". Sheet script: " +
       (v ? "version " + v : "older than version 6") + (v >= SCRIPT_WANTED ? "." : " \u2014 the latest is " + SCRIPT_WANTED + " (Code" + SCRIPT_WANTED + ".gs); paste it in and redeploy to get the fixes.") +
       (v >= 8 ? " " + mcSheetCheckText(j.modelCheck) : "") +
-      (v >= 13 && j.batch ? (j.batch.scheduled ? " Inbox scanner: on, every " + j.batch.everyMin + " min." : " Inbox scanner: not set up (run setupBatchScanner in the script).") : ""));
+      (v >= 13 && j.batch ? (j.batch.scheduled ? " Inbox scanner: on, every " + j.batch.everyMin + " min." : " Inbox scanner: not set up (run setupBatchScanner in the script).") : "") +
+      (j.canTech ? " Technicians' page: open on this device." : String(S.cfg.techKey || "").trim() && j.techSet === false ? " Technicians' page: no technicians' key has been set in the sheet yet." : String(S.cfg.techKey || "").trim() && j.techSet ? " Technicians' page: the key on this device is not the sheet's." : ""));
   } catch (e) { say(e.message || String(e), true); }
 }
 async function sheetApi(action, payload, ms) {
   if (!S.cfg.sheetUrl) throw new Error("No shared registry URL is set in Settings.");
   const bad = sheetUrlProblem(S.cfg.sheetUrl);
   if (bad) throw new Error(bad);
-  const body = JSON.stringify(Object.assign({ action: action, key: S.cfg.editKey || "" }, payload || {}));
+  const body = JSON.stringify(Object.assign({ action: action, key: S.cfg.editKey || "", tkey: String(S.cfg.techKey || "").trim() }, payload || {}));
   const ctrl = new AbortController();
   const t = setTimeout(function () { ctrl.abort(); }, ms || 25000);
   let res, text;
@@ -11052,7 +11346,7 @@ function viewPtcaReview() {
       F("IVUS / OCT / ELCA", "P.util.ivusOctElca", "1 1 130px")) +
     ROW(F("AK", "P.util.ak", "1 1 90px") + F("FT", "P.util.ft", "1 1 90px") + F("Injection", "P.util.injection", "1 1 90px")) +
     ROW(F("Other hardware", "P.util.otherHardware", "1 1 100%")) +
-    ROW(F("Notes", "P.util.notes", "1 1 100%"));
+    ROW(F("Notes", "P.util.notes", "1 1 100%")) + invUseHintHtml(P);
   h += SECT("Utilization sheet (technician's hardware grid)", utilSheetPanel(P) + utilExpandedNote(P) + ut);
 
   /* ---- the technique checklists from pages 3–4 ---- */
@@ -11257,6 +11551,9 @@ function batchScanSummary(j, scanned, failed, rounds, notes) {
     (j.more === true ? "press Scan now again to carry on." : "the scanner could not get further just now; press Scan now again in a few minutes.") + auto;
   const said = notes.filter(function (x, i) { return x && notes.indexOf(x) === i; });
   if (said.length) t += " " + said.join("; ") + " \u2014 the other models do the reading meanwhile.";
+  // 13.44: the technicians' stent photos are read in the same runs
+  const sp = j.stents;
+  if (sp && (sp.scanned || sp.failed)) t += " Stent sticker photos: " + sp.scanned + " read (" + (sp.stickers || 0) + " sticker" + (sp.stickers === 1 ? "" : "s") + ")" + (sp.failed ? ", " + sp.failed + " failed" : "") + ".";
   return t;
 }
 async function batchRunNow(caseId) {
@@ -11334,6 +11631,7 @@ function viewBatch() {
       <button class="b" onclick="S.step='capture';render()">Scan on this phone</button>
       <button class="b" onclick="openRegistry()">View cases</button>
       <button class="b" onclick="openOt()">OT list</button>
+      ${techOn() ? `<button class="b" onclick="openTech()">Stents &amp; inventory</button>` : ""}
       ${sheetWeb ? `<a class="b" href="${esc2(sheetWeb)}" target="_blank" rel="noopener">Registry sheet</a>` : ""}
       <button class="b" onclick="S.step='settings';render()">Settings</button>
     </div>`;
@@ -11665,6 +11963,1088 @@ function batchPanel() {
   return h;
 }
 
+/* ============================================================
+   13.44 — the technicians' page: inventory, stents and bills
+   ============================================================
+   Opened by the technicians' key (Settings), checked by the sheet's script
+   on every request. Four tabs:
+   - Inventory: every item by type, then brand, then size, each type in its
+     own colour, the stock in a coloured badge (red below zero, grey at zero,
+     amber at or under its low level, green above). A tap opens the item:
+     received +N, counted = N, a correction, its history (every PTCA that
+     used it, with the case one tap away), edit / merge / delete.
+   - Stents: every sticker read from the photos, searched by name, number,
+     type, brand, size, LOT and stent number (serial / REF / GTIN); a sticker
+     opens its case, shows its photo, can be corrected or marked billed.
+   - Match a bill: a photo of the bill (or of a sticker) is read by the
+     sheet, the barcode is decoded on the phone where the browser can, and
+     every line is matched against the stickers — LOT and serial first —
+     and against the PTCA registry by patient; the case opens from there.
+   - Sticker photos: what the inbox scanner has read, failed or still has to
+     read; photos can be uploaded from here and read at once. */
+const TECH_TABS = [["inv", "Inventory"], ["stents", "Stents"], ["bill", "Match a bill"], ["photos", "Sticker photos"]];
+function techOn() { return !!(S.cfg.sheetUrl && String(S.cfg.techKey || "").trim()); }
+function openTech(tab) {
+  S.step = "tech";
+  if (tab) S.tech.tab = tab;
+  render();
+  techLoad(false);
+}
+function techFresh(at) { return at && Date.now() - at < 60000; }
+async function techLoad(force) {
+  const T = S.tech;
+  if (!S.cfg.sheetUrl || !String(S.cfg.techKey || "").trim() || T.loading) return;
+  T.loading = true; T.err = ""; render();
+  try {
+    if (force || !T.status || !techFresh(T.statusAt)) {
+      T.status = await sheetApi("techStatus", {}, 30000);
+      T.statusAt = Date.now();
+    }
+    if (T.status && T.status.canTech) await techLoadTab(force);
+  } catch (e) {
+    T.err = /unknown action/i.test(String(e && e.message))
+      ? "The shared sheet's script is older than this app — it needs Code 13.44 or later (deployed with this release)."
+      : (e.message || String(e));
+  }
+  T.loading = false;
+  render();
+}
+async function techLoadTab(force) {
+  const T = S.tech;
+  if (T.tab === "inv" && (force || !T.inv || !techFresh(T.invAt))) {
+    const j = await sheetApi("invGet", T.hist ? { item: T.hist.item } : {}, 40000);
+    techInvTake(j);
+  }
+  if ((T.tab === "stents" || T.tab === "bill") && (force || !T.stents || !techFresh(T.stAt))) await techLoadStents();
+  if (T.tab === "photos" && (force || !T.uploads || !techFresh(T.upAt))) {
+    const j = await sheetApi("stentUploads", {}, 40000);
+    T.uploads = j.uploads || []; T.upAt = Date.now();
+  }
+}
+async function techLoadStents() {
+  const j = await sheetApi("stentList", {}, 40000);
+  S.tech.stents = j.stents || []; S.tech.stAt = Date.now();
+}
+function techTab(t) { S.tech.tab = t; S.tech.said = ""; render(); techLoad(false); }
+function techSay(msg, bad) {
+  S.tech.said = msg; S.tech.saidBad = !!bad; render();
+  try { const el = document.getElementById("techSaid"); if (el) el.scrollIntoView({ block: "center" }); } catch (e) {}
+}
+function techDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+  if (!m) return String(iso || "");
+  return Number(m[3]) + " " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m[2]) - 1] + " " + m[1];
+}
+/* letters and digits only, capitals: "LOT 00-12 345" = "0012345" */
+function stCode(s) { return String(s == null ? "" : s).toUpperCase().replace(/[^A-Z0-9]/g, ""); }
+/* the same with the characters a reading confuses made equal (O/0, I/1, S/5, B/8, Z/2) */
+function stLoose(s) { return stCode(s).replace(/[OQD]/g, "0").replace(/[IL]/g, "1").replace(/S/g, "5").replace(/B/g, "8").replace(/Z/g, "2"); }
+function stGtin(s) { const d = String(s == null ? "" : s).replace(/\D/g, ""); return d.length === 13 ? "0" + d : d.length === 14 ? d : ""; }
+
+/* ---------------- the page ---------------- */
+function viewTech() {
+  const T = S.tech, st = T.status;
+  let h = `<div class="cardhead pad"><b>Stents &amp; inventory</b>
+    <div class="btns"><button class="b" onclick="techLoad(true)" ${T.loading ? "disabled" : ""}>${T.loading ? "Loading…" : "Refresh"}</button>
+    ${S.cfg.editKey ? `<button class="b" onclick="openBatch()">Inbox scans</button>` : ""}
+    <button class="b" onclick="openRegistry()">View cases</button>
+    <button class="b" onclick="S.step='settings';render()">Settings</button></div></div>`;
+  if (!S.cfg.sheetUrl) return h + `<div class="warn">Set the shared Google Sheet URL in Settings first.</div>`;
+  if (!String(S.cfg.techKey || "").trim()) return h + `<div class="warn">This page is for the cath lab's technicians. Enter the technicians' key in Settings to open it.</div>`;
+  if (T.err) h += `<div class="warn err">${esc2(T.err)}</div>`;
+  if (st && !st.canTech) return h + `<div class="warn err">${st.techSet
+    ? "The technicians' key on this device is not the one set in the shared sheet — check it in Settings."
+    : "No technicians' key has been set in the shared sheet yet — an editor sets it in Settings (Technicians' key)."}</div>`;
+  if (!st) return h + (T.loading ? `<p class="hint">Loading…</p>` : "");
+  if (T.said) h += `<div class="warn ${T.saidBad ? "err" : "okmsg"}" id="techSaid">${esc2(T.said)}</div>`;
+  if (T.caseView) h += techCaseHtml();
+  const neg = T.inv ? (T.inv.items || []).filter(function (x) { return x.tracked && x.stock < 0; }).length : 0;
+  const s2 = st.stents || {};
+  const badge = { inv: neg ? `<span class="n bad">${neg} below 0</span>` : "",
+    stents: T.stents ? `<span class="n">${T.stents.length}</span>` : "",
+    photos: s2.waiting || s2.failed ? `<span class="n${s2.failed ? " bad" : ""}">${[s2.waiting ? s2.waiting + " waiting" : "", s2.failed ? s2.failed + " failed" : ""].filter(Boolean).join(", ")}</span>` : "" };
+  h += `<div class="tabs">` + TECH_TABS.map(function (t) {
+    return `<button class="tab${T.tab === t[0] ? " on" : ""}" onclick="techTab('${t[0]}')">${t[1]}${badge[t[0]] || ""}</button>`;
+  }).join("") + `</div>`;
+  if (T.tab === "inv") h += techInvHtml();
+  else if (T.tab === "stents") h += techStentsHtml();
+  else if (T.tab === "bill") h += techBillHtml();
+  else h += techPhotosHtml();
+  return h;
+}
+
+/* ---------------- inventory ---------------- */
+function techInvTake(j) {
+  const T = S.tech;
+  T.inv = { items: j.items || [], start: j.start || "", moves: j.moves || [], moveCount: j.moveCount || 0, pending: j.pending || [] };
+  T.invAt = Date.now();
+  if (T.hist && j.item === T.hist.item) T.hist.moves = j.itemMoves || [];
+}
+function invStockClass(x) {
+  if (x.stock < 0) return "neg";
+  if (x.stock === 0) return "zero";
+  if (x.low != null && x.stock <= x.low) return "low";
+  return "ok";
+}
+function techInvHtml() {
+  const T = S.tech, inv = T.inv;
+  if (!inv) return T.loading ? `<p class="hint">Loading the inventory…</p>` : "";
+  const items = inv.items || [];
+  const tracked = items.filter(function (x) { return x.tracked; });
+  const neg = tracked.filter(function (x) { return x.stock < 0; }).length;
+  const low = tracked.filter(function (x) { return x.stock >= 0 && invStockClass(x) !== "ok"; }).length;
+  const shows = [["all", "All"], ["neg", "Below zero"], ["low", "Low or out"], ["off", "Not tracked"]];
+  return `<div class="card">
+    <div class="cardhead"><div><b>Inventory</b><p class="hint">${items.length} item${items.length === 1 ? "" : "s"} · ${neg} below zero · ${low} low or out · PTCAs done from ${esc2(techDate(inv.start))} are taken off</p></div>
+      <div class="btns" style="margin:0"><button class="b primary" onclick="techInvAdd()">Add stock</button></div></div>
+    ${T.invForm ? techInvFormHtml() : ""}
+    ${techInvPendingHtml()}
+    <input class="search" placeholder="Search brand, size or type" value="${esc2(T.invQ || "")}" oninput="S.tech.invQ=this.value;renderList('invList',techInvListHtml())">
+    <div class="tabs">${shows.map(function (s) { return `<button class="tab${(T.invShow || "all") === s[0] ? " on" : ""}" onclick="S.tech.invShow='${s[0]}';render()">${s[1]}</button>`; }).join("")}</div>
+    <div id="invList">${techInvListHtml()}</div>
+    ${techInvRecentHtml()}
+    <details class="invhelp"><summary>How the stock is kept</summary>
+      <p class="hint">Every device written on the utilization sheet of a <b>saved</b> PTCA is taken off: the vessel grid, the adjunct cells (cutting balloon, microcatheter, guide extension, rota burr, aspiration catheter, IVUS / OCT / ELCA, other hardware) and the sheath. One device written is one unit; “x2” after it is two. A device with <b>ox</b> or <b>oxy</b> beside it is reused and is not taken off — it is still listed with the case. Saving a case again corrects its entries; removing it from the registry gives them back.</p>
+      <p class="hint">Items start at zero and go below zero as PTCAs use them. <b>Add stock</b> (or Received on an item) adds what came in; <b>Set the count</b> makes the list say what is on the shelf now — do it after the day's PTCAs have been saved. Short forms and spellings are put in full with the hardware list in Settings, so “2.5×12 RS” and “2.5x12 NC Rockstar” are the same item; an item that came in under a wrong name can be merged into the right one.</p>
+      <div class="row alignend" style="margin-top:8px"><label class="fld" style="flex:0 1 170px"><span>Take off PTCAs done from</span><input type="date" id="invStart" value="${esc2(inv.start || "")}"></label>
+        <button class="b" onclick="techInvStart()">Change</button></div>
+      <p class="hint">An earlier PTCA saved or corrected later is listed with its hardware but takes nothing off. A new date applies to cases saved from now on.</p>
+    </details>
+  </div>`;
+}
+function techInvMatches(x, words) {
+  if (!words.length) return true;
+  // "3x38" finds "3×38"; "nc rock" finds "NC Rockstar"
+  const hay = [x.type, INV_KIND_BY[x.kind] ? INV_KIND_BY[x.kind].label : "", x.brand, x.size, x.notes].join(" ").toLowerCase().replace(/×/g, "x");
+  const flat = hay.replace(/[^a-z0-9.]/g, "");
+  return words.every(function (w) { w = w.replace(/×/g, "x"); return hay.indexOf(w) >= 0 || flat.indexOf(w.replace(/[^a-z0-9.]/g, "")) >= 0; });
+}
+function techInvListHtml() {
+  const T = S.tech, inv = T.inv || {};
+  const all = inv.items || [];
+  const words = String(T.invQ || "").toLowerCase().split(/\s+/).filter(Boolean);
+  const show = T.invShow || "all";
+  const items = all.filter(function (x) {
+    if (show === "off") { if (x.tracked) return false; }
+    else if (!x.tracked && show !== "all") return false;
+    if (show === "neg" && !(x.stock < 0)) return false;
+    if (show === "low" && invStockClass(x) === "ok") return false;
+    return techInvMatches(x, words);
+  });
+  if (!items.length) return `<p class="hint">${all.length ? "Nothing here matches." : "Nothing on the list yet. Items appear as saved PTCAs use them (below zero until stock is added), or add them with Add stock."}</p>`;
+  return INV_KINDS.map(function (k) {
+    const mine = items.filter(function (x) { return x.kind === k.kind; });
+    if (!mine.length) return "";
+    const closed = !!(T.invClosed || {})[k.kind] && !words.length;
+    const total = mine.filter(function (x) { return x.tracked; }).reduce(function (a, x) { return a + x.stock; }, 0);
+    let h = `<div class="invtype" style="border-left-color:${k.color}">
+      <div class="invth" style="background:${k.tint}" onclick="techInvFold('${k.kind}')"><b style="color:${k.color}">${esc2(k.label)}</b>
+        <span class="n">${mine.length} item${mine.length === 1 ? "" : "s"}</span><span class="stk ${total < 0 ? "neg" : total === 0 ? "zero" : "ok"}" title="in stock, all sizes">${total}</span><span class="fold">${closed ? "▸" : "▾"}</span></div>`;
+    if (!closed) {
+      const brands = [];
+      mine.forEach(function (x) { if (brands.indexOf(x.brand) < 0) brands.push(x.brand); });
+      brands.forEach(function (b) {
+        h += `<div class="invbrand" style="color:${k.color}">${esc2(b)}</div>`;
+        mine.filter(function (x) { return x.brand === b; }).forEach(function (x) { h += techInvRowHtml(x); });
+      });
+    }
+    return h + `</div>`;
+  }).join("");
+}
+function techInvRowHtml(x) {
+  const T = S.tech, open = T.invOpen === x.id;
+  const meta = [x.used ? "used " + x.used : "", x.reused ? "reused " + x.reused : "", x.lastUsed ? "last " + techDate(x.lastUsed) : "", x.tracked ? "" : "not tracked"].filter(Boolean).join(" · ");
+  return `<div class="invrow${open ? " open" : ""}${x.tracked ? "" : " off"}" onclick="techInvOpen('${x.id}')">
+      <span class="sz">${esc2(x.size || "—")}</span><span class="meta">${esc2(meta)}</span>
+      <span class="stk ${invStockClass(x)}">${x.stock}</span></div>` + (open ? techInvPanelHtml(x) : "");
+}
+function techInvPanelHtml(x) {
+  const T = S.tech;
+  const sum = "In stock " + x.stock + " = received " + x.received + " − used " + x.used +
+    (x.adjusted ? (x.adjusted > 0 ? " + " : " − ") + Math.abs(x.adjusted) + " counted / corrected" : "") + "." +
+    (x.reused ? " " + x.reused + " reused (ox), not taken off." : "") +
+    (x.early ? " " + x.early + " in PTCAs before the start date, not taken off." : "") +
+    (x.low != null ? " Low at " + x.low + "." : "") + (x.notes ? " " + x.notes : "");
+  return `<div class="invpanel">
+    <div class="row alignend">
+      <label class="fld" style="flex:0 1 90px"><span>Received</span><input id="invRecv" type="number" min="1" step="1" inputmode="numeric" placeholder="0"></label>
+      <label class="fld" style="flex:1 1 150px"><span>Note (invoice / challan)</span><input id="invRecvNote"></label>
+      <button class="b live" onclick="techInvDo('receive','${x.id}')" ${T.saving ? "disabled" : ""}>Add to stock</button></div>
+    <div class="row alignend">
+      <label class="fld" style="flex:0 1 110px"><span>On the shelf now</span><input id="invCount" type="number" min="0" step="1" inputmode="numeric" placeholder="${x.stock < 0 ? 0 : x.stock}"></label>
+      <button class="b" onclick="techInvDo('count','${x.id}')" ${T.saving ? "disabled" : ""}>Set the count</button></div>
+    <div class="row alignend">
+      <label class="fld" style="flex:0 1 90px"><span>Correct by ±</span><input id="invCorr" type="number" step="1" inputmode="numeric" placeholder="-1"></label>
+      <label class="fld" style="flex:1 1 140px"><span>Why</span><input id="invCorrNote" placeholder="damaged, returned, expired…"></label>
+      <button class="b" onclick="techInvDo('correct','${x.id}')" ${T.saving ? "disabled" : ""}>Correct</button></div>
+    <p class="hint">${esc2(sum)}</p>
+    <div class="btns"><button class="b" onclick="techInvHist('${x.id}')">${T.hist && T.hist.item === x.id ? "Hide history" : "History"}</button>
+      <button class="b" onclick="techInvEdit('${x.id}')">${T.invEdit === x.id ? "Close edit" : "Edit"}</button></div>
+    ${T.invEdit === x.id ? techInvEditHtml(x) : ""}
+    ${T.hist && T.hist.item === x.id ? techInvHistHtml(x) : ""}
+  </div>`;
+}
+function invKindOptions(sel) {
+  return INV_KINDS.map(function (k) { return `<option value="${k.kind}"${k.kind === sel ? " selected" : ""}>${esc2(k.one)}</option>`; }).join("");
+}
+function techInvEditHtml(x) {
+  const items = (S.tech.inv.items || []).filter(function (y) { return y.id !== x.id; })
+    .sort(function (a, b) { return (a.kind === x.kind ? 0 : 1) - (b.kind === x.kind ? 0 : 1); });
+  return `<div class="invform">
+    <div class="row">
+      <label class="fld" style="flex:1 1 140px"><span>Type</span><select id="ieKind">${invKindOptions(x.kind)}</select></label>
+      <label class="fld" style="flex:2 1 160px"><span>Brand</span><input id="ieBrand" value="${esc2(x.brand)}"></label>
+      <label class="fld" style="flex:1 1 90px"><span>Size</span><input id="ieSize" value="${esc2(x.size)}"></label>
+      <label class="fld" style="flex:0 1 80px"><span>Low at</span><input id="ieLow" type="number" min="0" step="1" value="${x.low == null ? "" : x.low}"></label></div>
+    <div class="row"><label class="fld" style="flex:1 1 100%"><span>Notes</span><input id="ieNotes" value="${esc2(x.notes || "")}"></label></div>
+    <label class="ckline"><input type="checkbox" id="ieTracked" ${x.tracked ? "checked" : ""}> Tracked (untick for items the store does not keep — still listed with the cases)</label>
+    <div class="btns"><button class="b primary" onclick="techInvEditSave('${x.id}')">Save</button></div>
+    <p class="hint">A new name or size keeps the old one: PTCAs that write it the old way still come to this item.</p>
+    <div class="row alignend" style="margin-top:10px">
+      <label class="fld" style="flex:1 1 200px"><span>Merge into (the same device under another name)</span><select id="ieInto"><option value="">— choose —</option>${items.map(function (y) {
+        return `<option value="${y.id}">${esc2((INV_KIND_BY[y.kind] || {}).one + ": " + j([y.brand, y.size], " "))}</option>`; }).join("")}</select></label>
+      <button class="b" onclick="techInvMerge('${x.id}')">Merge</button></div>
+    <div class="btns"><button class="b danger" onclick="techInvDelete('${x.id}')">Delete item</button></div>
+  </div>`;
+}
+const INV_MOVE_WORD = { received: "Received", used: "Used in PTCA", reused: "Reused in PTCA (ox)", early: "PTCA before the start date", count: "Counted", correction: "Corrected" };
+function techMoveHtml(m, showItem) {
+  const q = m.qty > 0 ? "+" + m.qty : String(m.qty);
+  const cls = m.qty > 0 ? "plus" : m.qty < 0 ? "minus" : "zero";
+  const item = showItem ? (S.tech.inv.items || []).filter(function (x) { return x.id === m.item; })[0] : null;
+  const when = m.caseDate ? techDate(m.caseDate) : String(m.t || "").slice(0, 16);
+  const isCase = !!m.caseKey;
+  const what = (INV_MOVE_WORD[m.kind] || m.kind) + (m.kind === "count" ? " " + m.units : (m.units > 1 ? " ×" + m.units : "")) +
+    (item ? " — " + j([item.size, item.brand], " ") : "") +
+    (isCase ? " · " + (m.patient || "") + (m.ptcaNo ? " (" + m.ptcaNo + ")" : "") : "") +
+    (m.where ? " · " + m.where : "") + (m.raw && isCase ? " · “" + m.raw + "”" : "") +
+    (m.note && !isCase ? " · " + m.note : "") + (m.by ? " · " + m.by : "");
+  return `<div class="invmv"><span class="q ${cls}">${q}</span><span class="d">${esc2(when)}</span><span class="w">${esc2(what)}</span>
+    ${isCase ? `<button class="b" onclick="techOpenCase({ptcaNo:'${esc2(String(m.ptcaNo || "").replace(/'/g, ""))}',name:'${esc2(String(m.patient || "").replace(/'/g, ""))}'})">Open case</button>` : ""}
+    ${["received", "count", "correction"].indexOf(m.kind) >= 0 ? `<button class="b" onclick="techInvUndo('${m.id}')">Undo</button>` : ""}</div>`;
+}
+function techInvHistHtml(x) {
+  const H = S.tech.hist;
+  if (!H.moves) return `<p class="hint">Loading the history…</p>`;
+  if (!H.moves.length) return `<p class="hint">Nothing recorded for this item yet.</p>`;
+  return `<div class="invhist">` + H.moves.slice(0, 200).map(function (m) { return techMoveHtml(m, false); }).join("") +
+    (H.moves.length > 200 ? `<p class="hint">The latest 200 of ${H.moves.length} entries.</p>` : "") + `</div>`;
+}
+/* PTCAs saved from an app older than 13.44 (the sheet noted them): their
+   hardware is read from the stored case and taken off from here */
+function techInvPendingHtml() {
+  const T = S.tech, list = (T.inv && T.inv.pending) || [];
+  if (!list.length) return "";
+  return `<div class="warn amber"><b>${list.length} PTCA${list.length === 1 ? " was" : "s were"} saved from an older version of the app and ${list.length === 1 ? "has" : "have"} not been taken off the inventory yet:</b>
+    ${esc2(list.map(function (x) { return [x.name, x.ptcaNo ? "PTCA " + x.ptcaNo : x.cagNo ? "CAG " + x.cagNo : "", x.date ? techDate(x.date) : ""].filter(Boolean).join(" "); }).join("; "))}.
+    <div class="btns"><button class="b" onclick="techInvPendingRun()" ${T.saving || T.pendingBusy ? "disabled" : ""}>${T.pendingBusy ? esc2(T.pendingBusy) : "Take them off now"}</button></div>
+    <p class="hint">Each case's utilization sheet is read from the registry and taken off as if it had been saved from this version. Ask everyone to reload the app once so it does not happen again.</p></div>`;
+}
+async function techInvPendingRun() {
+  const T = S.tech, list = ((T.inv && T.inv.pending) || []).slice();
+  if (!list.length || T.pendingBusy) return;
+  let done = 0, bad = [];
+  for (let i = 0; i < list.length; i++) {
+    const x = list[i];
+    T.pendingBusy = "Case " + (i + 1) + " of " + list.length + "\u2026"; render();
+    try {
+      const jr = await sheetApi("fetchCase", { id: "", type: "PTCA", ptcaNo: x.ptcaNo || "", cagNo: x.cagNo || "", name: x.name || "" }, 40000);
+      if (!jr.found) throw new Error("not in the registry any more");
+      const P = caseFromRegistryData("PTCA", jr).P;
+      const pay = invPayload({ type: "PTCA", caseJson: JSON.stringify(P) });
+      const r = await sheetApi("invApplyPending", Object.assign({ pend: x, by: S.cfg.userName || "" }, pay.invUse ? pay : { invUse: [] }), 45000);
+      techInvTake(r);
+      done++;
+    } catch (e) { bad.push((x.name || x.ptcaNo) + ": " + (e.message || e)); }
+  }
+  T.pendingBusy = "";
+  techSay(done + " case" + (done === 1 ? "" : "s") + " taken off the inventory." + (bad.length ? " Not done: " + bad.join("; ") + "." : ""), !!bad.length);
+}
+function techInvRecentHtml() {
+  const mv = (S.tech.inv.moves || []).slice(0, 25);
+  if (!mv.length) return "";
+  return `<details class="invhelp"><summary>Latest entries</summary>${mv.map(function (m) { return techMoveHtml(m, true); }).join("")}</details>`;
+}
+function techInvFold(kind) { const c = S.tech.invClosed = S.tech.invClosed || {}; c[kind] = !c[kind]; renderList("invList", techInvListHtml()); }
+function techInvOpen(id) {
+  const T = S.tech;
+  T.invOpen = T.invOpen === id ? "" : id;
+  if (T.invEdit && T.invEdit !== T.invOpen) T.invEdit = "";
+  if (T.hist && T.hist.item !== T.invOpen) T.hist = null;
+  renderList("invList", techInvListHtml());
+}
+async function techInvHist(id) {
+  const T = S.tech;
+  if (T.hist && T.hist.item === id) { T.hist = null; renderList("invList", techInvListHtml()); return; }
+  T.hist = { item: id, moves: null };
+  renderList("invList", techInvListHtml());
+  try { techInvTake(await sheetApi("invGet", { item: id }, 40000)); }
+  catch (e) { T.hist = null; techSay("Could not load the history: " + (e.message || e), true); return; }
+  renderList("invList", techInvListHtml());
+}
+function techInvEdit(id) { S.tech.invEdit = S.tech.invEdit === id ? "" : id; renderList("invList", techInvListHtml()); }
+/* one change to the inventory, sent to the sheet; the answer is the whole list again */
+async function techInvSave(op) {
+  const T = S.tech;
+  if (T.saving) return false;
+  T.saving = true;
+  let ok = false;
+  try {
+    const j = await sheetApi("invSave", { op: op, by: S.cfg.userName || "", item: T.hist ? T.hist.item : "" }, 45000);
+    techInvTake(j);
+    T.said = j.said || "Saved."; T.saidBad = false;
+    ok = true;
+  } catch (e) { T.said = "Not saved: " + (e.message || e); T.saidBad = true; }
+  T.saving = false;
+  render();
+  return ok;
+}
+function techVal(id) { const el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; }
+function techInvDo(kind, id) {
+  if (kind === "receive") {
+    const n = techVal("invRecv");
+    if (!n) { techSay("Type how many came in.", true); return; }
+    techInvSave({ op: "receive", id: id, units: Number(n), note: techVal("invRecvNote") });
+  } else if (kind === "count") {
+    const n = techVal("invCount");
+    if (n === "") { techSay("Type how many are on the shelf.", true); return; }
+    techInvSave({ op: "count", id: id, counted: Number(n) });
+  } else {
+    const n = techVal("invCorr");
+    if (!n || Number(n) === 0) { techSay("Type the correction, e.g. -1 for one damaged.", true); return; }
+    techInvSave({ op: "correct", id: id, qty: Number(n), note: techVal("invCorrNote") });
+  }
+}
+function techInvEditSave(id) {
+  const el = document.getElementById("ieTracked");
+  techInvSave({ op: "edit", id: id, kind: techVal("ieKind"), brand: techVal("ieBrand"), size: techVal("ieSize"),
+    low: techVal("ieLow"), notes: techVal("ieNotes"), tracked: el ? !!el.checked : true }).then(function (ok) { if (ok) { S.tech.invEdit = ""; render(); } });
+}
+function techInvMerge(id) {
+  const into = techVal("ieInto");
+  if (!into) { techSay("Choose the item to merge it into.", true); return; }
+  const a = (S.tech.inv.items || []).filter(function (x) { return x.id === id; })[0], b = (S.tech.inv.items || []).filter(function (x) { return x.id === into; })[0];
+  if (!a || !b || !confirm("Merge " + j([a.brand, a.size], " ") + " into " + j([b.brand, b.size], " ") + "? Its whole history moves there, and PTCAs that write it this way will go there too.")) return;
+  techInvSave({ op: "merge", id: id, into: into }).then(function (ok) { if (ok) { S.tech.invOpen = into; S.tech.invEdit = ""; S.tech.hist = null; render(); } });
+}
+function techInvDelete(id) {
+  const a = (S.tech.inv.items || []).filter(function (x) { return x.id === id; })[0];
+  if (!a || !confirm("Delete " + j([a.brand, a.size], " ") + " from the list, with what was received and counted for it?")) return;
+  techInvSave({ op: "delete", id: id }).then(function (ok) { if (ok) { S.tech.invOpen = ""; S.tech.invEdit = ""; S.tech.hist = null; render(); } });
+}
+function techInvUndo(moveId) {
+  if (!confirm("Undo this entry? The stock goes back to what it was before it.")) return;
+  techInvSave({ op: "undo", moveId: moveId });
+}
+function techInvStart() {
+  const d = techVal("invStart");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { techSay("Choose a date.", true); return; }
+  techInvSave({ op: "start", date: d });
+}
+/* Add stock: an item already on the list gets the number added, a new one is added with it */
+function techInvAdd() {
+  const T = S.tech;
+  T.invForm = T.invForm ? null : { kind: "stent", brand: "", size: "", units: "", low: "", note: "" };
+  render();
+}
+function techInvFind(kind, brand, size) {
+  const kb = hwNorm(brand), ks = invSizeKeyApp(size);
+  return (S.tech.inv.items || []).filter(function (x) { return x.kind === kind && hwNorm(x.brand) === kb && invSizeKeyApp(x.size) === ks; })[0] || null;
+}
+/* "2.50 x 12 mm" = "2.5×12"; "6 Fr" = "6F"; "3.0" = "3" — the sheet's own rule (invSizeKey_) */
+function invSizeKeyApp(s) {
+  return String(s == null ? "" : s).toLowerCase()
+    .replace(/mm\b/g, "").replace(/[×*]/g, "x").replace(/\s+/g, "")
+    .replace(/fr?\.?$/, "f")
+    .replace(/(\d+\.\d*?)0+(?=\D|$)/g, "$1").replace(/\.(?=\D|$)/g, "")
+    .replace(/[^0-9a-z.]/g, "");
+}
+function techInvFormHtml() {
+  const f = S.tech.invForm;
+  const names = [];
+  activeHardware().forEach(function (e) { if (invKindOf(hwKind(e.role)) === f.kind && names.indexOf(e.name) < 0) names.push(e.name); });
+  (S.tech.inv.items || []).forEach(function (x) { if (x.kind === f.kind && names.indexOf(x.brand) < 0) names.push(x.brand); });
+  const have = f.brand ? techInvFind(f.kind, f.brand, f.size) : null;
+  const set = function (k) { return `oninput="S.tech.invForm.${k}=this.value"`; };
+  return `<div class="invform">
+    <div class="row">
+      <label class="fld" style="flex:1 1 140px"><span>Type</span><select onchange="S.tech.invForm.kind=this.value;render()">${invKindOptions(f.kind)}</select></label>
+      <label class="fld" style="flex:2 1 170px"><span>Brand (the device's name)</span><input list="ifBrands" value="${esc2(f.brand)}" ${set("brand")} onchange="render()"><datalist id="ifBrands">${names.map(function (n) { return `<option value="${esc2(n)}">`; }).join("")}</datalist></label>
+      <label class="fld" style="flex:1 1 100px"><span>Size</span><input value="${esc2(f.size)}" placeholder="3.0×38, 6F, 1.5" ${set("size")} onchange="render()"></label></div>
+    <div class="row">
+      <label class="fld" style="flex:0 1 100px"><span>Received</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.units)}" ${set("units")}></label>
+      <label class="fld" style="flex:0 1 100px"><span>Low at</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.low)}" ${set("low")} ${have ? "disabled" : ""}></label>
+      <label class="fld" style="flex:1 1 160px"><span>Note (invoice / challan)</span><input value="${esc2(f.note)}" ${set("note")}></label></div>
+    <p class="hint">${have ? "On the list already: " + esc2(j([have.brand, have.size], " ")) + ", " + have.stock + " in stock — the number received is added to it." : "Not on the list yet: it is added, with the number received (0 just adds the item)."}</p>
+    <div class="btns"><button class="b primary" onclick="techInvAddSave()" ${S.tech.saving ? "disabled" : ""}>Save</button><button class="b" onclick="S.tech.invForm=null;render()">Cancel</button></div>
+  </div>`;
+}
+function techInvAddSave() {
+  const f = S.tech.invForm;
+  const brand = String(f.brand || "").trim(), size = String(f.size || "").trim();
+  if (!brand) { techSay("Type the device's name (brand).", true); return; }
+  const units = String(f.units || "").trim() === "" ? 0 : Number(f.units);
+  const have = techInvFind(f.kind, brand, size);
+  let op;
+  if (have) {
+    if (!(units >= 1)) { techSay(j([have.brand, have.size], " ") + " is on the list already — type how many came in.", true); return; }
+    op = { op: "receive", id: have.id, units: units, note: f.note || "" };
+  } else op = { op: "add", kind: f.kind, brand: brand, size: size, units: units, low: f.low, note: f.note || "" };
+  techInvSave(op).then(function (ok) { if (ok) { S.tech.invForm = null; render(); } });
+}
+
+/* ---------------- stents: search ---------------- */
+const STENT_DEVICE_COLOR = { Stent: "#b3261e", Balloon: "#7b3fb5", DCB: "#c26a00", Other: "#757575" };
+function stentBilled(s) { return !!(s.billNo || s.billedAt); }
+function techStentsHtml() {
+  const T = S.tech;
+  if (!T.stents) return T.loading ? `<p class="hint">Loading the stents…</p>` : "";
+  const billed = T.stents.filter(stentBilled).length;
+  const brands = [];
+  T.stents.forEach(function (s) { if (s.brand && brands.indexOf(s.brand) < 0) brands.push(s.brand); });
+  const F2 = function (label, key, flex, extra) {
+    return `<label class="fld" style="flex:${flex}"><span>${label}</span><input value="${esc2(T[key] || "")}" ${extra || ""} oninput="S.tech.${key}=this.value;renderList('stList',techStentListHtml())"></label>`;
+  };
+  return `<div class="card"><div class="cardhead"><div><b>Stents on record</b><p class="hint">${T.stents.length} sticker${T.stents.length === 1 ? "" : "s"} · ${billed} billed · read from the sticker photos</p></div>
+      <button class="b" onclick="S.tech.stAdd=!S.tech.stAdd;render()">${T.stAdd ? "Close" : "Add by hand"}</button></div>
+    ${T.stAdd ? techStentFormHtml(null) : ""}
+    <input class="search" placeholder="Search everything: name, PTCA no., brand, LOT, serial, REF…" value="${esc2(T.stQ || "")}" oninput="S.tech.stQ=this.value;renderList('stList',techStentListHtml())">
+    <div class="row" style="margin-top:8px">
+      <label class="fld" style="flex:1 1 100px"><span>Type</span><select onchange="S.tech.stType=this.value;renderList('stList',techStentListHtml())">${["", "Stent", "Balloon", "DCB", "Other"].map(function (t) { return `<option value="${t}"${(T.stType || "") === t ? " selected" : ""}>${t || "All"}</option>`; }).join("")}</select></label>
+      ${F2("Brand", "stBrand", "1 1 130px", 'list="stBrands"')}<datalist id="stBrands">${brands.map(function (b) { return `<option value="${esc2(b)}">`; }).join("")}</datalist>
+      ${F2("Size", "stSize", "1 1 90px", 'placeholder="3.0×38"')}
+      ${F2("LOT", "stLot", "1 1 110px")}
+      ${F2("Stent no. (serial / REF / GTIN)", "stNum", "1 1 150px")}
+      <label class="fld" style="flex:1 1 110px"><span>Bill</span><select onchange="S.tech.stBilled=this.value;renderList('stList',techStentListHtml())">${[["", "All"], ["no", "Not billed"], ["yes", "Billed"]].map(function (t) { return `<option value="${t[0]}"${(T.stBilled || "") === t[0] ? " selected" : ""}>${t[1]}</option>`; }).join("")}</select></label>
+    </div>
+    <div id="stList">${techStentListHtml()}</div></div>`;
+}
+/* a size typed in the search box against a sticker: diameter, and length when given */
+function stSizeHit(want, s) {
+  const m = /(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*(?:[x×*\/]\s*(\d+(?:[.,]\d+)?))?/i.exec(String(want || ""));
+  if (!m) return true;
+  const d = Number(m[1].replace(",", ".")), l = m[2] ? Number(m[2].replace(",", ".")) : 0;
+  const sd = Number(s.dia) || NaN, sl = Number(s.len) || NaN;
+  if (isNaN(sd)) return String(s.size || "").replace(/\s+/g, "").indexOf(String(want).replace(/\s+/g, "")) >= 0;
+  return Math.abs(sd - d) < 0.01 && (!l || Math.abs(sl - l) < 0.01);
+}
+function techStentFilter() {
+  const T = S.tech;
+  const words = String(T.stQ || "").toLowerCase().split(/\s+/).filter(Boolean);
+  const lot = stCode(T.stLot), num = stCode(T.stNum), brand = hwNorm(T.stBrand);
+  return (T.stents || []).filter(function (s) {
+    if (T.stType && s.device !== T.stType) return false;
+    if (T.stBilled === "yes" && !stentBilled(s)) return false;
+    if (T.stBilled === "no" && stentBilled(s)) return false;
+    if (brand && hwNorm(s.brand).indexOf(brand) < 0) return false;
+    if (T.stSize && !stSizeHit(T.stSize, s)) return false;
+    if (lot && stCode(s.lot).indexOf(lot) < 0 && stLoose(s.lot).indexOf(stLoose(lot)) < 0) return false;
+    if (num && [s.serial, s.ref, s.gtin, s.codes, s.id, s.other].map(stCode).join("|").indexOf(num) < 0) return false;
+    if (words.length) {
+      const hay = [s.patient, s.ptcaNo, s.ipNo, s.date, s.device, s.brand, s.mfr, s.size, s.ref, s.lot, s.serial, s.gtin, s.codes, s.other, s.notes, s.billNo, s.vendor, s.expiry].join(" ").toLowerCase();
+      if (!words.every(function (w) { return hay.indexOf(w) >= 0; })) return false;
+    }
+    return true;
+  }).sort(function (a, b) { return String(b.scannedAt || "").localeCompare(String(a.scannedAt || "")) || String(b.id).localeCompare(String(a.id)); });
+}
+function techStentListHtml() {
+  const list = techStentFilter();
+  if (!list.length) return `<p class="hint">${(S.tech.stents || []).length ? "No sticker matches." : "No stickers yet — they appear once the sticker photos have been read (Sticker photos tab)."}</p>`;
+  return list.slice(0, 100).map(function (s) { return techStentCardHtml(s, ""); }).join("") +
+    (list.length > 100 ? `<p class="hint">The newest 100 of ${list.length} — narrow the search to see others.</p>` : "");
+}
+function techStentCardHtml(s, extra, billBtn) {
+  const T = S.tech, billed = stentBilled(s);
+  const col = STENT_DEVICE_COLOR[s.device] || "#757575";
+  return `<div class="stcard${billed ? " billed" : ""}" style="${billed ? "" : "border-left-color:" + col}">
+    <div class="who"><b>${esc2(j([s.brand || "(brand not read)", s.size], " "))} <span class="tag" style="background:${col}">${esc2(s.device || "Stent")}</span>${billed ? ` <span class="tag" style="background:#1c7a55">BILLED</span>` : ""}${s.unsure ? ` <span class="tag" style="background:#d9960f">CHECK ${esc2(String(s.unsure).toUpperCase())}</span>` : ""}</b>
+      <span>${esc2([s.lot ? "LOT " + s.lot : "no LOT read", s.serial ? "SN " + s.serial : "", s.ref ? "REF " + s.ref : "", s.expiry ? "Exp " + s.expiry : "", s.gtin ? "GTIN " + s.gtin : ""].filter(Boolean).join(" · "))}</span>
+      <span>${esc2([s.patient || "(patient not read)", s.ptcaNo ? "PTCA " + s.ptcaNo : "", s.ipNo ? "IP " + s.ipNo : "", s.date].filter(Boolean).join(" · "))}</span>
+      ${billed ? `<span>${esc2(["Bill " + (s.billNo || "—"), s.billDate, s.vendor, s.billedBy ? "marked by " + s.billedBy : ""].filter(Boolean).join(" · "))}</span>` : ""}
+      ${s.notes ? `<span>${esc2(s.notes)}</span>` : ""}${extra || ""}</div>
+    <div class="btns" style="margin:0">
+      <button class="b live" onclick="techOpenStentCase('${esc2(s.id)}')">Open case</button>
+      ${s.fileId && !s.photoGone ? `<button class="b" onclick="techPhoto('${esc2(s.fileId)}')">Photo</button>` : ""}
+      ${billBtn || ""}
+      <button class="b" onclick="S.tech.stEdit=S.tech.stEdit==='${esc2(s.id)}'?'':'${esc2(s.id)}';render()">${T.stEdit === s.id ? "Close" : "Edit"}</button>
+    </div>
+    ${T.stEdit === s.id ? techStentFormHtml(s) : ""}
+  </div>`;
+}
+const STENT_FORM_FIELDS = [["patient", "Patient", "2 1 160px"], ["ptcaNo", "PTCA / Cath No", "1 1 100px"], ["ipNo", "IP No", "1 1 90px"], ["date", "Date", "1 1 90px"],
+  ["brand", "Brand", "2 1 150px"], ["size", "Size", "1 1 100px"], ["lot", "LOT", "1 1 120px"], ["serial", "Serial No", "1 1 110px"],
+  ["ref", "REF", "1 1 110px"], ["expiry", "Expiry", "1 1 90px"], ["gtin", "GTIN", "1 1 130px"], ["notes", "Notes", "1 1 100%"]];
+function techStentFormHtml(s) {
+  const id = s ? s.id : "";
+  const v = function (k) { return s ? s[k] : ""; };
+  return `<div class="stedit" data-st="${esc2(id)}">
+    <div class="row"><label class="fld" style="flex:1 1 100px"><span>Device</span><select id="se_device${id}">${["Stent", "Balloon", "DCB", "Other"].map(function (t) { return `<option${(v("device") || "Stent") === t ? " selected" : ""}>${t}</option>`; }).join("")}</select></label>` +
+    STENT_FORM_FIELDS.map(function (f) { return `<label class="fld" style="flex:${f[2]}"><span>${f[1]}</span><input id="se_${f[0]}${id}" value="${esc2(v(f[0]))}"></label>`; }).join("") + `</div>
+    ${s && s.codes ? `<p class="hint">Barcode / QR text read: ${esc2(String(s.codes).replace(/\n/g, " · "))}</p>` : ""}
+    ${s && s.edited ? `<p class="hint">Last changed: ${esc2(s.edited)}</p>` : ""}
+    <div class="btns"><button class="b primary" onclick="techStentSave('${esc2(id)}')">${s ? "Save" : "Add"}</button>
+      ${s && stentBilled(s) ? `<button class="b" onclick="techUnbill('${esc2(id)}')">Take the bill off</button>` : ""}
+      ${s && !stentBilled(s) ? `<button class="b danger" onclick="techStentRemove('${esc2(id)}')">Delete this sticker</button>` : ""}</div>
+  </div>`;
+}
+function techStentPut(st) {
+  const L = S.tech.stents || [];
+  const i = L.findIndex(function (x) { return x.id === st.id; });
+  if (i >= 0) L[i] = Object.assign({}, L[i], st);
+}
+async function techStentSave(id) {
+  const set = {};
+  ["device"].concat(STENT_FORM_FIELDS.map(function (f) { return f[0]; })).forEach(function (k) { set[k] = techVal("se_" + k + id); });
+  try {
+    if (!id) {
+      if (!set.brand && !set.lot) { techSay("Give at least the brand or the LOT.", true); return; }
+      await sheetApi("stentSave", { add: set, by: S.cfg.userName || "" }, 40000);
+      S.tech.stAdd = false;
+      await techLoadStents();
+      techSay("Sticker added.");
+    } else {
+      const j2 = await sheetApi("stentSave", { id: id, set: set, by: S.cfg.userName || "" }, 40000);
+      techStentPut(j2.stent);
+      S.tech.stEdit = "";
+      techSay(j2.changed && j2.changed.length ? "Saved (" + j2.changed.join(", ") + ")." : "Nothing was changed.");
+    }
+  } catch (e) { techSay("Not saved: " + (e.message || e), true); }
+}
+async function techStentRemove(id) {
+  if (!confirm("Delete this sticker from the Stents tab? (Use it for a sticker read twice, or not one of this patient's.)")) return;
+  try { await sheetApi("stentSave", { id: id, remove: true, by: S.cfg.userName || "" }, 40000); S.tech.stEdit = ""; await techLoadStents(); techSay("Sticker deleted."); }
+  catch (e) { techSay("Not deleted: " + (e.message || e), true); }
+}
+async function techUnbill(id) {
+  if (!confirm("Take the bill off this sticker?")) return;
+  try { const j2 = await sheetApi("stentSave", { id: id, unbill: true, by: S.cfg.userName || "" }, 40000); techStentPut(j2.stent); techSay("The bill was taken off."); }
+  catch (e) { techSay("Not saved: " + (e.message || e), true); }
+}
+
+/* ---------------- a case, opened from a sticker, a bill or the inventory ---------------- */
+function techNameKey(s) {
+  return String(s == null ? "" : s).toLowerCase().replace(/\b(mr|mrs|ms|smt|shri|shree|sri|kum|km|kumari|master|baby|dr|late)\b\.?/g, " ")
+    .replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+}
+function techNameSim(a, b) {
+  const x = techNameKey(a), y = techNameKey(b);
+  if (!x || !y) return 0;
+  if (x === y) return 1;
+  const xs = x.split(" "), ys = y.split(" ");
+  const common = xs.filter(function (t) { return t.length > 1 && ys.some(function (u) { return u === t || (t.length >= 4 && u.length >= 4 && levenshtein(t, u) <= 1); }); }).length;
+  const fx = xs.join(""), fy = ys.join("");
+  return Math.max(common / Math.max(xs.length, ys.length), 1 - levenshtein(fx, fy) / Math.max(fx.length, fy.length));
+}
+/* the PTCA cases a number and a name point at: the number first (PTCA no.,
+   then CAG / IPD no.), the name to choose between several or when no number fits */
+function techFindCases(q) {
+  const cases = (S.shared.cases || []).filter(function (c) { return c.ptype === "PTCA"; });
+  const num = stCode(q.ptcaNo);
+  let hits = num ? cases.filter(function (c) { return stCode(c.ptcaNo) === num; }) : [];
+  if (!hits.length && num) hits = cases.filter(function (c) { return stCode(c.cagNo) === num || stCode(c.ipd) === num; });
+  if (!hits.length && q.ipNo && stCode(q.ipNo)) hits = cases.filter(function (c) { return stCode(c.ipd) === stCode(q.ipNo); });
+  if (!hits.length && num.length >= 3) hits = cases.filter(function (c) { const p = stCode(c.ptcaNo); return p.length >= 3 && (p.indexOf(num) === 0 || num.indexOf(p) === 0); });
+  if (q.name) {
+    if (hits.length > 1) { const byName = hits.filter(function (c) { return techNameSim(c.name, q.name) >= 0.75; }); if (byName.length) hits = byName; }
+    else if (hits.length === 1 && num && stCode(hits[0].ptcaNo) !== num && techNameSim(hits[0].name, q.name) < 0.6) hits = [];
+    if (!hits.length) hits = cases.filter(function (c) { return techNameSim(c.name, q.name) >= 0.8; })
+      .sort(function (a, b) { return techNameSim(b.name, q.name) - techNameSim(a.name, q.name); });
+  }
+  return hits.slice(0, 8);
+}
+async function techOpenStentCase(id) {
+  const s = (S.tech.stents || []).filter(function (x) { return x.id === id; })[0];
+  if (s) techOpenCase({ ptcaNo: s.ptcaNo, name: s.patient, ipNo: s.ipNo });
+}
+async function techOpenCase(q) {
+  S.tech.caseView = { busy: true, q: q, err: "", list: null };
+  render();
+  try { const el = document.getElementById("techCase"); if (el) el.scrollIntoView({ block: "start" }); } catch (e) {}
+  try {
+    if (!S.shared.cases || Date.now() - S.shared.at > 120000) {
+      const j2 = await sheetApi("list", {}, 60000);
+      S.shared.cases = (j2.cases || []).map(normCase); sortLatest(S.shared.cases); S.shared.canEdit = !!j2.canEdit; S.shared.at = Date.now();
+    }
+    if (!S.tech.stents) await techLoadStents();
+  } catch (e) { S.tech.caseView = { err: "Could not read the registry: " + (e.message || e), q: q }; render(); return; }
+  const hits = techFindCases(q);
+  if (!hits.length) {
+    S.tech.caseView = { q: q, err: "No PTCA case in the registry for " + [q.name, q.ptcaNo ? "PTCA / Cath No " + q.ptcaNo : ""].filter(Boolean).join(", ") +
+      " — it may not have been saved yet, or the number was written differently. Search the registry under View cases." };
+    render(); return;
+  }
+  if (hits.length > 1) { S.tech.caseView = { q: q, list: hits }; render(); return; }
+  techShowCase(hits[0].id);
+}
+async function techShowCase(id) {
+  const c = (S.shared.cases || []).filter(function (x) { return x.id === id; })[0];
+  if (!c) return;
+  const q = (S.tech.caseView || {}).q || {};
+  S.tech.caseView = { busy: true, c: c, q: q };
+  render();
+  try {
+    const j2 = await sheetApi("fetchCase", { id: c.id, type: c.ptype, cagNo: c.cagNo, ptcaNo: c.ptcaNo, name: c.name }, 40000);
+    if (!j2.found) throw new Error("this case is no longer in the sheet");
+    let P = null, why = "";
+    try { P = caseFromRegistryData("PTCA", j2).P; } catch (e) { why = e.message || String(e); }
+    S.tech.caseView = { c: c, j: j2, P: P, q: q, err: why };
+  } catch (e) { S.tech.caseView = { c: c, q: q, err: "Could not open the case: " + (e.message || e) }; }
+  render();
+  try { const el = document.getElementById("techCase"); if (el) el.scrollIntoView({ block: "start" }); } catch (e) {}
+}
+/* the stickers that belong to a case: its PTCA number, or its patient's name */
+function techCaseStents(c) {
+  const num = stCode(c.ptcaNo);
+  return (S.tech.stents || []).filter(function (s) {
+    if (num && stCode(s.ptcaNo) === num) return true;
+    return !!s.patient && techNameSim(s.patient, c.name) >= 0.85 && (!stCode(s.ptcaNo) || !num);
+  });
+}
+function techCaseHtml() {
+  const V = S.tech.caseView, c = V.c;
+  let h = `<div class="card casecard" id="techCase"><div class="cardhead"><b>${esc2(c ? c.name || "(no name)" : "The case")} <span class="tag" style="background:#1f5fc2">PTCA</span></b>
+    <button class="b" onclick="S.tech.caseView=null;render()">Close</button></div>`;
+  if (V.busy) return h + `<p class="hint">Opening…</p></div>`;
+  if (V.list) {
+    h += `<p class="hint">More than one PTCA fits — choose:</p>` + V.list.map(function (x) {
+      return `<div class="pick"><div class="who"><b>${esc2(x.name || "(no name)")}</b><span>${esc2(["PTCA " + (x.ptcaNo || "—"), "CAG " + (x.cagNo || "—"), x.ipd ? "IPD " + x.ipd : "", x.date].filter(Boolean).join(" · "))}</span></div>
+        <button class="b live" onclick="techShowCase('${esc2(x.id)}')">Open</button></div>`;
+    }).join("");
+    return h + `</div>`;
+  }
+  if (V.err) h += `<p class="hint" style="color:#c00000">${esc2(V.err)}</p>`;
+  if (!c) return h + `</div>`;
+  const kv = function (k, v) { return v ? `<div class="kv"><b>${k}:</b> ${esc2(v)}</div>` : ""; };
+  h += kv("Numbers", ["PTCA " + (c.ptcaNo || "—"), "CAG " + (c.cagNo || "—"), c.ipd ? "IPD " + c.ipd : "", c.opd ? "OPD " + c.opd : ""].filter(Boolean).join(" · ")) +
+    kv("Date", c.date || c.savedAt) + kv("Age / sex", [c.age, c.sex].filter(Boolean).join(" / ")) + kv("PTCA to", c.ptcaTo || c.vessel);
+  const P = V.P;
+  if (P) {
+    h += kv("Performed by", (P.proc.performedBy || []).filter(has).join(", ")) + kv("Technician", has(P.proc.technician) ? P.proc.technician : (P.util || {}).technician);
+    const use = invUseOf(P);
+    const stents = use.filter(function (x) { return x.kind === "stent" || x.kind === "dcb"; });
+    h += kv("Stents on the utilization sheet", stents.map(function (x) { return x.where.split(" · ")[0] + ": " + invUseText(x); }).join("; ") || "none written");
+    const taken = use.filter(function (x) { return !x.reused; }), back = use.filter(function (x) { return x.reused; });
+    h += kv("Taken off the inventory", taken.map(invUseText).join(" · ")) + kv("Reused (ox / oxy)", back.map(invUseText).join(" · "));
+  }
+  const mine = techCaseStents(c);
+  h += `<div class="kv"><b>Stickers on record:</b> ${mine.length ? "" : "none found for this PTCA number or name"}</div>` +
+    mine.map(function (s) { return techStentCardHtml(s, "", techBillBtn(s)); }).join("");
+  h += `<div class="btns">${V.j ? `<button class="b live" onclick="techCaseReport()">Word report</button>` : ""}${utilLink(c.util)}</div>`;
+  return h + `</div>`;
+}
+function techCaseReport() {
+  const V = S.tech.caseView;
+  if (!V || !V.j) return;
+  try { const partial = saveRegistryReport("PTCA", V.j); afterRegistryReport(partial, V.c.name || V.c.ptcaNo); }
+  catch (e) { techSay("Could not build the report: " + (e.message || e), true); }
+}
+
+/* ---------------- matching a bill ---------------- */
+function techBillBlankItem() { return { device: "Stent", brand: "", size: "", lot: "", serial: "", ref: "", gtin: "", expiry: "", codes: [], from: "" }; }
+function techBillBlank() { return { img: null, read: null, busy: false, err: "", codes: [], hdr: { number: "", date: "", vendor: "", patient: "", ptcaNo: "", ipNo: "" }, items: [techBillBlankItem()], cands: null }; }
+function techBillClear() { S.tech.bill = techBillBlank(); render(); }
+/* a photo or PDF chosen on the phone → { b64, mime, url, thumb } (a photo at
+   most px on its long edge; one the browser cannot draw goes as it is) */
+function bytesToB64(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+async function techImageFrom(file, px) {
+  const mime = String(file.type || "").toLowerCase();
+  if (mime === "application/pdf" || /\.pdf$/i.test(file.name || "")) {
+    return { b64: bytesToB64(new Uint8Array(await fileToArrayBuffer(file))), mime: "application/pdf", pdf: true, name: file.name || "" };
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const el = await loadImg(url);
+    const cv = drawScaled(el, px, 0);
+    const data = cv.toDataURL("image/jpeg", 0.88);
+    return { b64: data.split(",")[1], mime: "image/jpeg", url: data, thumb: thumbOf(cv), name: file.name || "" };
+  } catch (e) {
+    return { b64: bytesToB64(new Uint8Array(await fileToArrayBuffer(file))), mime: mime || "image/jpeg", name: file.name || "" };
+  } finally { setTimeout(function () { URL.revokeObjectURL(url); }, 60000); }
+}
+/* the barcodes on the photo, where the browser can read them (Chrome on
+   Android does; elsewhere the printed numbers are read instead) */
+async function techBarcodes(img) {
+  try {
+    if (!img || !img.url || typeof window.BarcodeDetector !== "function") return [];
+    const want = ["data_matrix", "qr_code", "code_128", "ean_13", "ean_8", "code_39", "pdf417", "itf", "upc_a"];
+    let fmts = want;
+    try { const sup = await window.BarcodeDetector.getSupportedFormats(); fmts = want.filter(function (f) { return sup.indexOf(f) >= 0; }); } catch (e) {}
+    if (!fmts.length) return [];
+    const det = new window.BarcodeDetector({ formats: fmts });
+    const found = await det.detect(await loadImg(img.url));
+    const out = [];
+    (found || []).forEach(function (b) { const v = String(b.rawValue || ""); if (v && !out.some(function (o) { return o.value === v; })) out.push({ format: b.format, value: v }); });
+    return out;
+  } catch (e) { return []; }
+}
+/* GS1 — the numbers in or under a medical device's barcode; the sheet's own reading (gs1Parse_) */
+const GS1_FIXED = { "00": 18, "01": 14, "02": 14, "11": 6, "12": 6, "13": 6, "15": 6, "16": 6, "17": 6, "20": 2 };
+const GS1_VAR = { "10": 20, "21": 20, "22": 20, "30": 8, "240": 30, "241": 30, "250": 30 };
+function gs1Parse(text) {
+  let s = String(text == null ? "" : text);
+  const out = {};
+  let m;
+  if (/\(\d{2,4}\)/.test(s)) {
+    const re = /\((\d{2,4})\)\s*([^()]*)/g;
+    while ((m = re.exec(s))) { const v = m[2].replace(/[\u001d\s]+$/, "").replace(/^\s+/, ""); if (v && out[m[1]] == null) out[m[1]] = v; }
+  } else {
+    s = s.replace(/^\][A-Za-z]\d/, "").replace(/^\u001d+/, "");
+    if (!/^\d{4}/.test(s)) return null;
+    let i = 0, guard = 0;
+    while (i < s.length && guard++ < 20) {
+      if (s.charAt(i) === "\u001d") { i++; continue; }
+      const a2 = s.substr(i, 2), a3 = s.substr(i, 3);
+      if (GS1_FIXED[a2] != null) { out[a2] = s.substr(i + 2, GS1_FIXED[a2]); i += 2 + GS1_FIXED[a2]; continue; }
+      const ai = GS1_VAR[a3] != null ? a3 : GS1_VAR[a2] != null ? a2 : "";
+      if (!ai) break;
+      const st = i + ai.length;
+      let end = s.indexOf("\u001d", st);
+      if (end < 0) end = s.length;
+      out[ai] = s.slice(st, Math.min(end, st + GS1_VAR[ai]));
+      i = end;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+function gs1Date(yymmdd) { const m = /^(\d{2})(\d{2})(\d{2})$/.exec(String(yymmdd || "")); return m ? "20" + m[1] + "-" + m[2] + (m[3] === "00" ? "" : "-" + m[3]) : ""; }
+async function techBillPick(input) {
+  const f = input.files && input.files[0];
+  input.value = "";
+  if (!f) return;
+  const B = S.tech.bill;
+  B.err = ""; B.cands = null;
+  try { B.img = await techImageFrom(f, 2200); }
+  catch (e) { B.err = "That file could not be read: " + (e.message || e); render(); return; }
+  B.codes = await techBarcodes(B.img);
+  render();
+}
+async function techBillRead() {
+  const B = S.tech.bill;
+  if (!B.img || B.busy) return;
+  B.busy = true; B.err = ""; render();
+  try {
+    const r = await sheetApi("stentReadBill", { b64: B.img.b64, mime: B.img.mime }, 240000);
+    B.read = r;
+    B.hdr = Object.assign({ number: "", date: "", vendor: "", patient: "", ptcaNo: "", ipNo: "" }, r.bill || {});
+    B.items = (r.items || []).map(function (it) {
+      return { device: it.device || "Stent", brand: it.brand || "", size: it.dia && it.len ? it.dia + " × " + it.len : (it.size || ""),
+        lot: it.lot || "", serial: it.serial || "", ref: it.ref || "", gtin: it.gtin || "", expiry: it.expiry || "", codes: it.codes || [], from: it.description || "" };
+    });
+    techBillAddCodes();
+    if (!B.items.length) B.items = [techBillBlankItem()];
+    S.tech.said = "Read by the sheet" + (r.model ? " (" + modelLabel(r.model) + ")" : "") + " — check what it says below, then the matches follow."; S.tech.saidBad = false;
+    if (!S.tech.stents) await techLoadStents();
+    techBillMatch();
+  } catch (e) { B.err = e.message || String(e); }
+  B.busy = false;
+  render();
+}
+/* each barcode decoded on the phone becomes a line of its own (GS1: GTIN, LOT, serial, expiry) */
+function techBillAddCodes() {
+  const B = S.tech.bill;
+  (B.codes || []).forEach(function (c) {
+    if (B.items.some(function (it) { return (it.codes || []).indexOf(c.value) >= 0 && it.from === "barcode"; })) return;
+    const g = gs1Parse(c.value);
+    const it = techBillBlankItem();
+    it.from = "barcode"; it.codes = [c.value];
+    if (g) { it.gtin = g["01"] || ""; it.lot = g["10"] || ""; it.serial = g["21"] || ""; it.expiry = gs1Date(g["17"]); it.ref = g["240"] || ""; }
+    B.items.push(it);
+  });
+}
+function techBillHtml() {
+  const B = S.tech.bill;
+  const set = function (path) { return `oninput="S.tech.bill.${path}=this.value"`; };
+  let h = `<div class="card"><b>Match a bill</b>
+    <p class="hint">Photograph the bill — or a stent's sticker on its own. The sheet reads it (half a minute or so), and every line is matched against the stickers on record: LOT and serial number first, then REF, GTIN, size and brand, and the patient. The case opens from a match. Anything read wrongly can be corrected below, and a LOT or serial can simply be typed in without a photo.</p>
+    <input type="file" accept="image/*" capture="environment" id="billcam" hidden onchange="techBillPick(this)">
+    <input type="file" accept="image/*,application/pdf,.pdf" id="billfile" hidden onchange="techBillPick(this)">
+    <div class="btns"><button class="b" onclick="document.getElementById('billcam').click()">Take photo</button>
+      <button class="b" onclick="document.getElementById('billfile').click()">Choose image or PDF</button>
+      ${B.img ? `<button class="b primary" onclick="techBillRead()" ${B.busy ? "disabled" : ""}>${B.busy ? "Reading…" : "Read the bill"}</button>` : ""}
+      ${B.img || B.read || B.cands ? `<button class="b" onclick="techBillClear()">Start again</button>` : ""}</div>
+    ${B.img && B.img.thumb ? `<img class="thumb" src="${B.img.thumb}" alt="the bill">` : B.img ? `<p class="hint">${esc2(B.img.name || "PDF")} chosen.</p>` : ""}
+    ${B.codes.length ? `<p class="hint">Barcodes read on this phone: ${esc2(B.codes.map(function (c) { return c.value.replace(/\u001d/g, " "); }).join(" · "))}</p>` : ""}
+    ${B.err ? `<p class="hint" style="color:#c00000">${esc2(B.err)}</p>` : ""}
+    <div class="billform">
+      <div class="row">
+        <label class="fld" style="flex:1 1 120px"><span>Bill no.</span><input value="${esc2(B.hdr.number)}" ${set("hdr.number")}></label>
+        <label class="fld" style="flex:1 1 100px"><span>Bill date</span><input value="${esc2(B.hdr.date)}" ${set("hdr.date")}></label>
+        <label class="fld" style="flex:2 1 150px"><span>Vendor</span><input value="${esc2(B.hdr.vendor)}" ${set("hdr.vendor")}></label></div>
+      <div class="row">
+        <label class="fld" style="flex:2 1 160px"><span>Patient (if on the bill)</span><input value="${esc2(B.hdr.patient)}" ${set("hdr.patient")}></label>
+        <label class="fld" style="flex:1 1 110px"><span>PTCA / Cath No</span><input value="${esc2(B.hdr.ptcaNo)}" ${set("hdr.ptcaNo")}></label>
+        <label class="fld" style="flex:1 1 100px"><span>IP No</span><input value="${esc2(B.hdr.ipNo)}" ${set("hdr.ipNo")}></label></div>`;
+  B.items.forEach(function (it, i) {
+    const p = "items[" + i + "].";
+    h += `<div class="billitem"><div class="subhead"><span>Line ${i + 1}${it.from === "barcode" ? " — from the barcode" : it.from ? " — " + esc2(it.from) : ""}</span>
+        ${B.items.length > 1 ? `<button class="b" onclick="S.tech.bill.items.splice(${i},1);S.tech.bill.cands=null;render()">Remove</button>` : ""}</div>
+      <div class="row">
+        <label class="fld" style="flex:1 1 90px"><span>Device</span><select onchange="S.tech.bill.${p}device=this.value">${["Stent", "Balloon", "DCB", "Other"].map(function (t) { return `<option${it.device === t ? " selected" : ""}>${t}</option>`; }).join("")}</select></label>
+        <label class="fld" style="flex:2 1 140px"><span>Brand</span><input value="${esc2(it.brand)}" ${set(p + "brand")}></label>
+        <label class="fld" style="flex:1 1 90px"><span>Size</span><input value="${esc2(it.size)}" ${set(p + "size")}></label>
+        <label class="fld" style="flex:1 1 120px"><span>LOT</span><input value="${esc2(it.lot)}" ${set(p + "lot")}></label>
+        <label class="fld" style="flex:1 1 110px"><span>Serial No</span><input value="${esc2(it.serial)}" ${set(p + "serial")}></label>
+        <label class="fld" style="flex:1 1 110px"><span>REF</span><input value="${esc2(it.ref)}" ${set(p + "ref")}></label>
+        <label class="fld" style="flex:1 1 130px"><span>GTIN</span><input value="${esc2(it.gtin)}" ${set(p + "gtin")}></label>
+        <label class="fld" style="flex:1 1 90px"><span>Expiry</span><input value="${esc2(it.expiry)}" ${set(p + "expiry")}></label></div></div>`;
+  });
+  h += `<div class="btns"><button class="b" onclick="S.tech.bill.items.push(techBillBlankItem());render()">Add a line</button>
+      <button class="b primary" onclick="techBillFind()">Find the stents</button></div></div></div>`;
+  if (B.cands) h += techBillResultsHtml();
+  return h;
+}
+async function techBillFind() {
+  if (!S.tech.stents) {
+    try { await techLoadStents(); } catch (e) { techSay("Could not load the stents: " + (e.message || e), true); return; }
+  }
+  const B = S.tech.bill;
+  if ((B.hdr.patient || B.hdr.ptcaNo || B.hdr.ipNo) && (!S.shared.cases || Date.now() - S.shared.at > 120000)) {
+    try { const j2 = await sheetApi("list", {}, 60000); S.shared.cases = (j2.cases || []).map(normCase); sortLatest(S.shared.cases); S.shared.at = Date.now(); } catch (e) {}
+  }
+  techBillMatch();
+  render();
+}
+/* how well a sticker on record fits what the bill says; the reasons in words */
+function techScore(row, w) {
+  let score = 0;
+  const why = [];
+  if (w.serial && row.serial && stCode(w.serial).length >= 4 && stCode(w.serial) === stCode(row.serial)) { score += 100; why.push("serial no."); }
+  if (w.lot && row.lot) {
+    const a = stCode(w.lot), b = stCode(row.lot);
+    if (a && a === b) { score += 60; why.push("LOT"); }
+    else if (a.length >= 4 && stLoose(a) === stLoose(b)) { score += 45; why.push("LOT (a look-alike character apart)"); }
+    else if (a.length >= 6 && b.length >= 6 && levenshtein(a, b) === 1) { score += 30; why.push("LOT, one character apart"); }
+    else if (a.length >= 6 && b.length >= 6 && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)) { score += 30; why.push("LOT (part of it)"); }
+  }
+  if (stGtin(w.gtin) && stGtin(w.gtin) === stGtin(row.gtin)) { score += 25; why.push("GTIN"); }
+  if (w.ref && row.ref && stCode(w.ref).length >= 4 && stCode(w.ref) === stCode(row.ref)) { score += 20; why.push("REF"); }
+  const rd = Number(row.dia), rl = Number(row.len);
+  if (w.dia && rd) {
+    if (Math.abs(w.dia - rd) < 0.01 && (!w.len || !rl || Math.abs(w.len - rl) < 0.01)) { score += w.len && rl ? 15 : 8; why.push("size"); }
+    else score -= 25;
+  }
+  if (w.brand && row.brand) {
+    const tok = function (s) { return String(s).toLowerCase().split(/[^a-z0-9]+/).filter(function (t) { return t.length >= 3 && ["stent", "system", "coronary", "drug", "eluting", "balloon", "catheter", "everolimus", "sirolimus", "zotarolimus", "biolimus", "the"].indexOf(t) < 0; }); };
+    const a = tok(w.brand), b = tok(row.brand);
+    if (a.some(function (t) { return b.indexOf(t) >= 0; }) || (hwNorm(w.brand) && hwNorm(row.brand).indexOf(hwNorm(w.brand)) >= 0)) { score += 10; why.push("brand"); }
+  }
+  const ym = function (s) {
+    s = String(s || "");
+    let m = /(20\d{2})[-\/.](\d{1,2})/.exec(s); if (m) return m[1] + "-" + ("0" + m[2]).slice(-2);
+    m = /(\d{1,2})[-\/.](20\d{2})/.exec(s); if (m) return m[2] + "-" + ("0" + m[1]).slice(-2);
+    return "";
+  };
+  if (ym(w.expiry) && ym(w.expiry) === ym(row.expiry)) { score += 10; why.push("expiry"); }
+  if (w.patient && row.patient && techNameSim(w.patient, row.patient) >= 0.8) { score += 25; why.push("patient"); }
+  if (w.number && row.ptcaNo && stCode(w.number) === stCode(row.ptcaNo)) { score += 40; why.push("PTCA no."); }
+  (w.codes || []).forEach(function (c) {
+    const k = stCode(c);
+    if (k.length < 6 || why.indexOf("barcode") >= 0) return;
+    const hay = [row.codes, row.serial, row.lot, row.ref, row.gtin].map(stCode).join("|");
+    if (hay.indexOf(k) >= 0) { score += 50; why.push("barcode"); }
+  });
+  return { score: score, why: why };
+}
+function techBillWant(it, hdr) {
+  const m = /(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*(?:[x×*\/]|by)\s*(?:l\s*)?(\d+(?:[.,]\d+)?)/i.exec(String(it.size || ""));
+  const dia = m ? Number(m[1].replace(",", ".")) : (/^\s*\d+(?:[.,]\d+)?\s*$/.test(String(it.size || "")) ? Number(String(it.size).replace(",", ".")) : 0);
+  // the barcode text that is not GS1 (a QR's own code) is compared as it is
+  const codes = (it.codes || []).filter(function (c) { return !gs1Parse(c); });
+  return { serial: it.serial, lot: it.lot, ref: it.ref, gtin: it.gtin, brand: it.brand, expiry: it.expiry, dia: dia, len: m ? Number(m[2].replace(",", ".")) : 0,
+    patient: hdr.patient, number: hdr.ptcaNo || hdr.ipNo, codes: codes };
+}
+function techBillMatch() {
+  const B = S.tech.bill, rows = S.tech.stents || [];
+  B.cands = B.items.map(function (it) {
+    const w = techBillWant(it, B.hdr);
+    const hits = rows.map(function (s) { return { s: s, m: techScore(s, w) }; })
+      .filter(function (x) { return x.m.score >= 40 && x.m.why.some(function (y) { return y !== "brand" && y !== "size" && y !== "expiry"; }); })
+      .sort(function (a, b) { return b.m.score - a.m.score; }).slice(0, 8);
+    return { item: it, hits: hits };
+  });
+  B.cases = (B.hdr.patient || B.hdr.ptcaNo || B.hdr.ipNo) && S.shared.cases ? techFindCases({ ptcaNo: B.hdr.ptcaNo, ipNo: B.hdr.ipNo, name: B.hdr.patient }) : [];
+}
+function techBillBtn(s) {
+  return `<button class="b" onclick="techBillMark('${esc2(s.id)}')">${stentBilled(s) ? "Billed — change" : "Mark billed"}</button>`;
+}
+function techBillResultsHtml() {
+  const B = S.tech.bill;
+  let h = `<div class="card"><b>Matches</b>`;
+  B.cands.forEach(function (c, i) {
+    const it = c.item;
+    const said = j([it.brand, it.size, it.lot ? "LOT " + it.lot : "", it.serial ? "SN " + it.serial : "", it.ref ? "REF " + it.ref : ""], " · ") || "(nothing typed)";
+    h += `<div class="subhead"><span>Line ${i + 1}: ${esc2(said)}</span></div>`;
+    if (!c.hits.length) { h += `<p class="hint">No sticker on record fits this line. Check the LOT and serial above — or the stickers of that PTCA may not have been photographed yet.</p>`; return; }
+    c.hits.forEach(function (x) {
+      const strength = x.m.score >= 90 ? ["Strong match", "#1c7a55"] : x.m.score >= 60 ? ["Likely", "#1f5fc2"] : ["Possible", "#8a6a12"];
+      h += techStentCardHtml(x.s, `<span class="why" style="color:${strength[1]}">${strength[0]} — ${esc2(x.m.why.join(", "))}</span>`, techBillBtn(x.s));
+    });
+  });
+  if ((B.cases || []).length) {
+    h += `<div class="subhead"><span>PTCAs of ${esc2(B.hdr.patient || B.hdr.ptcaNo || B.hdr.ipNo)} in the registry</span></div>` + B.cases.map(function (x) {
+      return `<div class="pick"><div class="who"><b>${esc2(x.name || "(no name)")}</b><span>${esc2(["PTCA " + (x.ptcaNo || "—"), "CAG " + (x.cagNo || "—"), x.date].filter(Boolean).join(" · "))}</span></div>
+        <button class="b live" onclick="S.tech.caseView={q:{}};techShowCase('${esc2(x.id)}')">Open case</button></div>`;
+    }).join("");
+  }
+  return h + `</div>`;
+}
+async function techBillMark(id) {
+  const B = S.tech.bill;
+  const s = (S.tech.stents || []).filter(function (x) { return x.id === id; })[0];
+  if (!s) return;
+  const no = String(B.hdr.number || "").trim();
+  if (!no && !confirm("The bill number is empty — mark this sticker billed without it?")) return;
+  if (stentBilled(s) && s.billNo !== no && !confirm("This sticker is already marked billed on bill " + (s.billNo || "?") + (s.billDate ? " of " + s.billDate : "") + ". Replace that with " + (no || "this bill") + "?")) return;
+  try {
+    const j2 = await sheetApi("stentSave", { id: id, bill: { no: no, date: B.hdr.date, vendor: B.hdr.vendor }, by: S.cfg.userName || "" }, 40000);
+    techStentPut(j2.stent);
+    techSay("Marked billed: " + j([s.brand, s.size], " ") + " of " + (s.patient || "the patient") + (no ? ", bill " + no : "") + ".");
+  } catch (e) { techSay("Not saved: " + (e.message || e), true); }
+}
+
+/* ---------------- sticker photos ---------------- */
+function techPhotosHtml() {
+  const T = S.tech, st = (T.status && T.status.stents) || {};
+  const p = st.schedule || {};
+  const auto = !st.scheduled ? "the inbox scanner is not set up, so photos are read only with the button" :
+    p.mode === "always" ? "read automatically within a few minutes" :
+    "read automatically at night (" + (p.window || "20:00–04:00") + ")" + (p.mode === "closed" && p.next ? ", next from " + p.next : "");
+  return `<div class="card"><div class="cardhead"><div><b>Sticker photos</b>
+      <p class="hint">${esc2([(st.waiting || 0) + " waiting", (st.failed || 0) + " failed", (st.scanned || 0) + " read", (st.inDone || 0) + " photo" + (st.inDone === 1 ? "" : "s") + " kept (the newest " + (st.keep || 200) + ")", auto].join(" · "))}</p></div>
+      <div class="btns" style="margin:0"><button class="b primary" onclick="techScanNow()" ${T.scanning ? "disabled" : ""}>${T.scanning ? "Reading…" : "Read the new photos now"}</button></div></div>
+    ${T.scanSaid ? `<div class="warn blue">${esc2(T.scanSaid)}</div>` : ""}
+    <p class="hint">One photo per patient: write the patient's name and PTCA / Cath number on a sheet, stick that patient's stent labels beside them, and photograph it flat and close, every label sharp. Put it in the Drive folder <b>${esc2(st.inName || "Stents uploads")}</b> — or upload it here. After reading, the photo moves to <b>${esc2(st.doneName || "Stents scanned")}</b>; only the newest ${st.keep || 200} photos are kept there, and what was read stays in the sheet's Stents tab.</p>
+    <input type="file" accept="image/*" capture="environment" id="stcam" hidden onchange="techUpload(this)">
+    <input type="file" accept="image/*,application/pdf,.pdf" multiple id="stfile" hidden onchange="techUpload(this)">
+    <div class="btns"><button class="b" onclick="document.getElementById('stcam').click()" ${T.uploading ? "disabled" : ""}>Take a photo</button>
+      <button class="b" onclick="document.getElementById('stfile').click()" ${T.uploading ? "disabled" : ""}>Upload photos</button>
+      ${st.inUrl ? `<a class="b" href="${esc2(st.inUrl)}" target="_blank" rel="noopener">${esc2(st.inName || "Stents uploads")} folder</a>` : ""}
+      ${st.doneUrl ? `<a class="b" href="${esc2(st.doneUrl)}" target="_blank" rel="noopener">${esc2(st.doneName || "Stents scanned")}</a>` : ""}</div>
+    ${T.upSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.upSaid)}</p>` : ""}
+    <div class="uplist" id="upList">${techUploadsListHtml()}</div></div>`;
+}
+const UP_TAG = { queued: ["WAITING", "#d9a400"], scanned: ["READ", "#1c7a55"], failed: ["FAILED", "#c00000"], dismissed: ["DISMISSED", "#9a9ea8"] };
+function techUploadsListHtml() {
+  const T = S.tech;
+  if (!T.uploads) return T.loading ? `<p class="hint">Loading…</p>` : "";
+  if (!T.uploads.length) return `<p class="hint">No sticker photos yet.</p>`;
+  return T.uploads.slice(0, 80).map(function (u) {
+    const tag = UP_TAG[u.status] || [String(u.status || "").toUpperCase(), "#5f6470"];
+    const errs = (u.errors || []).map(function (e) { return typeof e === "string" ? e : (e.reason || ""); }).filter(Boolean);
+    return `<div class="pick"><div class="who"><b>${esc2(u.patient || u.file || u.id)} <span class="tag" style="background:${tag[1]}">${tag[0]}</span></b>
+      <span>${esc2([u.number ? "PTCA " + u.number : "", u.stickers ? u.stickers + " sticker" + (u.stickers === 1 ? "" : "s") : "", u.uploaded ? "uploaded " + u.uploaded : "", u.scannedAt ? "read " + u.scannedAt : "", u.photoGone ? "photo deleted " + u.photoGone : ""].filter(Boolean).join(" · "))}</span>
+      ${errs.length ? `<span style="color:#c00000">${esc2(errs.join("; "))}</span>` : ""}
+      <span>${esc2(u.file || "")}${u.by ? " · uploaded by " + esc2(u.by) : ""}</span></div>
+      <div class="btns" style="margin:0">
+        ${u.fileId && !u.photoGone ? `<button class="b" onclick="techPhoto('${esc2(u.fileId)}')">Photo</button>` : ""}
+        ${(u.status === "failed" || u.status === "scanned") && !u.photoGone ? `<button class="b" onclick="techUpRetry('${esc2(u.id)}')">Read again</button>` : ""}
+        ${u.status === "failed" ? `<button class="b danger" onclick="techUpDismiss('${esc2(u.id)}')">Dismiss</button>` : ""}
+      </div></div>`;
+  }).join("");
+}
+async function techUpload(input) {
+  const files = Array.from(input.files || []);
+  input.value = "";
+  if (!files.length) return;
+  const T = S.tech;
+  T.uploading = true;
+  let ok = 0, bad = "";
+  for (let i = 0; i < files.length; i++) {
+    T.upSaid = "Uploading " + (i + 1) + " of " + files.length + "…"; render();
+    try {
+      const im = await techImageFrom(files[i], 2400);
+      await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "" }, 120000);
+      ok++;
+    } catch (e) { bad = e.message || String(e); break; }
+  }
+  T.uploading = false;
+  T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Stents uploads" + (bad ? "; then: " + bad : "") + (ok ? " — read at the next scan, or press “Read the new photos now”." : "");
+  T.upAt = 0; T.statusAt = 0;
+  await techLoad(true);
+}
+async function techScanNow() {
+  const T = S.tech;
+  if (T.scanning) return;
+  T.scanning = true;
+  T.scanSaid = "Reading the photos in Stents uploads, one at a time with a short pause — this can take a few minutes. Keep this screen open.";
+  render();
+  let scanned = 0, failed = 0, stickers = 0, rounds = 0, r = null;
+  try {
+    for (;;) {
+      rounds++;
+      r = await sheetApi("stentScanNow", {}, 330000);
+      const s = r.stents || {};
+      scanned += s.scanned || 0; failed += s.failed || 0; stickers += s.stickers || 0;
+      if (!(r.ran && r.more === true && s.pending) || rounds >= 4) break;
+      T.scanSaid = "Still reading — run " + (rounds + 1) + " of up to 4. Keep this screen open."; render();
+    }
+    const s = (r && r.stents) || {};
+    T.scanSaid = !r.ran ? "The scanner did not run: " + (r.why || "unknown reason") + "."
+      : (scanned || failed ? scanned + " photo" + (scanned === 1 ? "" : "s") + " read (" + stickers + " sticker" + (stickers === 1 ? "" : "s") + "), " + failed + " failed." : "Nothing new in Stents uploads (a photo is taken once it is 20 seconds old).") +
+        (s.pending ? " " + s.pending + " photo" + (s.pending === 1 ? " is" : "s are") + " still waiting — press again." : "") +
+        (s.stopped ? " Stopped: " + s.why + "." : "");
+  } catch (e) {
+    T.scanSaid = /did not answer in time/i.test(String(e && e.message))
+      ? "The scan did not report back within 5½ minutes — it may still be running in the sheet. Refresh in a minute."
+      : "Could not run the scanner: " + (e.message || e);
+  }
+  T.scanning = false; T.upAt = 0; T.stAt = 0; T.statusAt = 0;
+  await techLoad(true);
+}
+async function techUpRetry(id) {
+  if (!confirm("Read this photo again from the start? Its stickers are read afresh at the next scan.")) return;
+  try { await sheetApi("stentRetry", { id: id, by: S.cfg.userName || "" }, 40000); S.tech.upAt = 0; S.tech.statusAt = 0; techSay("Queued — it is read at the next scan."); techLoad(true); }
+  catch (e) { techSay(e.message || String(e), true); }
+}
+async function techUpDismiss(id) {
+  if (!confirm("Take this photo off the list of failures?")) return;
+  try { await sheetApi("stentDismiss", { id: id, by: S.cfg.userName || "" }, 40000); S.tech.upAt = 0; S.tech.statusAt = 0; techLoad(true); }
+  catch (e) { techSay(e.message || String(e), true); }
+}
+/* a sticker photo, full screen (the sheet sends it — no Drive sharing needed) */
+const TV = { el: null, bodyOverflow: null };
+async function techPhoto(fileId) {
+  techPhotoClose();
+  const el = document.createElement("div");
+  el.id = "techview";
+  el.innerHTML = `<div class="uvbar"><div class="uvtitle">Sticker photo<span>Loading…</span></div><button class="b" onclick="techPhotoClose()">Back</button></div><div class="uvbody"></div>`;
+  document.body.appendChild(el);
+  TV.el = el; TV.bodyOverflow = document.body.style.overflow; document.body.style.overflow = "hidden";
+  try {
+    const r = await sheetApi("stentPhoto", { fileId: fileId }, 60000);
+    if (TV.el !== el) return;
+    const url = "data:" + (r.mime || "image/jpeg") + ";base64," + r.b64;
+    el.querySelector(".uvtitle span").textContent = r.name || "";
+    if (/pdf/i.test(r.mime || "")) el.querySelector(".uvbody").innerHTML = `<p class="hint">A PDF — <a href="${url}" download="${esc2(r.name || "stickers.pdf")}">download it</a> to look at it.</p>`;
+    else el.querySelector(".uvbody").innerHTML = `<img src="${url}" alt="sticker photo" onclick="this.classList.toggle('z')">`;
+  } catch (e) {
+    if (TV.el === el) el.querySelector(".uvtitle span").textContent = e.message || String(e);
+  }
+}
+function techPhotoClose() {
+  if (TV.el) { try { TV.el.remove(); } catch (e) {} TV.el = null; document.body.style.overflow = TV.bodyOverflow || ""; }
+}
+document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && TV.el) techPhotoClose(); });
+
+/* ---------------- Settings: the technicians' key ---------------- */
+async function techKeyMake() {
+  const k = String(S.cfg.techKey || "").trim();
+  if (k && k === String(S.cfg.editKey || "").trim()) { flash("err", "The technicians' key must differ from the edit key — it would let them edit cases too."); return; }
+  if (!confirm(k ? "Make “" + k + "” the technicians' key in the shared sheet? Phones with the old key lose the Stents & inventory page until they are given this one."
+    : "The key box is empty: remove the technicians' key from the shared sheet? No phone will have the Stents & inventory page until a new key is set.")) return;
+  try {
+    const r = await sheetApi("techKeySet", { newTechKey: k }, 20000);
+    S.tech.status = null; S.tech.statusAt = 0;
+    flash("ok", r.techSet ? "The technicians' key is set in the shared sheet. Give it to the technicians: Settings → Technicians' key." : "The technicians' key was removed.");
+  } catch (e) {
+    flash("err", /unknown action/i.test(String(e && e.message)) ? "The shared sheet's script is older than this app (it needs Code 13.44)." : "Could not set the key: " + (e.message || e));
+  }
+}
+
 function render() {
   const app = document.getElementById("app");
   let body;
@@ -11675,6 +13055,7 @@ function render() {
   else if (S.step === "logs") body = viewLogs();
   else if (S.step === "ot") body = viewOt();
   else if (S.step === "batch") body = viewBatch();
+  else if (S.step === "tech") body = viewTech();
   else body = viewCapture();
   const banners = (S.err ? `<div class="warn err">${esc2(S.err)}</div>` : "") +
     (S.ok ? `<div class="warn okmsg">${esc2(S.ok)}</div>` : "");
@@ -11685,7 +13066,7 @@ function render() {
   };
   const ids = []; [S.cfg.model].concat(Object.keys(S.cfg.sheetModels).map(function (k) { return S.cfg.sheetModels[k]; })).concat([S.cfg.sortModel])
     .forEach(function (m) { if (m && ids.indexOf(m) < 0) ids.push(m); });
-  const ticker = S.step === "ot" || S.step === "registry" || S.step === "batch" ? "" : `<div class="noprint" style="background:var(--slate);color:var(--paper);padding:8px 12px;font-size:12.5px;display:flex;justify-content:space-between;gap:6px 14px;flex-wrap:wrap;border-radius:6px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+  const ticker = S.step === "ot" || S.step === "registry" || S.step === "batch" || S.step === "tech" ? "" : `<div class="noprint" style="background:var(--slate);color:var(--paper);padding:8px 12px;font-size:12.5px;display:flex;justify-content:space-between;gap:6px 14px;flex-wrap:wrap;border-radius:6px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
      <span style="font-weight:600;letter-spacing:0.03em">REQUESTS (FREE TIER)</span>
      <span style="display:flex;gap:4px 14px;flex-wrap:wrap">${ids.map(tick).join("")}</span>
   </div>`;
@@ -11701,7 +13082,12 @@ function setDominanceArg(path, val) {
 
 /* the app opens on Inbox scans when a shared sheet is set; the phone-scan
    screen is one tap away ("Scan on this phone") */
-function goHome() { if (S.cfg.sheetUrl) openBatch(); else { S.step = "capture"; render(); } }
+function goHome() {
+  // 13.44: a technicians' phone (their key, no edit key) opens on their own page
+  if (techOn() && !String(S.cfg.editKey || "").trim()) openTech();
+  else if (S.cfg.sheetUrl) openBatch();
+  else { S.step = "capture"; render(); }
+}
 window.addEventListener("DOMContentLoaded", function () {
   loadLocal();
   if (S.step === "registry") openRegistry(); else if (S.step === "ot") openOt(); else goHome();
