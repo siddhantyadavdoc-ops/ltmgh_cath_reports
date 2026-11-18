@@ -341,6 +341,44 @@ fieldset.otlock:disabled{opacity:.55}
   transition:opacity .3s ease-out}
 #cam .fx.on{opacity:.7;transition:none}
 @media (prefers-reduced-motion: reduce){#cam .fx{transition:none}}
+/* ---- 13.45: inventory tabs, stents to check, and the PC layout ---- */
+.invtiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 4px}
+.invtile{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--hair);border-radius:9px;background:var(--paper);padding:8px 10px;cursor:pointer;font-family:inherit;color:var(--ink);text-align:left}
+.invtile b{font-size:20px;line-height:1.1}.invtile span{font-size:11.5px;color:var(--steel)}
+.invtile.bad{border-color:#e7b3b3;background:#fdf3f3}.invtile.bad b{color:#c00000}
+.invtile.amber{border-color:#e0b64a;background:#fff8e6}.invtile.amber b{color:#7a5200}
+.invkinds{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 0 4px;margin:0 -2px;scrollbar-width:thin}
+.invk{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:1px solid var(--hair);background:var(--paper);font:13.5px inherit;font-family:inherit;color:var(--ink);cursor:pointer;white-space:nowrap;min-height:40px}
+.invk i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.invk .n{font-size:11px;color:var(--steel);background:#eef0f3;border-radius:999px;padding:1px 7px}
+.invk .n.bad{background:#c00000;color:#fff}
+.invk.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.invk.on .n{background:rgba(255,255,255,.2);color:#fff}.invk.on .n.bad{background:#ff8080}
+.tabs.small .tab{padding:5px 10px;font-size:12.5px}
+.invmain .search{margin-top:6px}
+.stk.nc{background:#f4efe1;color:#6b5a22;font-weight:600;font-size:11.5px}
+.rvcard{border-color:#e0b64a;background:#fff8e6}
+.rvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-top:10px}
+.rvitem{border:1px solid #e0c98a;border-radius:9px;background:var(--paper);padding:10px 12px}
+.rvhead b{display:block;font-size:15px}.rvhead span{display:block;font-size:12px;color:var(--steel)}
+.rvns{margin-top:10px;color:#6b5a22}
+@media (min-width:1000px){
+  #app.st-tech,#app.st-review,#app.st-ptcaReview,#app.st-registry,#app.st-batch,#app.st-ot{max-width:1280px;padding:20px 28px 70px}
+  .invlay{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start;margin-top:8px}
+  .invkinds{flex-direction:column;overflow:visible;position:sticky;top:12px;padding:0;margin:0}
+  .invk{justify-content:flex-start;border-radius:8px;width:100%}
+  .invk .n{margin-left:auto}
+  .invmain .search{margin-top:0}
+  .revcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 32px;grid-auto-flow:row dense;align-items:start}
+  .revcols>section.wide,.revcols>:not(section){grid-column:1/-1}
+  .actions{justify-content:flex-end}.actions .b{flex:0 1 auto}
+}
+@media (max-width:520px){
+  .invtiles{gap:6px}.invtile{padding:7px 8px}.invtile b{font-size:18px}
+  .invrow{padding:10px 12px 10px 16px}
+  .tab,.b{min-height:40px}
+}
+
 </style>
 </head>
 <body>
@@ -3980,8 +4018,12 @@ const INV_KINDS = [
   { kind: "mc", one: "Microcatheter", label: "Microcatheters", color: "#2e7d32", tint: "#e5f3e6" },
   { kind: "asp", one: "Aspiration catheter", label: "Aspiration catheters", color: "#ad1457", tint: "#fce4ef" },
   { kind: "rota", one: "Rota burr", label: "Rota burrs", color: "#6d4c41", tint: "#efe7e4" },
-  { kind: "imaging", one: "IVUS / OCT / ELCA", label: "IVUS / OCT / ELCA", color: "#00838f", tint: "#e0f4f6" },
+  // 13.45: IVUS and OCT on their own; contrast kept on the inventory by hand (never from a utilization sheet)
+  { kind: "ivus", one: "IVUS catheter", label: "IVUS", color: "#00838f", tint: "#e0f4f6" },
+  { kind: "oct", one: "OCT catheter", label: "OCT", color: "#1565c0", tint: "#e3f2fd" },
+  { kind: "imaging", one: "ELCA / other imaging", label: "ELCA / other", color: "#4f7f86", tint: "#eef7f8" },
   { kind: "sheath", one: "Sheath", label: "Sheaths", color: "#546e7a", tint: "#eceff1" },
+  { kind: "contrast", one: "Contrast", label: "Contrast", color: "#9a6b00", tint: "#fff8e1", unit: "bottles" },
   { kind: "other", one: "Other", label: "Other", color: "#757575", tint: "#f2f2f2" },
 ];
 const INV_KIND_BY = {};
@@ -4002,7 +4044,10 @@ function invKindOf(t) {
   if (/aspir|thromb/.test(r)) return "asp";
   if (/sheath|introducer/.test(r)) return "sheath";
   if (/rota|burr/.test(r)) return "rota";
-  if (/ivus|\boct\b|elca|laser|imaging/.test(r)) return "imaging";
+  if (/contrast|omnipaque|iohexol|visipaque|iodixanol|ultravist|iopromide|iopamidol|isovue|iomeron|iomeprol/.test(r)) return "contrast";
+  if (/ivus|intravascular ultra|opticross|eagle ?eye|refinity|altaview/.test(r)) return "ivus";
+  if (/\boct\b|optical coherence|dragonfly/.test(r)) return "oct";
+  if (/elca|laser|imaging/.test(r)) return "imaging";
   if (/wire/.test(r)) return "wire";
   if (/dcb|\bdeb\b|drug/.test(r)) return "dcb";
   if (/cut|scor/.test(r)) return "cutting";
@@ -4092,6 +4137,8 @@ function invDevice(raw, rowKind, where, list, opt) {
   if (e) { brand = e.name; const k = hwKind(e.role); if (k && INV_KIND_BY[k] && k !== "other") kind = k; }
   else if (kind === "other") { const k2 = invKindFromText(brand); if (k2) kind = k2; }
   if (kind === "rota" && /^(?:rota(?:blator)?\s*)?(?:burr)?$/i.test(brand)) brand = "Rota burr";
+  // 13.45: the "IVUS / OCT / ELCA" cell — IVUS and OCT catheters each go to their own shelf
+  if (kind === "imaging") { const k3 = invKindOf(raw); if (k3 === "ivus" || k3 === "oct") kind = k3; }
   if (!brand && !size) return null;
   if (!brand) brand = "(no name written)";
   return { kind: kind, type: INV_KIND_BY[kind].one, brand: brand, size: size, units: q.units, reused: reused, raw: raw, where: where };
@@ -4144,7 +4191,7 @@ function invUseHintHtml(P) {
   const taken = use.filter(function (x) { return !x.reused; }), back = use.filter(function (x) { return x.reused; });
   return `<p class="hint invhint">Inventory, when this case is saved: ${taken.length ? "takes off <b>" + esc2(taken.map(invUseText).join(" · ")) + "</b>" : "takes off nothing"}` +
     (back.length ? `; reused (ox / oxy), not taken off: ${esc2(back.map(invUseText).join(" · "))}` : "") +
-    `. One unit per device written; saving again corrects it rather than taking it twice.</p>`;
+    `. One unit per device written; saving again corrects it rather than taking it twice. Stents are taken off from their stickers; the stents on this sheet are checked against them.</p>`;
 }
 
 const UTIL_LEFT = ["LM", "LAD", "D1", "LCx", "Ramus", "OM"], UTIL_RIGHT = ["RCA", "PDA", "PLV"];
@@ -9013,7 +9060,10 @@ const SEGB = (label, path, opts, fn) =>
     return `<button class="${getPath(path) === o.v ? "on" : ""}" ` +
       `onclick="${fn || "setSegStr"}('${path}','${esc2(o.v)}')">${esc2(o.t)}</button>`;
   }).join("") + `</div></div>`;
-const SECT = (t, inner) => `<section><h3>${esc2(t)}</h3>${inner}</section>`;
+/* 13.45: on a PC the report pages lay their sections out in two columns; the
+   long ones (findings, procedure, the hardware grid) take the whole width */
+const SECT_WIDE = /angiogra|coronary|procedure|technique|utilization|final diagnosis|collateral|cag case/i;
+const SECT = (t, inner) => `<section${SECT_WIDE.test(t) ? ` class="wide"` : ""}><h3>${esc2(t)}</h3>${inner}</section>`;
 const ROW = (inner) => `<div class="row">${inner}</div>`;
 
 /* ============================ lesion actions ============================ */
@@ -10225,7 +10275,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.44", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.45", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -10788,6 +10838,7 @@ function viewReview() {
   h += unsurePanel();
   h += diagramPanel(D);
 
+  h += `<div class="revcols">`;
   h += SECT("Patient",
     ROW(F("Name", "name", "1 1 100%")) +
     ROW(F("CAG No.", "cagNo") + FD("Date", "date") + F("IPD No.", "ipdNo") + F("OPD No.", "opdNo") + (has(D.ipdOpdNo) ? F("IPD/OPD No. (older form)", "ipdOpdNo") : "")) +
@@ -10911,6 +10962,7 @@ function viewReview() {
     `<textarea rows="3" placeholder="Optional \u2014 omitted from the report if blank."
       oninput="setPath('doppler',this.value)">${esc2(D.doppler)}</textarea>`);
 
+  h += `</div>`;
   const ed = editingCase(D);
   h += `<div class="actions">
     ${batchSaveButton()}<button class="b primary" onclick="downloadDocx()">${ed ? "Download Word \u2014 saves changes" : "Download Word"}</button>
@@ -11208,6 +11260,7 @@ function viewPtcaReview() {
   h += readByPanel(P);
   h += unsurePanel();
 
+  h += `<div class="revcols">`;
   h += SECT("Patient",
     ROW(F("Name", "P.name", "1 1 100%")) +
     ROW(F("PTCA / Cath No.", "P.ptcaNo") + FD("Date of PTCA", "P.date") + F("IPD No.", "P.ipdNo") + F("OPD No.", "P.opdNo") + (has(P.ipdOpdNo) ? F("IPD/OPD No. (older form)", "P.ipdOpdNo") : "")) +
@@ -11436,6 +11489,7 @@ function viewPtcaReview() {
     `<p class="hint">The six standard recommendations always print. Anything written here is added as no. 7.</p>` +
     ROW(F("Additional recommendation", "P.recommendationsExtra", "1 1 100%")));
 
+  h += `</div>`;
   const ed = editingCase(P);
   h += `<div class="actions">
     ${batchSaveButton()}<button class="b primary" onclick="downloadPtcaDocx()">${ed ? "Download Word \u2014 saves changes" : "Download Word" + (S.cfg.sheetUrl ? " (saves to registry)" : "")}</button>
@@ -12011,7 +12065,7 @@ async function techLoad(force) {
 }
 async function techLoadTab(force) {
   const T = S.tech;
-  if (T.tab === "inv" && (force || !T.inv || !techFresh(T.invAt))) {
+  if ((T.tab === "inv" || !T.inv) && (force || !T.inv || !techFresh(T.invAt))) {
     const j = await sheetApi("invGet", T.hist ? { item: T.hist.item } : {}, 40000);
     techInvTake(j);
   }
@@ -12058,6 +12112,7 @@ function viewTech() {
   if (!st) return h + (T.loading ? `<p class="hint">Loading…</p>` : "");
   if (T.said) h += `<div class="warn ${T.saidBad ? "err" : "okmsg"}" id="techSaid">${esc2(T.said)}</div>`;
   if (T.caseView) h += techCaseHtml();
+  h += techReviewHtml();
   const neg = T.inv ? (T.inv.items || []).filter(function (x) { return x.tracked && x.stock < 0; }).length : 0;
   const s2 = st.stents || {};
   const badge = { inv: neg ? `<span class="n bad">${neg} below 0</span>` : "",
@@ -12076,8 +12131,14 @@ function viewTech() {
 /* ---------------- inventory ---------------- */
 function techInvTake(j) {
   const T = S.tech;
-  T.inv = { items: j.items || [], start: j.start || "", moves: j.moves || [], moveCount: j.moveCount || 0, pending: j.pending || [] };
+  T.inv = { items: j.items || [], start: j.start || "", moves: j.moves || [], moveCount: j.moveCount || 0, pending: j.pending || [],
+    review: j.review || [], noSheet: j.noSheet || [] };
   T.invAt = Date.now();
+  // 13.45: new stent stickers (or the first opening) — the sheet brings the inventory in line
+  if (j.needSync && !T.saving && (!T.syncAt || Date.now() - T.syncAt > 60000)) {
+    T.syncAt = Date.now();
+    setTimeout(function () { techInvSave({ op: "sync" }); }, 0);
+  }
   if (T.hist && j.item === T.hist.item) T.hist.moves = j.itemMoves || [];
 }
 function invStockClass(x) {
@@ -12092,25 +12153,111 @@ function techInvHtml() {
   const items = inv.items || [];
   const tracked = items.filter(function (x) { return x.tracked; });
   const neg = tracked.filter(function (x) { return x.stock < 0; }).length;
-  const low = tracked.filter(function (x) { return x.stock >= 0 && invStockClass(x) !== "ok"; }).length;
-  const shows = [["all", "All"], ["neg", "Below zero"], ["low", "Low or out"], ["off", "Not tracked"]];
-  return `<div class="card">
-    <div class="cardhead"><div><b>Inventory</b><p class="hint">${items.length} item${items.length === 1 ? "" : "s"} · ${neg} below zero · ${low} low or out · PTCAs done from ${esc2(techDate(inv.start))} are taken off</p></div>
+  const low = tracked.filter(function (x) { return x.stock >= 0 && invCounted(x) && invStockClass(x) !== "ok"; }).length;
+  const toCheck = (inv.review || []).reduce(function (a, c) { return a + c.missing.length; }, 0);
+  const shows = [["all", "All"], ["neg", "Below zero"], ["low", "Low or out"], ["nc", "Not counted yet"], ["off", "Not tracked"]];
+  const kind = T.invKind || "all";
+  const kinds = [["all", "All", "", items.length, neg]].concat(INV_KINDS.map(function (k) {
+    const mine = items.filter(function (x) { return x.kind === k.kind; });
+    return [k.kind, k.label, k.color, mine.length, mine.filter(function (x) { return x.tracked && x.stock < 0; }).length];
+  }));
+  return `<div class="card invcard">
+    <div class="cardhead"><div><b>Inventory</b><p class="hint">${items.length} item${items.length === 1 ? "" : "s"} · stents from their stickers, everything else from saved utilization sheets · PTCAs from ${esc2(techDate(inv.start))}</p></div>
       <div class="btns" style="margin:0"><button class="b primary" onclick="techInvAdd()">Add stock</button></div></div>
+    <div class="invtiles">
+      <button class="invtile${neg ? " bad" : ""}" onclick="S.tech.invShow='neg';S.tech.invKind='all';render()"><b>${neg}</b><span>below zero</span></button>
+      <button class="invtile${low ? " amber" : ""}" onclick="S.tech.invShow='low';S.tech.invKind='all';render()"><b>${low}</b><span>low or out</span></button>
+      <button class="invtile${toCheck ? " amber" : ""}" onclick="var e=document.getElementById('techReview');if(e)e.scrollIntoView({block:'start'})"><b>${toCheck}</b><span>stent${toCheck === 1 ? "" : "s"} to check</span></button>
+    </div>
     ${T.invForm ? techInvFormHtml() : ""}
     ${techInvPendingHtml()}
-    <input class="search" placeholder="Search brand, size or type" value="${esc2(T.invQ || "")}" oninput="S.tech.invQ=this.value;renderList('invList',techInvListHtml())">
-    <div class="tabs">${shows.map(function (s) { return `<button class="tab${(T.invShow || "all") === s[0] ? " on" : ""}" onclick="S.tech.invShow='${s[0]}';render()">${s[1]}</button>`; }).join("")}</div>
-    <div id="invList">${techInvListHtml()}</div>
+    <div class="invlay">
+      <nav class="invkinds" aria-label="Kinds of equipment">${kinds.map(function (k) {
+        return `<button class="invk${kind === k[0] ? " on" : ""}" onclick="S.tech.invKind='${k[0]}';S.tech.invOpen='';render()"${k[2] ? ` style="--kc:${k[2]}"` : ""}>` +
+          `${k[2] ? `<i style="background:${k[2]}"></i>` : ""}${esc2(k[1])}<span class="n${k[4] ? " bad" : ""}">${k[4] ? k[4] + " below 0" : k[3]}</span></button>`;
+      }).join("")}</nav>
+      <div class="invmain">
+        <input class="search" placeholder="Search ${kind === "all" ? "brand, size or type" : esc2(INV_KIND_BY[kind].label.toLowerCase()) + " by brand or size"}" value="${esc2(T.invQ || "")}" oninput="S.tech.invQ=this.value;renderList('invList',techInvListHtml())">
+        <div class="tabs small">${shows.map(function (s) { return `<button class="tab${(T.invShow || "all") === s[0] ? " on" : ""}" onclick="S.tech.invShow='${s[0]}';render()">${s[1]}</button>`; }).join("")}</div>
+        <div id="invList">${techInvListHtml()}</div>
+      </div>
+    </div>
     ${techInvRecentHtml()}
     <details class="invhelp"><summary>How the stock is kept</summary>
-      <p class="hint">Every device written on the utilization sheet of a <b>saved</b> PTCA is taken off: the vessel grid, the adjunct cells (cutting balloon, microcatheter, guide extension, rota burr, aspiration catheter, IVUS / OCT / ELCA, other hardware) and the sheath. One device written is one unit; “x2” after it is two. A device with <b>ox</b> or <b>oxy</b> beside it is reused and is not taken off — it is still listed with the case. Saving a case again corrects its entries; removing it from the registry gives them back.</p>
-      <p class="hint">Items start at zero and go below zero as PTCAs use them. <b>Add stock</b> (or Received on an item) adds what came in; <b>Set the count</b> makes the list say what is on the shelf now — do it after the day's PTCAs have been saved. Short forms and spellings are put in full with the hardware list in Settings, so “2.5×12 RS” and “2.5x12 NC Rockstar” are the same item; an item that came in under a wrong name can be merged into the right one.</p>
+      <p class="hint"><b>Stents</b> are taken off from their <b>stickers</b> (the Stents tab): every stent sticker read from a photo, or added by hand, is one stent used. The stents written on a utilization sheet are checked against the case's stickers; one with no sticker is shown at the top of this page to accept (fill in its sticker details) or reject (not used).</p>
+      <p class="hint">Everything else written on the utilization sheet of a <b>saved</b> PTCA is taken off: balloons, wires, guides, the adjunct cells (cutting balloon, microcatheter, guide extension, rota burr, aspiration catheter, IVUS / OCT / ELCA, other hardware) and the sheath. One device written is one unit; “x2” after it is two. A device with <b>ox</b> or <b>oxy</b> beside it is reused and is not taken off. <b>Contrast</b> is not on the sheet: take it off with <b>Used</b> on its item.</p>
+      <p class="hint">“Not counted yet” means no stock has been entered for the item. <b>Add stock</b> (or Received on an item) adds what came in; <b>Set the count</b> makes the list say what is on the shelf now — do it after the day's PTCAs have been saved.</p>
       <div class="row alignend" style="margin-top:8px"><label class="fld" style="flex:0 1 170px"><span>Take off PTCAs done from</span><input type="date" id="invStart" value="${esc2(inv.start || "")}"></label>
         <button class="b" onclick="techInvStart()">Change</button></div>
       <p class="hint">An earlier PTCA saved or corrected later is listed with its hardware but takes nothing off. A new date applies to cases saved from now on.</p>
+      <div class="btns"><button class="b" onclick="techInvSave({op:'sync'})" ${T.saving ? "disabled" : ""}>Bring the stickers in now</button></div>
     </details>
   </div>`;
+}
+/* 13.45: an item no stock was ever entered for */
+function invCounted(x) { return !!(x.counted || x.received > 0 || x.adjusted); }
+/* ---------------- 13.45: stents on a utilization sheet with no sticker ---------------- */
+function techReviewHtml() {
+  const T = S.tech, inv = T.inv;
+  if (!inv) return "";
+  const rv = inv.review || [], ns = inv.noSheet || [];
+  if (!rv.length && !ns.length) return "";
+  let h = `<div class="card rvcard" id="techReview">`;
+  if (rv.length) {
+    h += `<div class="cardhead"><div><b>Stents to check</b><p class="hint">On the utilization sheet but no sticker. Accept: fill in the sticker's details and the stent is taken off. Reject: it was not used.</p></div></div><div class="rvgrid">`;
+    rv.forEach(function (c, ci) {
+      c.missing.forEach(function (m, mi) {
+        const key = ci + "_" + mi, open = T.rvOpen === key;
+        h += `<div class="rvitem">
+          <div class="rvhead"><b>${esc2(j([m.size, m.brand], " ") || m.raw)}</b><span>${esc2([c.ptcaNo ? "PTCA " + c.ptcaNo : "", c.patient, c.caseDate ? techDate(c.caseDate) : ""].filter(Boolean).join(" · "))}</span>
+          <span>Sheet ${c.sheetCount} stent${c.sheetCount === 1 ? "" : "s"} · stickers ${c.stickerCount}${m.where ? " · " + esc2(m.where) : ""}${m.raw ? " · written “" + esc2(m.raw) + "”" : ""}</span></div>
+          ${open ? techReviewFormHtml(c, m, key) : `<div class="btns"><button class="b primary" onclick="S.tech.rvOpen='${key}';render()">Accept…</button><button class="b" onclick="techReviewReject(${ci},${mi})" ${T.saving ? "disabled" : ""}>Reject</button></div>`}
+        </div>`;
+      });
+    });
+    h += `</div>`;
+  }
+  if (ns.length) h += `<p class="hint rvns"><b>Stickers with no utilization sheet saved yet</b> (their stents are taken off already): ${esc2(ns.map(function (x) {
+    return [x.ptcaNo ? "PTCA " + x.ptcaNo : "", x.patient, x.date ? techDate(x.date) : "", x.n + " stent" + (x.n === 1 ? "" : "s")].filter(Boolean).join(" · "); }).join("; "))}.</p>`;
+  return h + `</div>`;
+}
+const RV_FIELDS = [["brand", "Brand", "2 1 150px"], ["size", "Size", "1 1 90px"], ["lot", "LOT", "1 1 110px"], ["ref", "REF", "1 1 110px"],
+  ["serial", "Serial No", "1 1 110px"], ["expiry", "Expiry", "1 1 90px"], ["notes", "Notes", "1 1 100%"]];
+function techReviewFormHtml(c, m, key) {
+  const v = { brand: m.brand, size: m.size };
+  return `<div class="stedit">
+    <div class="row">${RV_FIELDS.map(function (f) { return `<label class="fld" style="flex:${f[2]}"><span>${f[1]}</span><input id="rv_${f[0]}" value="${esc2(v[f[0]] || "")}"></label>`; }).join("")}</div>
+    <p class="hint">Saved as a sticker of ${esc2(c.patient || "the patient")}${c.ptcaNo ? " (PTCA " + esc2(c.ptcaNo) + ")" : ""}, added by hand; the stent is taken off the inventory.</p>
+    <div class="btns"><button class="b primary" onclick="techReviewAccept('${key}')" ${S.tech.saving ? "disabled" : ""}>Save and take off</button><button class="b" onclick="S.tech.rvOpen='';render()">Cancel</button></div>
+  </div>`;
+}
+function techReviewItem(key) {
+  const p = String(key).split("_").map(Number), c = ((S.tech.inv || {}).review || [])[p[0]];
+  return c && c.missing[p[1]] ? { c: c, m: c.missing[p[1]] } : null;
+}
+async function techReviewAccept(key) {
+  const T = S.tech, x = techReviewItem(key);
+  if (!x || T.saving) return;
+  const add = { device: "Stent", patient: x.c.patient || "", ptcaNo: x.c.ptcaNo || "", date: x.c.caseDate || "" };
+  RV_FIELDS.forEach(function (f) { add[f[0]] = techVal("rv_" + f[0]); });
+  if (!add.brand) { techSay("Give the stent's brand.", true); return; }
+  add.notes = j(["from the utilization sheet — no sticker photo", add.notes], "; ");
+  T.saving = true; render();
+  try {
+    await sheetApi("stentSave", { add: add, by: S.cfg.userName || "" }, 40000);
+    T.rvOpen = ""; T.stents = null;
+    techInvTake(await sheetApi("invGet", {}, 40000));
+    T.said = j([add.size, add.brand], " ") + " added as a sticker and taken off the inventory."; T.saidBad = false;
+  } catch (e) { T.said = "Not saved: " + (e.message || e); T.saidBad = true; }
+  T.saving = false; render();
+}
+function techReviewReject(ci, mi) {
+  const x = techReviewItem(ci + "_" + mi);
+  if (!x) return;
+  const why = prompt("Reject " + (j([x.m.size, x.m.brand], " ") || x.m.raw) + " for " + (x.c.patient || "this case") + ": it was not used.\nWhy? (optional)", "");
+  if (why === null) return;
+  techInvSave({ op: "reject", caseKey: x.c.caseKey, brand: x.m.brand, size: x.m.size, raw: x.m.raw, where: x.m.where,
+    ptcaNo: x.c.ptcaNo, patient: x.c.patient, caseDate: x.c.caseDate, note: why });
 }
 function techInvMatches(x, words) {
   if (!words.length) return true;
@@ -12123,19 +12270,27 @@ function techInvListHtml() {
   const T = S.tech, inv = T.inv || {};
   const all = inv.items || [];
   const words = String(T.invQ || "").toLowerCase().split(/\s+/).filter(Boolean);
-  const show = T.invShow || "all";
+  const show = T.invShow || "all", kind = T.invKind || "all";
   const items = all.filter(function (x) {
+    if (kind !== "all" && x.kind !== kind) return false;
+    // the hardware list's placeholder (no size, nothing on it) once real sizes of that device are on the list
+    if (!x.size && !x.used && !x.received && !x.adjusted && !x.onSheet && all.some(function (y) { return y !== x && y.kind === x.kind && y.size && hwNorm(y.brand) === hwNorm(x.brand); })) return false;
     if (show === "off") { if (x.tracked) return false; }
     else if (!x.tracked && show !== "all") return false;
     if (show === "neg" && !(x.stock < 0)) return false;
-    if (show === "low" && invStockClass(x) === "ok") return false;
+    if (show === "low" && (invStockClass(x) === "ok" || !invCounted(x))) return false;
+    if (show === "nc" && invCounted(x)) return false;
     return techInvMatches(x, words);
   });
-  if (!items.length) return `<p class="hint">${all.length ? "Nothing here matches." : "Nothing on the list yet. Items appear as saved PTCAs use them (below zero until stock is added), or add them with Add stock."}</p>`;
+  if (!items.length) {
+    const k0 = INV_KIND_BY[kind];
+    return `<p class="hint">${words.length || show !== "all" ? "Nothing here matches." : k0 ? "No " + esc2(k0.label.toLowerCase()) + " on the list yet." : "Nothing on the list yet."}</p>` +
+      (k0 && !words.length ? `<div class="btns"><button class="b" onclick="techInvAdd('${kind}')">Add ${esc2(k0.one.toLowerCase())}</button></div>` : "");
+  }
   return INV_KINDS.map(function (k) {
     const mine = items.filter(function (x) { return x.kind === k.kind; });
     if (!mine.length) return "";
-    const closed = !!(T.invClosed || {})[k.kind] && !words.length;
+    const closed = !!(T.invClosed || {})[k.kind] && !words.length && kind === "all";
     const total = mine.filter(function (x) { return x.tracked; }).reduce(function (a, x) { return a + x.stock; }, 0);
     let h = `<div class="invtype" style="border-left-color:${k.color}">
       <div class="invth" style="background:${k.tint}" onclick="techInvFold('${k.kind}')"><b style="color:${k.color}">${esc2(k.label)}</b>
@@ -12153,10 +12308,14 @@ function techInvListHtml() {
 }
 function techInvRowHtml(x) {
   const T = S.tech, open = T.invOpen === x.id;
-  const meta = [x.used ? "used " + x.used : "", x.reused ? "reused " + x.reused : "", x.lastUsed ? "last " + techDate(x.lastUsed) : "", x.tracked ? "" : "not tracked"].filter(Boolean).join(" · ");
+  const nc = !invCounted(x);
+  const unit = (INV_KIND_BY[x.kind] || {}).unit;
+  const meta = [x.used ? "used " + x.used : "", x.reused ? "reused " + x.reused : "", x.onSheet ? "on sheets " + x.onSheet : "", x.lastUsed ? "last " + techDate(x.lastUsed) : "",
+    x.tracked ? (nc && x.stock < 0 ? "no stock entered yet" : "") : "not tracked", unit ? unit : ""].filter(Boolean).join(" · ");
+  const badge = nc && x.stock === 0 ? `<span class="stk nc">not counted yet</span>` : `<span class="stk ${invStockClass(x)}">${x.stock}</span>`;
   return `<div class="invrow${open ? " open" : ""}${x.tracked ? "" : " off"}" onclick="techInvOpen('${x.id}')">
       <span class="sz">${esc2(x.size || "—")}</span><span class="meta">${esc2(meta)}</span>
-      <span class="stk ${invStockClass(x)}">${x.stock}</span></div>` + (open ? techInvPanelHtml(x) : "");
+      ${badge}</div>` + (open ? techInvPanelHtml(x) : "");
 }
 function techInvPanelHtml(x) {
   const T = S.tech;
@@ -12164,8 +12323,14 @@ function techInvPanelHtml(x) {
     (x.adjusted ? (x.adjusted > 0 ? " + " : " − ") + Math.abs(x.adjusted) + " counted / corrected" : "") + "." +
     (x.reused ? " " + x.reused + " reused (ox), not taken off." : "") +
     (x.early ? " " + x.early + " in PTCAs before the start date, not taken off." : "") +
+    (x.onSheet ? " " + x.onSheet + " written on utilization sheets (stents are taken off from their stickers)." : "") +
     (x.low != null ? " Low at " + x.low + "." : "") + (x.notes ? " " + x.notes : "");
+  const useRow = `<div class="row alignend">
+      <label class="fld" style="flex:0 1 90px"><span>${x.kind === "contrast" ? "Bottles used" : "Used"}</span><input id="invUse" type="number" min="1" step="1" inputmode="numeric" placeholder="1"></label>
+      <label class="fld" style="flex:1 1 150px"><span>Note</span><input id="invUseNote" placeholder="${x.kind === "contrast" ? "today's cases, date" : "outside a PTCA sheet: why"}"></label>
+      <button class="b danger" onclick="techInvDo('use','${x.id}')" ${T.saving ? "disabled" : ""}>Take off</button></div>`;
   return `<div class="invpanel">
+    ${x.kind === "contrast" ? useRow : ""}
     <div class="row alignend">
       <label class="fld" style="flex:0 1 90px"><span>Received</span><input id="invRecv" type="number" min="1" step="1" inputmode="numeric" placeholder="0"></label>
       <label class="fld" style="flex:1 1 150px"><span>Note (invoice / challan)</span><input id="invRecvNote"></label>
@@ -12177,6 +12342,7 @@ function techInvPanelHtml(x) {
       <label class="fld" style="flex:0 1 90px"><span>Correct by ±</span><input id="invCorr" type="number" step="1" inputmode="numeric" placeholder="-1"></label>
       <label class="fld" style="flex:1 1 140px"><span>Why</span><input id="invCorrNote" placeholder="damaged, returned, expired…"></label>
       <button class="b" onclick="techInvDo('correct','${x.id}')" ${T.saving ? "disabled" : ""}>Correct</button></div>
+    ${x.kind === "contrast" ? "" : useRow}
     <p class="hint">${esc2(sum)}</p>
     <div class="btns"><button class="b" onclick="techInvHist('${x.id}')">${T.hist && T.hist.item === x.id ? "Hide history" : "History"}</button>
       <button class="b" onclick="techInvEdit('${x.id}')">${T.invEdit === x.id ? "Close edit" : "Edit"}</button></div>
@@ -12207,7 +12373,8 @@ function techInvEditHtml(x) {
     <div class="btns"><button class="b danger" onclick="techInvDelete('${x.id}')">Delete item</button></div>
   </div>`;
 }
-const INV_MOVE_WORD = { received: "Received", used: "Used in PTCA", reused: "Reused in PTCA (ox)", early: "PTCA before the start date", count: "Counted", correction: "Corrected" };
+const INV_MOVE_WORD = { received: "Received", used: "Used in PTCA", reused: "Reused in PTCA (ox)", early: "PTCA before the start date", count: "Counted", correction: "Corrected",
+  sheet: "On the utilization sheet", rejected: "Not used (rejected)", handuse: "Used (by hand)" };
 function techMoveHtml(m, showItem) {
   const q = m.qty > 0 ? "+" + m.qty : String(m.qty);
   const cls = m.qty > 0 ? "plus" : m.qty < 0 ? "minus" : "zero";
@@ -12221,7 +12388,7 @@ function techMoveHtml(m, showItem) {
     (m.note && !isCase ? " · " + m.note : "") + (m.by ? " · " + m.by : "");
   return `<div class="invmv"><span class="q ${cls}">${q}</span><span class="d">${esc2(when)}</span><span class="w">${esc2(what)}</span>
     ${isCase ? `<button class="b" onclick="techOpenCase({ptcaNo:'${esc2(String(m.ptcaNo || "").replace(/'/g, ""))}',name:'${esc2(String(m.patient || "").replace(/'/g, ""))}'})">Open case</button>` : ""}
-    ${["received", "count", "correction"].indexOf(m.kind) >= 0 ? `<button class="b" onclick="techInvUndo('${m.id}')">Undo</button>` : ""}</div>`;
+    ${["received", "count", "correction", "handuse", "rejected"].indexOf(m.kind) >= 0 ? `<button class="b" onclick="techInvUndo('${m.id}')">Undo</button>` : ""}</div>`;
 }
 function techInvHistHtml(x) {
   const H = S.tech.hist;
@@ -12301,7 +12468,11 @@ async function techInvSave(op) {
 }
 function techVal(id) { const el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; }
 function techInvDo(kind, id) {
-  if (kind === "receive") {
+  if (kind === "use") {
+    const n = techVal("invUse");
+    if (!n) { techSay("Type how many were used.", true); return; }
+    techInvSave({ op: "use", id: id, units: Number(n), note: techVal("invUseNote") });
+  } else if (kind === "receive") {
     const n = techVal("invRecv");
     if (!n) { techSay("Type how many came in.", true); return; }
     techInvSave({ op: "receive", id: id, units: Number(n), note: techVal("invRecvNote") });
@@ -12342,9 +12513,10 @@ function techInvStart() {
   techInvSave({ op: "start", date: d });
 }
 /* Add stock: an item already on the list gets the number added, a new one is added with it */
-function techInvAdd() {
+function techInvAdd(kind) {
   const T = S.tech;
-  T.invForm = T.invForm ? null : { kind: "stent", brand: "", size: "", units: "", low: "", note: "" };
+  const k = kind || (T.invKind && T.invKind !== "all" ? T.invKind : "stent");
+  T.invForm = T.invForm && !kind ? null : { kind: k, brand: "", size: "", units: "", low: "", note: "" };
   render();
 }
 function techInvFind(kind, brand, size) {
@@ -12370,9 +12542,9 @@ function techInvFormHtml() {
     <div class="row">
       <label class="fld" style="flex:1 1 140px"><span>Type</span><select onchange="S.tech.invForm.kind=this.value;render()">${invKindOptions(f.kind)}</select></label>
       <label class="fld" style="flex:2 1 170px"><span>Brand (the device's name)</span><input list="ifBrands" value="${esc2(f.brand)}" ${set("brand")} onchange="render()"><datalist id="ifBrands">${names.map(function (n) { return `<option value="${esc2(n)}">`; }).join("")}</datalist></label>
-      <label class="fld" style="flex:1 1 100px"><span>Size</span><input value="${esc2(f.size)}" placeholder="3.0×38, 6F, 1.5" ${set("size")} onchange="render()"></label></div>
+      <label class="fld" style="flex:1 1 100px"><span>${f.kind === "contrast" ? "Bottle size" : "Size"}</span><input value="${esc2(f.size)}" placeholder="${f.kind === "contrast" ? "100 ml" : "3.0×38, 6F, 1.5"}" ${set("size")} onchange="render()"></label></div>
     <div class="row">
-      <label class="fld" style="flex:0 1 100px"><span>Received</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.units)}" ${set("units")}></label>
+      <label class="fld" style="flex:0 1 100px"><span>${f.kind === "contrast" ? "Bottles received" : "Received"}</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.units)}" ${set("units")}></label>
       <label class="fld" style="flex:0 1 100px"><span>Low at</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.low)}" ${set("low")} ${have ? "disabled" : ""}></label>
       <label class="fld" style="flex:1 1 160px"><span>Note (invoice / challan)</span><input value="${esc2(f.note)}" ${set("note")}></label></div>
     <p class="hint">${have ? "On the list already: " + esc2(j([have.brand, have.size], " ")) + ", " + have.stock + " in stock — the number received is added to it." : "Not on the list yet: it is added, with the number received (0 just adds the item)."}</p>
@@ -12499,20 +12671,20 @@ async function techStentSave(id) {
     if (!id) {
       if (!set.brand && !set.lot) { techSay("Give at least the brand or the LOT.", true); return; }
       await sheetApi("stentSave", { add: set, by: S.cfg.userName || "" }, 40000);
-      S.tech.stAdd = false;
+      S.tech.stAdd = false; S.tech.invAt = 0;
       await techLoadStents();
       techSay("Sticker added.");
     } else {
       const j2 = await sheetApi("stentSave", { id: id, set: set, by: S.cfg.userName || "" }, 40000);
       techStentPut(j2.stent);
-      S.tech.stEdit = "";
+      S.tech.stEdit = ""; S.tech.invAt = 0;
       techSay(j2.changed && j2.changed.length ? "Saved (" + j2.changed.join(", ") + ")." : "Nothing was changed.");
     }
   } catch (e) { techSay("Not saved: " + (e.message || e), true); }
 }
 async function techStentRemove(id) {
   if (!confirm("Delete this sticker from the Stents tab? (Use it for a sticker read twice, or not one of this patient's.)")) return;
-  try { await sheetApi("stentSave", { id: id, remove: true, by: S.cfg.userName || "" }, 40000); S.tech.stEdit = ""; await techLoadStents(); techSay("Sticker deleted."); }
+  try { await sheetApi("stentSave", { id: id, remove: true, by: S.cfg.userName || "" }, 40000); S.tech.stEdit = ""; S.tech.invAt = 0; await techLoadStents(); techSay("Sticker deleted."); }
   catch (e) { techSay("Not deleted: " + (e.message || e), true); }
 }
 async function techUnbill(id) {
@@ -13070,6 +13242,8 @@ function render() {
      <span style="font-weight:600;letter-spacing:0.03em">REQUESTS (FREE TIER)</span>
      <span style="display:flex;gap:4px 14px;flex-wrap:wrap">${ids.map(tick).join("")}</span>
   </div>`;
+  // 13.45: the page's own layout on a PC (wide pages) and on a phone
+  app.className = "st-" + S.step;
   app.innerHTML = `<header><h1>CAG \u00b7 PTCA Proforma Scanner</h1>
     <p>Department of Cardiology \u00b7 LTMGH, Sion</p></header>
     ${ticker}

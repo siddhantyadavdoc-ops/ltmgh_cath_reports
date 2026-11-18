@@ -184,7 +184,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -2882,12 +2882,16 @@ var MOVE_HEAD = ["Move id", "Time", "Item id", "Kind", "Units", "Qty", "Case key
 var INV_START_DEFAULT = "2026-11-17";     // the day 13.44 went out
 /* the kinds of equipment, in the order the app and the tab list them; the
    same keys as the app's hardware list types, plus the inventory's own */
-var INV_KIND_ORDER = ["stent", "balloon", "dcb", "cutting", "wire", "guide", "ge", "mc", "asp", "rota", "imaging", "sheath", "other"];
+/* 13.45: IVUS and OCT have their own kinds (ELCA and anything else of the
+   kind stays "imaging"), and contrast is kept here too — taken in, counted
+   and used by hand from the technicians' page, never from a utilization sheet */
+var INV_KIND_ORDER = ["stent", "balloon", "dcb", "cutting", "wire", "guide", "ge", "mc", "asp", "rota", "ivus", "oct", "imaging", "sheath", "contrast", "other"];
 var INV_KIND_LABEL = { stent: "Stent", balloon: "Balloon", dcb: "Drug-coated balloon", cutting: "Cutting balloon", wire: "Guide wire",
   guide: "Guide catheter", ge: "Guide extension", mc: "Microcatheter", asp: "Aspiration catheter", rota: "Rota burr",
-  imaging: "IVUS / OCT / ELCA", sheath: "Sheath", other: "Other" };
+  ivus: "IVUS catheter", oct: "OCT catheter", imaging: "ELCA / other imaging", sheath: "Sheath", contrast: "Contrast", other: "Other" };
 var INV_KIND_TINT = { stent: "#fde7e5", balloon: "#f1e8fb", dcb: "#fff0dc", cutting: "#f3e9df", wire: "#e1f3f4", guide: "#e3edfb",
-  ge: "#e8eaf6", mc: "#e5f3e6", asp: "#fce4ef", rota: "#efe7e4", imaging: "#e0f4f6", sheath: "#eceff1", other: "#f2f2f2" };
+  ge: "#e8eaf6", mc: "#e5f3e6", asp: "#fce4ef", rota: "#efe7e4", ivus: "#e0f4f6", oct: "#e3f2fd", imaging: "#eef7f8", sheath: "#eceff1",
+  contrast: "#fff8e1", other: "#f2f2f2" };
 function invKindOf_(t) {
   var r = String(t == null ? "" : t).toLowerCase().trim();
   if (!r) return "other";
@@ -2897,7 +2901,10 @@ function invKindOf_(t) {
   if (/aspir|thromb/.test(r)) return "asp";
   if (/sheath|introducer/.test(r)) return "sheath";
   if (/rota|burr/.test(r)) return "rota";
-  if (/ivus|\boct\b|elca|laser|imaging/.test(r)) return "imaging";
+  if (/contrast|omnipaque|iohexol|visipaque|iodixanol|ultravist|iopromide|iopamidol|isovue|iomeron|iomeprol/.test(r)) return "contrast";
+  if (/ivus|intravascular ultra|opticross|eagle ?eye|refinity|altaview/.test(r)) return "ivus";
+  if (/\boct\b|optical coherence|dragonfly/.test(r)) return "oct";
+  if (/elca|laser|imaging/.test(r)) return "imaging";
   if (/wire/.test(r)) return "wire";
   if (/dcb|\bdeb\b|drug/.test(r)) return "dcb";
   if (/cut|scor/.test(r)) return "cutting";
@@ -2966,7 +2973,7 @@ function invStart_() {
 }
 function invTotals_(items, moves) {
   var by = {};
-  items.forEach(function (it) { by[it.id] = { stock: 0, received: 0, used: 0, adjusted: 0, reused: 0, early: 0, lastUsed: "", cases: 0 }; });
+  items.forEach(function (it) { by[it.id] = { stock: 0, received: 0, used: 0, adjusted: 0, reused: 0, early: 0, lastUsed: "", cases: 0, onSheet: 0, counted: false }; });
   moves.forEach(function (m) {
     var t = by[m.item];
     if (!t) return;
@@ -2975,7 +2982,10 @@ function invTotals_(items, moves) {
     else if (m.kind === "used") { t.used += -m.qty; t.cases++; if (m.caseDate > t.lastUsed) t.lastUsed = m.caseDate; }
     else if (m.kind === "reused") { t.reused += m.units; if (m.caseDate > t.lastUsed) t.lastUsed = m.caseDate; }
     else if (m.kind === "early") t.early += m.units;
-    else t.adjusted += m.qty;              // count, correction
+    else if (m.kind === "sheet") t.onSheet += m.units;   // 13.45: a stent on a utilization sheet — the stickers take stents off
+    else if (m.kind === "rejected") { }
+    else if (m.kind === "handuse") { t.used += -m.qty; if ((m.t || "").slice(0, 10) > t.lastUsed) t.lastUsed = (m.t || "").slice(0, 10); }                    // a sheet's stent the technicians said was not used
+    else { t.adjusted += m.qty; if (m.kind === "count") t.counted = true; }   // count, correction, use by hand
   });
   return by;
 }
@@ -3084,7 +3094,7 @@ function invApplyCase_(c) {
   var items = invItems_();
   var moves = invMovesAll_();
   var keys = [c.caseKey]; if (c.origKey && c.origKey !== c.caseKey) keys.push(c.origKey);
-  var old = moves.filter(function (m) { return keys.indexOf(m.caseKey) >= 0 && (m.kind === "used" || m.kind === "reused" || m.kind === "early"); });
+  var old = moves.filter(function (m) { return keys.indexOf(m.caseKey) >= 0 && (m.kind === "used" || m.kind === "reused" || m.kind === "early" || m.kind === "sheet"); });
   var start = invStart_();
   var early = c.caseDate && c.caseDate < start;
   var now = cathNow_(), rows = [];
@@ -3095,10 +3105,13 @@ function invApplyCase_(c) {
     if (!brand && !size) return;
     var it = invEnsure_(items, kind, brand || INV_KIND_LABEL[kind], size, c.by);
     var units = Math.max(1, Math.min(20, Math.round(Number(u.units) || 1)));
-    var kindOf = early ? "early" : u.reused ? "reused" : "used";
+    // 13.45: the stent stickers are what take stents off; a stent written on
+    // the sheet is recorded beside them ("sheet") and checked against them
+    var kindOf = early ? "early" : u.reused ? "reused" : kind === "stent" ? "sheet" : "used";
     rows.push({ id: cathId_("M"), t: now, item: it.id, kind: kindOf, units: units, qty: kindOf === "used" ? -units : 0,
       caseKey: c.caseKey, ptcaNo: c.ptcaNo, patient: c.patient, caseDate: c.caseDate, raw: cathStr_(u.raw, 200), where: cathStr_(u.where, 60), by: c.by,
-      note: early ? "PTCA before the inventory start (" + start + ") — not deducted" : u.reused ? "marked ox / oxy — reused, not deducted" : (u.note ? cathStr_(u.note, 200) : "") });
+      note: early ? "PTCA before the inventory start (" + start + ") — not deducted" : u.reused ? "marked ox / oxy — reused, not deducted"
+        : kindOf === "sheet" ? "on the utilization sheet — stents are taken off from their stickers" : (u.note ? cathStr_(u.note, 200) : "") });
   });
   var sig = function (list) {
     return list.map(function (m) { return [m.item, m.kind, m.units, m.raw, m.where, m.caseKey, m.caseDate, m.ptcaNo, m.patient].join("|"); }).sort().join("\n");
@@ -3187,6 +3200,147 @@ function invMoveOut_(m) {
   return { id: m.id, t: m.t, item: m.item, kind: m.kind, units: m.units, qty: m.qty, caseKey: m.caseKey, ptcaNo: m.ptcaNo,
     patient: m.patient, caseDate: m.caseDate, raw: m.raw, where: m.where, by: m.by, note: m.note };
 }
+/* ---------------- 13.45: stents from their stickers ----------------
+   The sticker photos are the surer record of which stents went in, so each
+   stent sticker on the Stents tab takes one stent off (case key "STICKER
+   <id>"). A stent written on a utilization sheet is kept as a "sheet" entry
+   and matched to the case's stickers; one with no sticker is put in front
+   of the technicians, who add its sticker details (accept) or say it was not
+   used (reject). */
+function invDigits_(s) { return String(s == null ? "" : s).replace(/\D/g, "").replace(/^0+/, ""); }
+function invStickerSize_(s) {
+  if (s.dia && s.len) return s.dia + "×" + s.len;
+  return cathStr_(s.size, 60).replace(/\s*mm\b/ig, "").replace(/\s*[x*×]\s*/g, "×").trim();
+}
+function invStickerDate_(s) {
+  var d = invLooseIso_(s.date) || (/^\d{4}-\d{2}-\d{2}/.test(String(s.date || "")) ? String(s.date).slice(0, 10) : "");
+  var sc = /^\d{4}-\d{2}-\d{2}/.test(String(s.scannedAt || "")) ? String(s.scannedAt).slice(0, 10) : "";
+  // a date read short or wrong ("17/11/20" for 17/11/2026) — more than 60 days
+  // from the day its photo was read: the photo's day is the surer one
+  if (d && sc && Math.abs(Date.parse(d) - Date.parse(sc)) > 60 * 86400000) d = sc;
+  return d || sc || cathToday_();
+}
+function invIsStentSticker_(s) { return s && s.id && String(s.device || "Stent") === "Stent" && (s.brand || s.size || s.dia); }
+function invNeedSync_(moves, stickers) {
+  if (String(PropertiesService.getScriptProperties().getProperty("INV_SEEDED") || "") !== "1") return true;
+  var have = {};
+  moves.forEach(function (m) { if (m.caseKey.indexOf("STICKER ") === 0) have[m.caseKey.slice(8)] = true; });
+  var want = {};
+  var miss = stickers.some(function (s) { if (!invIsStentSticker_(s)) return false; want[s.id] = true; return !have[s.id]; });
+  return miss || Object.keys(have).some(function (id) { return !want[id]; });
+}
+function invSyncStickers_(items, moves, by) {
+  var start = invStart_(), now = cathNow_();
+  var stickers = stentRowsAll_().filter(invIsStentSticker_);
+  var oldBy = {};
+  moves.forEach(function (m) { if (m.caseKey.indexOf("STICKER ") === 0) (oldBy[m.caseKey] = oldBy[m.caseKey] || []).push(m); });
+  var add = [], del = [], seen = {};
+  stickers.forEach(function (s) {
+    var key = "STICKER " + s.id; seen[key] = true;
+    var it = invEnsure_(items, "stent", s.brand || "Stent", invStickerSize_(s), by);
+    var d = invStickerDate_(s), early = d < start;
+    var row = { id: cathId_("M"), t: now, item: it.id, kind: early ? "early" : "used", units: 1, qty: early ? 0 : -1, caseKey: key,
+      ptcaNo: cathStr_(s.ptcaNo, 40), patient: cathStr_(s.patient, 120), caseDate: d,
+      raw: [s.brand, s.size, s.lot ? "LOT " + s.lot : ""].filter(Boolean).join(" "), where: "stent sticker", by: by || "",
+      note: early ? "sticker before the inventory start (" + start + ") — not deducted" : "from the stent sticker" };
+    var old = oldBy[key] || [];
+    var same = old.length === 1 && old[0].item === row.item && old[0].kind === row.kind && old[0].caseDate === row.caseDate &&
+      old[0].ptcaNo === row.ptcaNo && old[0].patient === row.patient;
+    if (same) return;
+    old.forEach(function (m) { del.push(m); });
+    add.push(row);
+  });
+  Object.keys(oldBy).forEach(function (k) { if (!seen[k]) oldBy[k].forEach(function (m) { del.push(m); }); });
+  if (del.length) invDeleteRows_(del.map(function (m) { return m.row; }));
+  if (add.length) invAppendMoves_(add.map(invMoveRow_));
+  var removedStickers = {};
+  del.forEach(function (m) { if (!seen[m.caseKey]) removedStickers[m.caseKey] = 1; });
+  return { added: add.length, removed: Object.keys(removedStickers).length };
+}
+/* the devices of the department's hardware list, put on the inventory once
+   (at zero; "not counted yet" until stock is entered) */
+var INV_SEED = [
+  ["stent", "Yukon Choice", ""], ["stent", "Yukon Choice Swift", ""], ["stent", "Xience Alpine", ""], ["stent", "Ultimaster Tansei", ""], ["stent", "Biomime Aura", ""],
+  ["balloon", "NC Rockstar", ""], ["balloon", "Lineage", ""], ["balloon", "Seguro", ""], ["balloon", "Tanzor", ""], ["balloon", "Sapphire", ""],
+  ["dcb", "Elutax", ""],
+  ["wire", "Runthrough NS", ""], ["wire", "Blue Star", ""], ["wire", "Fielder FC", ""], ["wire", "BMW", ""], ["wire", "Amplatz Super Stiff", ""],
+  ["guide", "XB 3.0", "6F"], ["guide", "JR 3.5 SH", "6F"],
+  ["ge", "Guidezilla", ""], ["asp", "Thrombuster", ""]];
+function invSeed_(items, by) {
+  var p = PropertiesService.getScriptProperties();
+  if (String(p.getProperty("INV_SEEDED") || "") === "1") return 0;
+  var n = 0;
+  INV_SEED.forEach(function (x) {
+    var nb = invNorm_(x[1]);
+    var have = items.some(function (it) { return it.kind === x[0] && invNorm_(it.brand) === nb; });
+    if (have) return;
+    items.push({ id: cathId_("I"), kind: x[0], type: INV_KIND_LABEL[x[0]], brand: x[1], size: x[2], low: null, tracked: true,
+      notes: "from the department's hardware list", keys: [], updated: cathNow_(), by: by || "" });
+    n++;
+  });
+  p.setProperty("INV_SEEDED", "1");
+  return n;
+}
+/* every case's sheet stents against its stickers → what the technicians must look at */
+function invStickerCheck_(moves, stickers, items) {
+  var start = invStart_();
+  var cases = {}, order = [];
+  moves.forEach(function (m) {
+    if (m.kind !== "sheet" && m.kind !== "rejected") return;
+    var c = cases[m.caseKey];
+    if (!c) { c = cases[m.caseKey] = { caseKey: m.caseKey, ptcaNo: m.ptcaNo, patient: m.patient, caseDate: m.caseDate, sheet: [], rejected: [] }; order.push(c); }
+    if (m.kind === "sheet") {
+      for (var u = 0; u < Math.max(1, m.units); u++) c.sheet.push({ item: m.item, raw: m.raw, where: m.where });
+      if (m.caseDate) c.caseDate = m.caseDate;
+    } else c.rejected.push({ item: m.item, raw: m.raw });
+  });
+  var st = stickers.filter(invIsStentSticker_);
+  var used = {};
+  var itemsById = {};
+  (items || invItems_()).forEach(function (it) { itemsById[it.id] = it; });
+  var review = [];
+  order.forEach(function (c) {
+    if (!c.sheet.length || (c.caseDate && c.caseDate < start)) return;
+    var pn = invDigits_(c.ptcaNo), nm = invNorm_(c.patient);
+    var mine = st.filter(function (s) {
+      if (used[s.id]) return false;
+      var sp = invDigits_(s.ptcaNo);
+      if (pn && sp) return pn === sp;
+      return !!nm && invNorm_(s.patient) === nm;
+    });
+    mine.forEach(function (s) { used[s.id] = true; });
+    var left = mine.slice();
+    var sizeOf = function (x) { var it = itemsById[x.item]; return it ? invSizeKey_(it.size) : ""; };
+    var missing = [];
+    // a sticker of the same size first, then any sticker of the case
+    c.sheet.forEach(function (x) {
+      var k = sizeOf(x), i = -1;
+      for (var a = 0; a < left.length; a++) if (k && invSizeKey_(invStickerSize_(left[a])) === k) { i = a; break; }
+      if (i >= 0) left.splice(i, 1); else missing.push(x);
+    });
+    missing = missing.filter(function (x) { if (left.length) { left.shift(); return false; } return true; });
+    // what the technicians already said was not used
+    var rej = c.rejected.slice();
+    missing = missing.filter(function (x) {
+      for (var r = 0; r < rej.length; r++) if (rej[r].item === x.item && rej[r].raw === x.raw) { rej.splice(r, 1); return false; }
+      return true;
+    });
+    if (!missing.length) return;
+    review.push({ caseKey: c.caseKey, ptcaNo: c.ptcaNo, patient: c.patient, caseDate: c.caseDate, sheetCount: c.sheet.length, stickerCount: mine.length,
+      missing: missing.map(function (x) { var it = itemsById[x.item] || {}; return { brand: it.brand || "", size: it.size || "", raw: x.raw, where: x.where }; }) });
+  });
+  // stickers of a case whose utilization sheet has not been saved (they are taken off all the same)
+  var noSheet = {}, nsList = [];
+  st.forEach(function (s) {
+    if (used[s.id]) return;
+    var d = invStickerDate_(s);
+    if (d < start) return;
+    var k = invDigits_(s.ptcaNo) || invNorm_(s.patient) || s.id;
+    if (!noSheet[k]) { noSheet[k] = { ptcaNo: s.ptcaNo, patient: s.patient, date: d, n: 0 }; nsList.push(noSheet[k]); }
+    noSheet[k].n++;
+  });
+  return { review: review.slice(-40), noSheet: nsList.slice(-40) };
+}
 /* what the technicians' page shows: every item with its stock, and the
    ledger's latest moves (all of one item's with req.item) */
 function invGet_(req) {
@@ -3197,10 +3351,15 @@ function invGet_(req) {
   var list = invSort_(items).map(function (it) {
     var t = tot[it.id];
     return { id: it.id, kind: it.kind, type: it.type, brand: it.brand, size: it.size, low: it.low, tracked: it.tracked, notes: it.notes,
-      stock: t.stock, received: t.received, used: t.used, adjusted: t.adjusted, reused: t.reused, early: t.early, lastUsed: t.lastUsed, cases: t.cases };
+      stock: t.stock, received: t.received, used: t.used, adjusted: t.adjusted, reused: t.reused, early: t.early, lastUsed: t.lastUsed, cases: t.cases,
+      onSheet: t.onSheet, counted: t.counted };
   });
+  var stickers = [];
+  try { stickers = stentRowsAll_(); } catch (e) {}
+  var chk = invStickerCheck_(moves, stickers, items);
   var o = { items: list, start: invStart_(), moves: moves.slice(-400).reverse().map(invMoveOut_), moveCount: moves.length, pending: invPending_(),
-    kinds: INV_KIND_ORDER.map(function (k) { return { kind: k, label: INV_KIND_LABEL[k] }; }) };
+    kinds: INV_KIND_ORDER.map(function (k) { return { kind: k, label: INV_KIND_LABEL[k] }; }),
+    review: chk.review, noSheet: chk.noSheet, needSync: invNeedSync_(moves, stickers) };
   // one item's whole history, for the item open on the page
   if (req.item) { o.item = String(req.item); o.itemMoves = moves.filter(function (m) { return m.item === String(req.item); }).reverse().map(invMoveOut_); }
   return o;
@@ -3277,7 +3436,7 @@ function invSave_(req) {
     case "delete":
       it = find(op.id); if (!it) throw new Error("that item is no longer on the list");
       moves = invMovesAll_().filter(function (m) { return m.item === it.id; });
-      var used = moves.filter(function (m) { return m.kind === "used" || m.kind === "reused" || m.kind === "early"; });
+      var used = moves.filter(function (m) { return m.kind === "used" || m.kind === "reused" || m.kind === "early" || m.kind === "sheet"; });
       if (used.length) throw new Error(label(it) + " is in " + used.length + " PTCA record(s) — merge it into the right item, or mark it Not tracked, instead of deleting it");
       invDeleteRows_(moves.map(function (m) { return m.row; }));
       items.splice(items.indexOf(it), 1);
@@ -3312,9 +3471,35 @@ function invSave_(req) {
     case "undo":
       var mv = invMovesAll_().filter(function (m) { return m.id === String(op.moveId || ""); })[0];
       if (!mv) throw new Error("that entry is no longer in the ledger");
-      if (["received", "count", "correction"].indexOf(mv.kind) < 0) throw new Error("a PTCA's own entries change only when the case is saved again or removed");
+      if (["received", "count", "correction", "handuse", "rejected"].indexOf(mv.kind) < 0) throw new Error("a PTCA's own entries change only when the case is saved again or removed");
       invDeleteRows_([mv.row]);
       said = "Entry of " + mv.t + " undone.";
+      break;
+    case "use":
+      // 13.45: taken off by hand — contrast, or anything used outside a PTCA's sheet
+      it = find(op.id); if (!it) throw new Error("that item is no longer on the list");
+      var nUse = whole(op.units, 1, 100000, "The number used");
+      invAppendMoves_([invMoveRow_({ item: it.id, kind: "handuse", units: nUse, qty: -nUse, by: by, note: note || "used" })]);
+      said = nUse + " × " + label(it) + " taken off.";
+      break;
+    case "sync":
+      // 13.45: the department's devices put on the list once, and the stent
+      // stickers' entries brought in line with the Stents tab
+      var seeded = invSeed_(items, by);
+      moves = invMovesAll_();
+      var sy = invSyncStickers_(items, moves, by);
+      said = (seeded ? seeded + " device(s) from the hardware list put on the inventory. " : "") +
+        (sy.added || sy.removed ? "Stent stickers: " + sy.added + " taken off, " + sy.removed + " given back." : "Stent stickers are up to date.");
+      break;
+    case "reject":
+      // a stent on the utilization sheet with no sticker: the technicians say it was not used
+      var ck = cathStr_(op.caseKey, 120);
+      if (!ck) throw new Error("which case?");
+      it = invEnsure_(items, "stent", cathStr_(op.brand, 120) || "Stent", cathStr_(op.size, 60), by);
+      invAppendMoves_([invMoveRow_({ item: it.id, kind: "rejected", units: 1, qty: 0, caseKey: ck, ptcaNo: cathStr_(op.ptcaNo, 40), patient: cathStr_(op.patient, 120),
+        caseDate: cathStr_(op.caseDate, 10), raw: cathStr_(op.raw, 200), where: cathStr_(op.where, 60), by: by,
+        note: "not used (no sticker)" + (note ? " — " + note : "") })]);
+      said = label(it) + " for " + (op.patient || op.ptcaNo || "the case") + ": marked not used.";
       break;
     case "start":
       var d = String(op.date || "").trim();
@@ -3677,6 +3862,7 @@ function stentSave_(req) {
     row[STENT_KEYS.indexOf("edited")] = "added by " + (by || "?") + " " + now;
     row[STENT_KEYS.indexOf("notes")] = cathStr_(a.notes, 300);
     stentWriteRows_([row]);
+    invAfterSticker_(by);
     return { saved: row[0] };
   }
   var all = stentRowsAll_();
@@ -3685,6 +3871,7 @@ function stentSave_(req) {
   if (req.remove) {
     if (r.billNo || r.billedAt) throw new Error("this sticker is marked billed — take the bill off it first");
     sh.deleteRow(r.row);
+    invAfterSticker_(by);
     return { removed: r.id };
   }
   var vals = sh.getRange(r.row, 1, 1, STENT_HEAD.length).getValues()[0].map(cell);
@@ -3717,8 +3904,14 @@ function stentSave_(req) {
     changed.push("bill taken off");
   }
   sh.getRange(r.row, 1, 1, STENT_HEAD.length).setNumberFormat("@").setValues([vals]);
+  if (changed.length) invAfterSticker_(by);
   var o = {}; STENT_KEYS.forEach(function (k, i) { o[k] = vals[i]; });
   return { saved: r.id, changed: changed, stent: o };
+}
+/* 13.45: a sticker added, corrected or removed brings the inventory in line */
+function invAfterSticker_(by) {
+  try { var items = invItems_(); var mv = invMovesAll_(); var r = invSyncStickers_(items, mv, by); if (r.added || r.removed || items.some(function (x) { return x.isNew; })) invWriteTab_(items); }
+  catch (e) { Logger.log("inventory after a sticker: " + e); }
 }
 /* a photo read again from the start (its file is wherever it now is) */
 function stentRetry_(req) {
