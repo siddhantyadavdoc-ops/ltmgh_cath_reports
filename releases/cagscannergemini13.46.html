@@ -428,6 +428,75 @@ details.rvfold[open]>summary::after{transform:rotate(90deg)}
   .rvside .rvlist{overflow-y:auto;min-height:0;flex:1 1 auto;padding-right:4px}
   .rvwrap.pc .revcols{display:block}
 }
+/* 13.46 — the menu */
+#appnav{display:none}
+body.hasnav #appnav{display:flex}
+.navi{display:flex;align-items:center;gap:10px;min-height:42px;padding:0 12px;border-radius:8px;color:var(--ink);text-decoration:none;font:500 14px inherit;font-family:inherit;border:0;background:transparent;cursor:pointer;width:100%;text-align:left;box-sizing:border-box}
+.navi svg{flex:none;color:var(--steel)}
+.navi.on{background:var(--ink);color:#fff;font-weight:600}.navi.on svg{color:#fff}
+.navi:not(.on):hover{background:#eceef2}
+.navi .nb{margin-left:auto;background:#fff3cd;color:#7a5a00;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:10px}
+.navi .nx{margin-left:auto;display:flex}
+.navi.on .nb{background:#fff;color:var(--ink)}
+.navbrand{padding:0 10px 16px}.navbrand b{display:block;font-size:15px}.navbrand span{font-size:12px;color:var(--steel)}
+.navfoot{margin-top:auto;border-top:1px solid var(--hair);padding:12px 10px 0;font-size:12px;color:var(--steel);display:flex;flex-direction:column;gap:4px}
+.navfoot .dot,.bstrip .dot{width:8px;height:8px;border-radius:50%;background:var(--live);display:inline-block;flex:none}
+.navfoot .dot.off{background:#b9bec8}
+@media (max-width:999px){
+  body.hasnav{padding-bottom:64px}
+  #appnav{position:fixed;left:0;right:0;bottom:0;z-index:40;height:64px;background:#fff;border-top:1px solid var(--hair);padding:0 4px env(safe-area-inset-bottom);box-sizing:content-box}
+  #appnav .navbrand,#appnav .navfoot,#appnav .navpc{display:none}
+  .navph{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px;border:0;background:transparent;color:var(--steel);font:500 11px inherit;font-family:inherit;text-decoration:none;position:relative;cursor:pointer}
+  .navph.on{color:var(--ink);font-weight:700}
+  .navph .nb{position:absolute;top:3px;left:50%;margin-left:5px;background:var(--wine);color:#fff;font-size:10px;font-weight:700;padding:0 5px;border-radius:8px;line-height:16px}
+  .navmore{position:fixed;right:8px;bottom:72px;z-index:41;background:#fff;border:1px solid var(--hair);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:240px;display:flex;flex-direction:column}
+  .navmore .navi{min-height:48px}
+  body.hasnav .actions{bottom:64px}
+  body.hasnav #app.st-review .actions,body.hasnav #app.st-ptcaReview .actions{position:static}
+  #app.st-batch .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  #app.st-batch .tabs .tab{flex:none}
+}
+@media (min-width:1000px){
+  body.hasnav{padding-left:236px}
+  #appnav{position:fixed;left:0;top:0;bottom:0;width:236px;box-sizing:border-box;z-index:40;background:var(--panel);border-right:1px solid var(--hair);padding:18px 12px;flex-direction:column;gap:2px;overflow-y:auto}
+  #appnav .navph,#appnav .navmore{display:none}
+}
+/* 13.46 — Inbox scans as a worklist */
+.bstrip{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--hair);border-radius:8px;padding:5px 5px 5px 14px;font-size:13px;color:var(--steel);margin:0 0 14px}
+.bstrip .t{flex:1;min-width:0}
+.bstrip .b{min-height:34px;flex:none}
+.bstrip.bad{background:#fff8e6;border-color:#e0b64a;color:#5c4400}.bstrip.bad .dot{background:#d9960f}
+.btiles,.bhead{display:none}
+.brow .tag{color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:4px}
+.pick.brow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 8px;align-items:start;padding:12px 0}
+.brow .bt{padding-top:2px}
+.brow .bn b{display:inline;font-size:15px}.brow .bn span{margin-left:6px;font-size:12.5px;color:var(--steel)}
+.brow .br,.brow .bs,.brow .bw,.brow .ba{grid-column:1/-1}
+.brow .bs span{display:block;font-size:12.5px;color:var(--steel)}
+.brow .bs .bf{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brow .times{display:block;font-size:12px;color:var(--ink)}
+.brow .times b{font-weight:600;color:var(--steel)}
+.brow .ba{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px!important}
+.brow .ba .b{min-height:44px}
+.brow .ba .b.primary{flex:1 1 140px}
+@media (min-width:1000px){
+  .btiles{display:flex;gap:12px;margin:0 0 12px}
+  .btile{flex:1;text-align:left;border:2px solid transparent;border-radius:10px;padding:10px 14px;cursor:pointer;font-family:inherit;color:var(--ink);background:var(--panel)}
+  .btile b{display:block;font-size:24px;line-height:1.2}.btile span{font-size:12.5px}
+  .btile.amb{background:#fff4d6;color:#6b4e00}.btile.red{background:#fdecec;color:#a61b1b}.btile.ok{background:#e6f4ea;color:#1c6b47}
+  .btile.on{border-color:var(--ink)}
+  .bhead,.pick.brow{display:grid;grid-template-columns:58px minmax(150px,1.3fr) minmax(96px,.7fr) minmax(140px,1.2fr) 160px 318px;gap:14px;align-items:center}
+  .brow .ba{flex-wrap:wrap!important;row-gap:6px}
+  .brow .br .readby{margin:0;justify-content:flex-start}.brow .br .readby .rbl{display:none}
+  body.hasnav #app>header{display:none}
+  .bhead{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--steel);font-weight:600;padding:8px 0 6px;border-top:1px solid var(--hair)}
+  .pick.brow{padding:10px 0}
+  .brow .br,.brow .bs,.brow .bw,.brow .ba{grid-column:auto}
+  .brow .bn b{display:block}.brow .bn span{margin-left:0;display:block}
+  .brow .times .sep{display:none}.brow .times .tb{display:block}
+  .brow .ba{justify-content:flex-end;flex-wrap:nowrap;margin-top:0!important}
+  .brow .ba .b{min-height:36px}.brow .ba .b.primary{flex:0 0 auto}
+}
 @media (max-width:520px){
   .invtiles{gap:6px}.invtile{padding:7px 8px}.invtile b{font-size:18px}
   .invrow{padding:10px 12px 10px 16px}
@@ -12002,14 +12071,14 @@ function viewBatch() {
   let h = `<div class="cardhead pad"><b>Inbox scans</b>
     <div class="btns">${b.canEdit ? `<button class="b primary" onclick="batchRunNow()" ${b.busy ? "disabled" : ""}>${b.running ? "Scanning…" + (b.round > 1 ? " (run " + b.round + ")" : "") : "Scan the inbox now"}</button>` : ""}
     <button class="b" onclick="S.batch.said='';S.batch.saidBad=false;loadBatch(true)" ${b.busy ? "disabled" : ""}>${b.busy && !b.running ? "Loading…" : "Refresh"}</button></div></div>
-    <div class="btns" style="margin:-6px 0 14px">
+    ${navOn() ? "" : `<div class="btns" style="margin:-6px 0 14px">
       <button class="b" onclick="S.step='capture';render()">Scan on this phone</button>
       <button class="b" onclick="openRegistry()">View cases</button>
       <button class="b" onclick="openOt()">OT list</button>
       ${techOn() ? `<button class="b" onclick="openTech()">Stents &amp; inventory</button>` : ""}
       ${sheetWeb ? `<a class="b" href="${esc2(sheetWeb)}" target="_blank" rel="noopener">Registry sheet</a>` : ""}
       <button class="b" onclick="S.step='settings';render()">Settings</button>
-    </div>`;
+    </div>`}`;
   if (!S.cfg.sheetUrl) return h + `<div class="warn">Set the shared Google Sheet URL in Settings first — the inbox scanner runs in the sheet's script.</div>`;
   if (b.err) h += `<div class="warn err">${esc2(b.err)}</div>`;
   if (b.said) h += `<div class="warn ${b.saidBad ? "err" : "blue"}" id="batchSaid">${esc2(b.said)}</div>`;
@@ -12024,7 +12093,7 @@ function viewBatch() {
     // 13.43: a model resting because it did not answer is told apart from one whose limit is used up
     const restSlow = (st.resting || []).filter(function (r) { return r.why === "slow"; });
     const restLimit = (st.resting || []).filter(function (r) { return r.why !== "slow"; });
-    h += `<div class="card"><div class="cardhead"><b>Scanner</b><div class="btns" style="margin:0">${st.cagUrl ? `<a class="b" href="${esc2(st.cagUrl)}" target="_blank" rel="noopener">CAG folder</a>` : ""}${st.ptcaUrl ? `<a class="b" href="${esc2(st.ptcaUrl)}" target="_blank" rel="noopener">PTCA folder</a>` : ""}${st.inboxUrl ? `<a class="b" href="${esc2(st.inboxUrl)}" target="_blank" rel="noopener">${st.cagUrl ? "Inbox" : "Open the inbox folder"}</a>` : ""}</div></div>
+    const scard = `<div class="card"><div class="cardhead"><b>Scanner</b><div class="btns" style="margin:0">${st.cagUrl ? `<a class="b" href="${esc2(st.cagUrl)}" target="_blank" rel="noopener">CAG folder</a>` : ""}${st.ptcaUrl ? `<a class="b" href="${esc2(st.ptcaUrl)}" target="_blank" rel="noopener">PTCA folder</a>` : ""}${st.inboxUrl ? `<a class="b" href="${esc2(st.inboxUrl)}" target="_blank" rel="noopener">${st.cagUrl ? "Inbox" : "Open the inbox folder"}</a>` : ""}</div></div>
       <p class="hint">${esc2(bits.join(" · "))}</p>
       ${st.cutOff ? `<p class="hint" style="color:#8a6a12">${esc2(st.cutOff)}</p>` : ""}
       ${scheduleLineHtml(st)}
@@ -12035,6 +12104,7 @@ function viewBatch() {
       ${b.canEdit ? `<div class="btns">
         <button class="b" onclick="batchPushPrompts(true).then(function(ok){flash(ok?'ok':'err',ok?'Reading prompts sent to the sheet.':'Could not send the prompts.')})" ${b.busy ? "disabled" : ""}>Send reading prompts</button></div>` : ""}
     </div>`;
+    h += batchStatusStrip(st, scard, restSlow);
   }
   if (!b.list) return h + (b.busy ? `<p class="hint">Loading…</p>` : "");
   h += `<label class="fld" style="display:block;margin:0 0 4px"><span>Search all lists</span>
@@ -12042,6 +12112,108 @@ function viewBatch() {
   h += `<div id="batchLists">${batchListsHtml()}</div>`;
   return h;
 }
+/* ============================================================
+   13.46 — the menu: down the left on a PC, a bar at the foot of a phone
+   ============================================================
+   Shown on a doctors' phone or PC once the shared sheet is set; a
+   technicians' phone (their key, no edit key) keeps its own page. */
+function navOn() {
+  if (!S.cfg.sheetUrl) return false;
+  if (techOn() && !String(S.cfg.editKey || "").trim()) return false;
+  return true;
+}
+const NAV_ICON = {
+  inbox: "M4 13h4l2 3h4l2-3h4M4 13l2-8h12l2 8v6H4z",
+  cam: "M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 100-8 4 4 0 000 8z",
+  list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+  cal: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",
+  box: "M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10",
+  sheet: "M6 3h9l4 4v14H6zM14 3v5h5",
+  gear: "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z",
+  more: "M5 12h.01M12 12h.01M19 12h.01",
+  ext: "M14 4h6v6M20 4l-9 9M18 14v6H4V6h6",
+};
+function navSvg(k, size) {
+  return `<svg width="${size || 20}" height="${size || 20}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${NAV_ICON[k]}"/></svg>`;
+}
+function navItems() {
+  const step = S.step;
+  const review = step === "review" || step === "ptcaReview";
+  const toCheck = ((S.batch && S.batch.list) || []).filter(function (c) { return c.status === "scanned"; }).length;
+  const sheetWeb = (S.batch && S.batch.status && S.batch.status.sheetWebUrl) || S.cfg.sheetWebUrl || "";
+  const out = [
+    { k: "inbox", t: "Inbox scans", s: "Inbox", on: step === "batch" || (review && !!S.batchCase), go: "navGo('batch')", n: toCheck, main: true },
+    { k: "cam", t: "Scan on this phone", s: "Scan", on: step === "capture" || (review && !S.batchCase), go: "navGo('capture')", main: true },
+    { k: "list", t: "View cases", s: "Cases", on: step === "registry", go: "navGo('registry')", main: true },
+    { k: "cal", t: "OT list", s: "OT", on: step === "ot", go: "navGo('ot')", main: true },
+  ];
+  if (techOn()) out.push({ k: "box", t: "Stents & inventory", s: "Stents", on: step === "tech", go: "navGo('tech')" });
+  if (sheetWeb) out.push({ k: "sheet", t: "Registry sheet", s: "Sheet", href: sheetWeb });
+  out.push({ k: "gear", t: "Settings", s: "Settings", on: step === "settings" || step === "logs", go: "navGo('settings')" });
+  return out;
+}
+function navGo(where) {
+  S.navMore = false;
+  if (where === "batch") openBatch();
+  else if (where === "registry") openRegistry();
+  else if (where === "ot") openOt();
+  else if (where === "tech") openTech();
+  else { S.step = where; render(); }
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+function navToggleMore(e) { if (e) e.stopPropagation(); S.navMore = !S.navMore; navPaint(); }
+function navTime(at) {
+  const iso = String(at || "").trim().replace(" ", "T");
+  const d = new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + "Z");
+  if (isNaN(d.getTime())) return String(at || "").slice(11, 16);
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+function navHtml() {
+  const items = navItems();
+  const one = function (x, cls, label) {
+    const badge = x.n ? `<span class="nb">${x.n}</span>` : "";
+    if (x.href) return `<a class="${cls}" href="${esc2(x.href)}" target="_blank" rel="noopener">${navSvg(x.k)}<span>${esc2(label)}</span>${cls === "navi" ? `<span class="nx">${navSvg("ext", 14)}</span>` : ""}</a>`;
+    return `<button type="button" class="${cls}${x.on ? " on" : ""}" ${x.on ? `aria-current="page"` : ""} onclick="${x.go}">${navSvg(x.k)}<span>${esc2(label)}</span>${badge}</button>`;
+  };
+  const st = S.batch && S.batch.status;
+  const foot = st ? `<div class="navfoot"><span><span class="dot${st.scheduled ? "" : " off"}"></span> Scanner ${st.scheduled ? "on" : "off"}${st.last && st.last.at ? " · last run " + esc2(navTime(st.last.at)) : ""}</span>${S.cfg.userName ? `<span>${esc2(S.cfg.userName)}</span>` : ""}<span>App v${APP_VERSION}</span></div>` : `<div class="navfoot"><span>App v${APP_VERSION}</span></div>`;
+  const main = items.filter(function (x) { return x.main; });
+  const rest = items.filter(function (x) { return !x.main; });
+  const moreOn = rest.some(function (x) { return x.on; });
+  return `<div class="navbrand"><b>CAG · PTCA Scanner</b><span>Cardiology · LTMGH, Sion</span></div>` +
+    items.map(function (x) { return one(x, "navi navpc", x.t); }).join("") + foot +
+    main.map(function (x) { return one(x, "navph", x.s); }).join("") +
+    `<button type="button" class="navph${moreOn || S.navMore ? " on" : ""}" aria-expanded="${!!S.navMore}" onclick="navToggleMore(event)">${navSvg("more")}<span>More</span></button>` +
+    (S.navMore ? `<div class="navmore">${rest.map(function (x) { return one(x, "navi", x.t); }).join("")}</div>` : "");
+}
+function navPaint() {
+  const on = navOn();
+  document.body.classList.toggle("hasnav", on);
+  let el = document.getElementById("appnav");
+  if (!on) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("nav"); el.id = "appnav"; el.setAttribute("aria-label", "Pages"); document.body.appendChild(el); }
+  el.innerHTML = navHtml();
+}
+/* the Inbox page's scanner card folds behind one line */
+function batchStatusStrip(st, card, restSlow) {
+  const b = S.batch;
+  const slow = restSlow || [];
+  const bad = !st.scheduled || !st.keySet || slow.length || !!st.cutOff;
+  const bits = [
+    st.scheduled ? "Scanner on — checks the inbox every " + st.everyMin + " min" : st.off ? "Scanner turned off" : "Scanner not set up",
+    st.last && st.last.at ? "last run " + navTime(st.last.at) + ": " + (st.last.scanned || 0) + " scanned, " + (st.last.failed || 0) + " failed" : "",
+    st.running ? "a run is in progress" : "",
+    st.keySet ? "" : "no Gemini key in the script",
+    slow.length ? "not answering: " + slow.map(function (r) { return r.label; }).join(", ") : "",
+  ].filter(Boolean);
+  return `<div class="bstrip${bad ? " bad" : ""}"><span class="dot"></span><span class="t">${esc2(bits.join(" · "))}</span>
+    <button type="button" class="b" aria-expanded="${!!b.showSt}" onclick="S.batch.showSt=!S.batch.showSt;render()">${b.showSt ? "Hide details" : "Details"}</button></div>${b.showSt ? card : ""}`;
+}
+document.addEventListener("click", function (e) {
+  if (S.navMore && !(e.target.closest && e.target.closest("#appnav"))) { S.navMore = false; navPaint(); }
+});
+
+
 /* the tabs over the inbox lists: "All" shows every list in turn; a tab shows
    one list for one proforma type, with its own search box under the tabs */
 const BATCH_TABS = [
@@ -12081,44 +12253,46 @@ function batchListsHtml() {
     if (c.status === "scanned" || c.status === "saved" || c.status === "failed") bits.push("<b>" + (c.status === "failed" ? "Failed" : "Scanned") + "</b> " + stamp(c.scannedAt || c.updated));
     if (c.filesRemoved) bits.push("<b style=\"color:#8a6a12\">PDF removed</b> " + stamp(c.filesRemoved));
     if (c.status === "saved") bits.push("<b>Checked</b> " + (c.checkedAt ? stamp(c.checkedAt) : esc2(String(c.savedBy || "").replace(/^.*?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}).*$/, "$1"))) + (c.savedBy ? " by " + esc2(String(c.savedBy).replace(/\s*\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/, "")) : ""));
-    return `<span class="times">${bits.join(" · ")}</span>`;
+    return `<span class="times">${bits.map(function (x) { return `<span class="tb">${x}</span>`; }).join(`<span class="sep"> · </span>`)}</span>`;
   };
   const problems = function (c) {
     return (c.errors || []).length ? `<ul class="sortnote">` + c.errors.map(function (e) { return `<li class="att">${esc2(batchErrText(e))}</li>`; }).join("") + `</ul>` : "";
   };
   const opening = b.open;
   // one row per case, by status
+  // 13.46: one row shape for every list — columns on a PC, a card on a phone
+  const typeTag = function (c) { const p = batchIsPtca(c); return `<span class="tag" style="background:${p ? "#1f5fc2" : "#1c7a55"}">${p ? "PTCA" : "CAG"}</span>`; };
+  const brow = function (c, sheets, acts, click) {
+    const p = batchIsPtca(c);
+    const go = click ? ` onclick="openBatchCase('${esc2(c.caseId)}')" style="cursor:pointer"` : "";
+    return `<div class="pick brow">
+      <div class="bt">${typeTag(c)}</div>
+      <div class="bn"${go}><b>${esc2(c.name || "(name not read)")}</b><span>${c.cagNo ? (p ? "PTCA " : "CAG ") + esc2(c.cagNo) : "no number read"}</span></div>
+      <div class="br">${readByChips(c.readBy, true)}</div>
+      <div class="bs">${sheets}${problems(c)}</div>
+      <div class="bw">${times(c)}</div>
+      <div class="btns ba" style="margin:0">${acts}</div></div>`;
+  };
+  const files = function (c) { return (c.files || []).length ? `<span class="bf">${esc2((c.files || []).join(", "))}</span>` : ""; };
   const readyRow = function (c) {
-    return `<div class="pick"><div class="who" onclick="openBatchCase('${esc2(c.caseId)}')" style="cursor:pointer"><b>${esc2(batchCaseLabel(c))}</b>
-      ${readByChips(c.readBy, true)}
-      <span>${esc2(batchSheetCount(c))} · ${esc2((c.files || []).join(", "))}${/upload time/.test(c.grouping || "") ? " · <b style=\"color:#8a6a12\">grouped by upload time — check the pages belong together</b>" : ""}</span>
-      ${times(c)}
-      ${problems(c)}</div>
-      <div class="btns" style="margin:0">
-        <button class="b primary" onclick="openBatchCase('${esc2(c.caseId)}')" ${opening ? "disabled" : ""}>${opening === c.caseId ? "Opening…" : "Open & check"}</button>
-        ${b.canEdit ? `<button class="b" onclick="batchRetry('${esc2(c.caseId)}')">Re-read</button><button class="b danger" onclick="batchDismiss('${esc2(c.caseId)}')">Dismiss</button>` : ""}
-      </div></div>`;
+    return brow(c, `<span>${esc2(batchSheetCount(c))}</span>${files(c)}${/upload time/.test(c.grouping || "") ? `<span><b style="color:#8a6a12">grouped by upload time — check the pages belong together</b></span>` : ""}`,
+      `<button class="b primary" onclick="openBatchCase('${esc2(c.caseId)}')" ${opening ? "disabled" : ""}>${opening === c.caseId ? "Opening…" : "Open & check"}</button>
+        ${b.canEdit ? `<button class="b" onclick="batchRetry('${esc2(c.caseId)}')">Re-read</button><button class="b danger" onclick="batchDismiss('${esc2(c.caseId)}')">Dismiss</button>` : ""}`, true);
   };
   const failedRow = function (c) {
-    return `<div class="pick"><div class="who"><b>${esc2(batchCaseLabel(c))}</b>
-      ${readByChips(c.readBy, true)}
-      <span>${esc2((c.files || []).join(", "))}</span>
-      ${times(c)}
-      ${problems(c) || `<span>no reason recorded</span>`}</div>
-      <div class="btns" style="margin:0">
-        ${(c.sheets || []).length ? `<button class="b" onclick="openBatchCase('${esc2(c.caseId)}')" ${opening ? "disabled" : ""}>Open what was read</button>` : ""}
-        ${b.canEdit ? `<button class="b primary" onclick="batchRunNow('${esc2(c.caseId)}')" ${b.busy ? "disabled" : ""}>${b.running === c.caseId ? "Scanning…" : "Scan now"}</button><button class="b" onclick="batchRetry('${esc2(c.caseId)}')">Re-read</button><button class="b danger" onclick="batchDismiss('${esc2(c.caseId)}')">Dismiss</button>` : ""}
-      </div></div>`;
+    return brow(c, files(c) + ((c.errors || []).length ? "" : `<span>no reason recorded</span>`),
+      `${(c.sheets || []).length ? `<button class="b" onclick="openBatchCase('${esc2(c.caseId)}')" ${opening ? "disabled" : ""}>Open what was read</button>` : ""}
+        ${b.canEdit ? `<button class="b primary" onclick="batchRunNow('${esc2(c.caseId)}')" ${b.busy ? "disabled" : ""}>${b.running === c.caseId ? "Scanning…" : "Scan now"}</button><button class="b" onclick="batchRetry('${esc2(c.caseId)}')">Re-read</button><button class="b danger" onclick="batchDismiss('${esc2(c.caseId)}')">Dismiss</button>` : ""}`, false);
   };
   const busyRow = function (c) {
-    return `<div class="pick"><div class="who"><b>${esc2(batchCaseLabel(c) || c.caseId)}</b><span>${esc2(c.status === "reading" ? "reading — " + (c.sheets || []).length + " sheet(s) done so far" : "queued for the next check")} · ${esc2((c.files || []).join(", "))}</span>${times(c)}${problems(c)}</div>
-        ${b.canEdit ? `<div class="btns" style="margin:0"><button class="b primary" onclick="batchRunNow('${esc2(c.caseId)}')" ${b.busy ? "disabled" : ""}>${b.running === c.caseId ? "Scanning…" : "Scan now"}</button>
-        <button class="b danger" onclick="batchDismiss('${esc2(c.caseId)}')">Dismiss</button></div>` : ""}</div>`;
+    return brow(c, `<span>${esc2(c.status === "reading" ? "reading — " + (c.sheets || []).length + " sheet(s) done so far" : "queued for the next check")}</span>${files(c)}`,
+      b.canEdit ? `<button class="b primary" onclick="batchRunNow('${esc2(c.caseId)}')" ${b.busy ? "disabled" : ""}>${b.running === c.caseId ? "Scanning…" : "Scan now"}</button>
+        <button class="b danger" onclick="batchDismiss('${esc2(c.caseId)}')">Dismiss</button>` : "", false);
   };
   const savedRow = function (c) {
-    return `<div class="pick"><div class="who"><b>${esc2(batchCaseLabel(c))}</b>${readByChips(c.readBy, true)}<span>${esc2((c.files || []).join(", "))}</span>${times(c)}</div>
-        <div class="btns" style="margin:0"><button class="b" onclick="openBatchCase('${esc2(c.caseId)}')" ${opening ? "disabled" : ""}>Open again</button></div></div>`;
+    return brow(c, files(c), `<button class="b" onclick="openBatchCase('${esc2(c.caseId)}')" ${opening ? "disabled" : ""}>Open again</button>`, false);
   };
+  const bhead = `<div class="bhead"><span></span><span>Patient</span><span>Read by</span><span>Sheets</span><span>Times</span><span></span></div>`;
   // every section is split in two: CAG cases first, then PTCA, each with its own count
   const section = function (title, items, row, tone, empty, cap) {
     const cag = items.filter(function (c) { return !batchIsPtca(c); }), ptca = items.filter(batchIsPtca);
@@ -12127,11 +12301,15 @@ function batchListsHtml() {
     [["CAG", cag, "#1c7a55"], ["PTCA", ptca, "#1f5fc2"]].forEach(function (g) {
       h += `<div class="subhead"><span><span class="tag" style="background:${g[2]}">${g[0]}</span> ${g[1].length} ${g[1].length === 1 ? "case" : "cases"}</span></div>`;
       if (!g[1].length) h += `<p class="hint" style="margin:2px 0 6px">No ${g[0]} cases here.</p>`;
-      else h += (cap ? g[1].slice(0, cap) : g[1]).map(row).join("") + (cap && g[1].length > cap ? `<p class="hint">Showing the latest ${cap} of ${g[1].length}.</p>` : "");
+      else h += bhead + (cap ? g[1].slice(0, cap) : g[1]).map(row).join("") + (cap && g[1].length > cap ? `<p class="hint">Showing the latest ${cap} of ${g[1].length}.</p>` : "");
     });
     return h + `</div>`;
   };
-  let h = `<div class="tabs">` + BATCH_TABS.map(function (t) {
+  const nOf = function (id) { const t = BATCH_TABS.filter(function (x) { return x.id === id; })[0]; return all.filter(function (c) { return inTab(c, t); }).length; };
+  const nFail = nOf("failed"), nWait = nOf("waiting-CAG") + nOf("waiting-PTCA"), nSaved = nOf("saved-CAG") + nOf("saved-PTCA");
+  const tileB = function (n, label, id, tone) { return `<button type="button" class="btile ${tone}${tab.id === id ? " on" : ""}" onclick="batchTabPick('${id}')"><b>${n}</b><span>${label}</span></button>`; };
+  let h = `<div class="btiles">${tileB(nOf("scanned-CAG"), "CAG to check", "scanned-CAG", "amb")}${tileB(nOf("scanned-PTCA"), "PTCA to check", "scanned-PTCA", "amb")}${tileB(nWait, "waiting to be read", nOf("waiting-CAG") || !nWait ? "waiting-CAG" : "waiting-PTCA", "grey")}${tileB(nFail, "failed", "failed", nFail ? "red" : "ok")}${tileB(nSaved, "checked and saved", "saved-CAG", "grey")}</div>`;
+  h += `<div class="tabs">` + BATCH_TABS.map(function (t) {
     const n = t.id ? all.filter(function (c) { return inTab(c, t); }).length : all.length;
     return `<button class="tab${t.id === tab.id ? " on" : ""}" onclick="batchTabPick('${t.id}')">${esc2(t.label)}<span class="n">${n}</span></button>`;
   }).join("") + `</div>`;
@@ -12156,9 +12334,9 @@ function batchListsHtml() {
     // failed keeps the CAG / PTCA split, as before
     [["CAG", items.filter(function (c) { return !batchIsPtca(c); }), "#1c7a55"], ["PTCA", items.filter(batchIsPtca), "#1f5fc2"]].forEach(function (g) {
       if (!g[1].length) return;
-      h += `<div class="subhead"><span><span class="tag" style="background:${g[2]}">${g[0]}</span> ${g[1].length} ${g[1].length === 1 ? "case" : "cases"}</span></div>` + g[1].map(row).join("");
+      h += `<div class="subhead"><span><span class="tag" style="background:${g[2]}">${g[0]}</span> ${g[1].length} ${g[1].length === 1 ? "case" : "cases"}</span></div>` + bhead + g[1].map(row).join("");
     });
-  } else h += items.map(row).join("");
+  } else h += bhead + items.map(row).join("");
   return h + `</div>`;
 }
 
@@ -13563,6 +13741,7 @@ function render() {
   </div>`;
   // 13.45: the page's own layout on a PC (wide pages) and on a phone
   app.className = "st-" + S.step;
+  navPaint();
   const rvKept = rvKeep();
   app.innerHTML = `<header><h1>CAG \u00b7 PTCA Proforma Scanner</h1>
     <p>Department of Cardiology \u00b7 LTMGH, Sion</p></header>
