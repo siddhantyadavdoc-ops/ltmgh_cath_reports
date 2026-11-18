@@ -193,11 +193,36 @@ a.b{text-decoration:none;display:inline-block}
 /* ---- shared registry and OT list ---- */
 .readby{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:3px 0}
 .readby .rbl{font-size:11.5px;color:var(--steel);margin-right:2px}
-.pick .who .readby .rb,.readby .rb{display:inline-block;color:#fff;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.5}
+.pick .who .readby .rb,.readby .rb{display:inline-block;white-space:nowrap;color:#fff;font-size:12px;font-weight:600;letter-spacing:0;padding:2px 8px;border-radius:5px;line-height:1.45}
+.readby .rbg{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.readby .rbs{font-size:12.5px;color:var(--steel);font-weight:400;white-space:normal}
+.readby .rbg{max-width:100%}
+.brow .readby{flex-direction:column;align-items:flex-start;gap:4px}
 .pick .who .readby .rb i,.readby .rb i{font-style:normal;font-weight:400;color:#fff;opacity:.92}
 .subhead .tag,.cardhead .tag{color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:4px}
-.readby.small .rb{font-size:11px;padding:1px 7px}
+.readby.small .rb{font-size:11.5px;padding:2px 7px}
 .readbyPanel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 10px}
+/* Settings (13.47): one scrolling page; tabs jump to a section. PC: tabs on the
+   left, each section's fields in two columns. Phone: tabs along the top. */
+.setsec{border:1px solid var(--hair);border-radius:10px;padding:14px 16px 16px;margin:0 0 14px;background:#fff;scroll-margin-top:70px}
+.setsec>h3{margin:0 0 4px;font-size:15px}
+.setsec .mcbox{margin-top:8px}
+.setsplit>div{min-width:0}
+.settabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:5;background:var(--bg,#fff);padding:8px 0;margin:0 0 6px;border-bottom:1px solid var(--hair)}
+.settabs::-webkit-scrollbar{display:none}
+.settabs button{flex:none;border:1px solid var(--hair);background:#fff;border-radius:999px;padding:7px 13px;font:600 13px inherit;font-family:inherit;color:var(--ink);white-space:nowrap;cursor:pointer}
+.settabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+@media (min-width:1000px){
+  .setwrap{display:grid;grid-template-columns:210px minmax(0,1fr);gap:20px;align-items:start}
+  .settabs{flex-direction:column;overflow:visible;top:16px;border:0;padding:0;margin:0;background:none}
+  .settabs button{border:0;border-radius:8px;text-align:left;padding:10px 12px;font-size:14px;font-weight:500;background:none}
+  .settabs button:hover{background:#f1f2f4}
+  .settabs button.on{background:#fbeff1;color:var(--wine,#8a1c2b);font-weight:600}
+  .setsplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 28px;align-items:start}
+  .setsec textarea{width:100%;box-sizing:border-box}
+  .setsec{padding:16px 20px 18px}
+}
+
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 6px}
 .tab{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;border:1px solid var(--hair);background:var(--panel);font:13.5px inherit;cursor:pointer;color:var(--ink)}
 .tab .n{font-size:11.5px;color:var(--steel);background:#eef0f3;border-radius:999px;padding:1px 7px}
@@ -363,7 +388,7 @@ fieldset.otlock:disabled{opacity:.55}
 .rvhead b{display:block;font-size:15px}.rvhead span{display:block;font-size:12px;color:var(--steel)}
 .rvns{margin-top:10px;color:#6b5a22}
 @media (min-width:1000px){
-  #app.st-tech,#app.st-review,#app.st-ptcaReview,#app.st-registry,#app.st-batch,#app.st-ot{max-width:1280px;padding:20px 28px 70px}
+  #app.st-tech,#app.st-review,#app.st-ptcaReview,#app.st-registry,#app.st-batch,#app.st-ot,#app.st-settings{max-width:1280px;padding:20px 28px 70px}
   .invlay{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start;margin-top:8px}
   .invkinds{flex-direction:column;overflow:visible;position:sticky;top:12px;padding:0;margin:0}
   .invk{justify-content:flex-start;border-radius:8px;width:100%}
@@ -384,6 +409,14 @@ fieldset.otlock:disabled{opacity:.55}
 .rvtabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .rvimg{overflow:auto;border:1px solid var(--hair);border-radius:8px;background:#e9e6df;-webkit-overflow-scrolling:touch}
 .rvimg img{display:block;max-width:none;height:auto}
+.rvpic{position:relative}.rvpic img{width:100%}
+.rvhl{position:absolute;border:2px solid rgba(217,150,15,.75);background:rgba(255,196,0,.12);border-radius:4px;padding:0;cursor:pointer}
+.rvhl.on{border:3px solid #d9480f;background:rgba(255,120,0,.14);box-shadow:0 0 0 4px rgba(217,72,15,.25);animation:rvpulse 1.4s ease-out 2}
+@keyframes rvpulse{50%{box-shadow:0 0 0 10px rgba(217,72,15,.08)}}
+.rvcrop{display:block;position:relative;overflow:hidden;width:100%;aspect-ratio:4/1;max-height:240px;padding:0;margin:6px 0 8px;border:1px solid var(--hair);border-radius:8px;background:#e9e6df;cursor:zoom-in}
+.rvcrop img{position:absolute;max-width:none;height:auto;display:block}
+.rvcrop .rvbox{position:absolute;border:2.5px solid #d9480f;border-radius:4px;box-shadow:0 0 0 2000px rgba(0,0,0,.10)}
+.rvcrop .rvcl{position:absolute;right:6px;bottom:6px;background:rgba(26,26,26,.78);color:#fff;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:5px}
 .rvtools{display:flex;gap:6px;align-items:center;padding-top:6px;flex-wrap:wrap}
 .rvtools .b{min-height:34px;padding:0 12px}
 .rvtools>span{font-size:12.5px;color:var(--steel);min-width:40px;text-align:center}
@@ -421,11 +454,13 @@ details.rvfold[open]>summary::after{transform:rotate(90deg)}
 .rvwrap.ph.m-flag section{margin-bottom:6px}
 @media (min-width:1000px){
   #app.st-review,#app.st-ptcaReview{max-width:1600px}
+  #app.st-settings{max-width:1440px}
   .rvwrap.pc{display:grid;grid-template-columns:minmax(400px,46%) minmax(0,1fr);gap:24px;align-items:start}
   .rvside{position:sticky;top:10px;height:calc(100vh - 96px);display:flex;flex-direction:column;min-width:0}
+  .rvside>*{flex-shrink:0}
   .rvside .rvbar{align-self:flex-start}
-  .rvside .rvimg{flex:1 1 auto;min-height:220px}
-  .rvside .rvlist{overflow-y:auto;min-height:0;flex:1 1 auto;padding-right:4px}
+  .rvside .rvimg{flex:1 1 0;min-height:220px}
+  .rvside .rvlist{overflow-y:auto;min-height:0;flex:1 1 0;padding-right:4px}
   .rvwrap.pc .revcols{display:block}
 }
 /* 13.46 — the menu */
@@ -465,6 +500,8 @@ body.hasnav #appnav{display:flex}
 .bstrip{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--hair);border-radius:8px;padding:5px 5px 5px 14px;font-size:13px;color:var(--steel);margin:0 0 14px}
 .bstrip .t{flex:1;min-width:0}
 .bstrip .b{min-height:34px;flex:none}
+.bstrip .bfold{display:flex;gap:6px;flex:none}
+@media (max-width:999px){.bstrip{flex-wrap:wrap;padding:8px 8px 8px 12px}.bstrip .t{flex:1 1 calc(100% - 20px)}.bstrip .bfold{flex:1 1 100%;order:3}.bstrip .bfold .b{flex:1;min-height:40px}}
 .bstrip.bad{background:#fff8e6;border-color:#e0b64a;color:#5c4400}.bstrip.bad .dot{background:#d9960f}
 .btiles,.bhead{display:none}
 .brow .tag{color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:4px}
@@ -485,7 +522,7 @@ body.hasnav #appnav{display:flex}
   .btile b{display:block;font-size:24px;line-height:1.2}.btile span{font-size:12.5px}
   .btile.amb{background:#fff4d6;color:#6b4e00}.btile.red{background:#fdecec;color:#a61b1b}.btile.ok{background:#e6f4ea;color:#1c6b47}
   .btile.on{border-color:var(--ink)}
-  .bhead,.pick.brow{display:grid;grid-template-columns:58px minmax(150px,1.3fr) minmax(96px,.7fr) minmax(140px,1.2fr) 160px 318px;gap:14px;align-items:center}
+  .bhead,.pick.brow{display:grid;grid-template-columns:58px minmax(130px,1fr) minmax(210px,1.15fr) minmax(130px,1fr) 150px 318px;gap:14px;align-items:center}
   .brow .ba{flex-wrap:wrap!important;row-gap:6px}
   .brow .br .readby{margin:0;justify-content:flex-start}.brow .br .readby .rbl{display:none}
   body.hasnav #app>header{display:none}
@@ -6274,6 +6311,7 @@ WHAT YOU WERE UNSURE OF
 - Besides the fields, return "unsure": a list of the fields you read only tentatively — where a careful reader would want to look at the sheet again. Flag a field when: a tick sits between two boxes or could be the tail of a tick from the row above or below; a mark is faint or partial and may be a smudge, fold or printing artefact rather than ink; a box lies in a scribbled-out or corrected area; a handwritten figure has two plausible readings (6 / 0, 7 / 1, 70 / 90) and you chose the likelier; a word or name you could read only in part; the area is blurred, cut off, at an angle or under glare.
 - Each entry is the dotted path of that field in your JSON, from the root of your answer, arrays by index from 0 in square brackets — e.g. "cag.lad.lesions[1].percent", "cag.rentrop.grade", "cag.plan.cabg", "dx.awmi", "echo.lvef", "blood.hb". A field you flag is still returned the way you read it (a box you read as unticked is simply left out); "unsure" only says where to look again.
 - Flag only what was genuinely doubtful: on a clean sheet the list is short or absent. Omit "unsure" altogether when nothing was doubtful. It never replaces "?" for a value you could not read at all.
+- With "unsure", return "where": an object whose keys are exactly the paths in "unsure", each giving where that value is on the image as [ymin, xmin, ymax, xmax] — whole numbers from 0 to 1000, measured down and across the image as you received it (0,0 is the top-left corner, 1000,1000 the bottom-right). The box takes in the handwriting or tick you were unsure of and its printed label beside it, and no more. Omit "where" when "unsure" is absent.
 `;
 
 const A_COMMON = `The sheet is PRE-PRINTED with checkboxes. Only handwriting and tick marks are data.
@@ -6694,6 +6732,7 @@ function mergeInto(base, patch) {
   Object.keys(patch).forEach(function (k) {
     const v = patch[k];
     if (v == null) return;
+    if (k === "where") return;          // 13.47: boxes stay on each sheet's own reading (S.res)
     if (k === "unsure") {
       // the fields the model flagged as doubtful: a union across sheets,
       // kept only on a case root (BLANK / PBLANK carry the key)
@@ -6813,7 +6852,7 @@ function readByChips(rb, small) {
   if (!gs.length) return "";
   const one = gs.length === 1;
   return `<span class="readby${small ? " small" : ""}"><span class="rbl">Read by</span>` + gs.map(function (x) {
-    return `<span class="rb" style="background:${readByColour(x.model)}" title="${esc2(mcLabel(x.model))}">${esc2(readByShort(x.model))}${one ? "" : ` <i>${esc2(readBySheetsWord(x.sheets))}</i>`}</span>`;
+    return `<span class="rbg"><span class="rb" style="background:${readByColour(x.model)}" title="${esc2(mcLabel(x.model))}">${esc2(readByShort(x.model))}</span>${one ? "" : `<span class="rbs">${esc2(readBySheetsWord(x.sheets))}</span>`}</span>`;
   }).join("") + `</span>`;
 }
 function readByPanel(obj) {
@@ -8549,9 +8588,11 @@ async function scanOne(slot) {
     const raw = await callWithRetry(S.imgs[slot].b64, s.prompt, s.title, slotModel(slot));
     S.readBy = S.readBy || {};
     S.readBy[slot] = S.lastModelUsed || slotModel(slot);
+    const where = raw && raw.where;
     S.res[slot] = s.diagram ? normalizeDiagramResult(raw)
       : slot.charAt(0) === "q" ? normalizePtcaResult(raw)
       : normalizeOperators(normalizeTgLdl(normalizeLesions(raw)));
+    if (where && S.res[slot] && !S.res[slot].where) S.res[slot].where = where;
     S.busy = false; S.phase = ""; S.scanning = null;
     flash("ok", s.title + " read. " + scannedCount() + " of " + photoCount() + " sheets done.");
     return true;
@@ -9223,7 +9264,68 @@ function rvSlotOf(n) {
   if (/^(proc|targets|technique|access|strategy)$/.test(k[0])) return "q3";
   return "q1";
 }
-function rvFlags() { return unsureList().map(function (n) { return { n: n, label: unsureLabel(n), slot: rvSlotOf(n) }; }); }
+/* 13.47: where on its sheet a flagged value is — the box the scanner gave with
+   it ([ymin, xmin, ymax, xmax], 0–1000), or null for older readings */
+function rvBoxClean(b) {
+  if (!Array.isArray(b) || b.length !== 4) return null;
+  const v = b.map(Number);
+  if (v.some(function (x) { return !isFinite(x) || x < 0 || x > 1000; })) return null;
+  if (v[2] <= v[0] || v[3] <= v[1]) return null;
+  return v;
+}
+function rvBoxOf(n) {
+  const list = rvSlotList(), pref = rvSlotOf(n);
+  const order = [pref].concat(list.map(function (x) { return x.slot; }).filter(function (x) { return x !== pref; }));
+  let near = null;
+  for (let i = 0; i < order.length; i++) {
+    const r = S.res[order[i]], w = r && r.where;
+    if (!w || typeof w !== "object") continue;
+    const keys = Object.keys(w);
+    for (let j = 0; j < keys.length; j++) {
+      const k = unsureNorm(keys[j]), b = rvBoxClean(w[keys[j]]);
+      if (!b) continue;
+      if (k === n) return { slot: order[i], b: b };
+      if (!near && (n.indexOf(k + ".") === 0 || k.indexOf(n + ".") === 0)) near = { slot: order[i], b: b };
+    }
+  }
+  return near;
+}
+/* the part of the page around the box: wide enough to read the line it is on */
+function rvCropBox(b) {
+  let y0 = b[0] - 45, y1 = b[2] + 45, x0 = b[1] - 80, x1 = b[3] + 80;
+  if (x1 - x0 < 420) { const c = (x0 + x1) / 2; x0 = c - 210; x1 = c + 210; }
+  if (y1 - y0 < 90) { const c = (y0 + y1) / 2; y0 = c - 45; y1 = c + 45; }
+  if (x0 < 0) { x1 -= x0; x0 = 0; } if (x1 > 1000) { x0 -= x1 - 1000; x1 = 1000; }
+  if (y0 < 0) { y1 -= y0; y0 = 0; } if (y1 > 1000) { y0 -= y1 - 1000; y1 = 1000; }
+  return [Math.max(0, y0), Math.max(0, x0), Math.min(1000, y1), Math.min(1000, x1)];
+}
+function rvCropHtml(f) {
+  const bx = f.box; if (!bx) return "";
+  const im = S.imgs[bx.slot]; if (!im || !im.url) return "";
+  const c = rvCropBox(bx.b), b = bx.b, h = c[2] - c[0], w = c[3] - c[1];
+  const pct = function (v) { return (Math.round(v * 100) / 100) + "%"; };
+  return `<button type="button" class="rvcrop" data-c="${c.join(",")}" onclick="rvShowSheet('${bx.slot}','${f.n}')" aria-label="Show this part on the whole sheet">
+    <img src="${rvUrlOf(im)}" alt="" onload="rvCropFit(this)" style="width:${pct(100000 / w)};left:${pct(-c[1] * 100 / w)};top:${pct(-c[0] * 100 / h)}">
+    <i class="rvbox" style="left:${pct((b[1] - c[1]) * 100 / w)};top:${pct((b[0] - c[0]) * 100 / h)};width:${pct((b[3] - b[1]) * 100 / w)};height:${pct((b[2] - b[0]) * 100 / h)}"></i>
+    <span class="rvcl">${rvWide() ? "Show on the whole sheet" : "Tap for the whole sheet"}</span></button>`;
+}
+/* the crop's height follows the page's own proportions, known once loaded */
+function rvCropFit(img) {
+  const p = img.parentNode, W = img.naturalWidth, H = img.naturalHeight;
+  if (!p || !W || !H) return;
+  const c = String(p.getAttribute("data-c") || "").split(",").map(Number);
+  p.style.aspectRatio = String(((c[3] - c[1]) * W) / ((c[2] - c[0]) * H));
+}
+/* the whole sheet scrolled so the chosen box is in the middle */
+function rvScrollHl() {
+  document.querySelectorAll("#app .rvimg").forEach(function (box) {
+    const hl = box.querySelector(".rvhl.on"); if (!hl) return;
+    const a = box.getBoundingClientRect(), h = hl.getBoundingClientRect();
+    box.scrollLeft += (h.left + h.width / 2) - (a.left + a.width / 2);
+    box.scrollTop += (h.top + h.height / 2) - (a.top + a.height / 2);
+  });
+}
+function rvFlags() { return unsureList().map(function (n) { const bx = rvBoxOf(n); return { n: n, label: unsureLabel(n), slot: bx ? bx.slot : rvSlotOf(n), box: bx }; }); }
 function rvValText(v) {
   if (v === true) return "ticked";
   if (v === false) return "not ticked";
@@ -9254,10 +9356,13 @@ function rvZoom(z) { const r = rvS(); r.zoom = z === 0 ? 1 : Math.max(1, Math.mi
 function rvBig(on) { rvS().big = !!on; render(); }
 /* "Show on sheet" / "View full sheet": a PC turns to Full sheet at that page;
    a phone opens the page full screen over the form */
-function rvShowSheet(slot) {
+function rvShowSheet(slot, n) {
   const r = rvS(); if (slot) r.slot = slot;
+  r.hl = n || "";
+  if (n && rvBoxOf(n)) r.zoom = Math.max(r.zoom || 1, 2);
   if (rvWide()) { r.mode = "full"; r.big = false; } else r.big = true;
   render();
+  if (r.hl) setTimeout(rvScrollHl, 60);
 }
 /* "Go to field": the form scrolls to the field (opening its section on a
    phone); a PC in Full sheet also turns the sheet to that page */
@@ -9322,7 +9427,10 @@ function rvViewer(big) {
     return `<button type="button" class="${x.slot === cur.slot ? "on" : ""}" onclick="rvPick('${x.slot}')">${esc2(x.title)}${n ? ` <span class="rvn">${n}</span>` : ""}</button>`;
   }).join("");
   return `<div class="rvtabs">${tabs}</div>
-    <div class="rvimg${big ? " big" : ""}" data-slot="${cur.slot}"><img src="${rvUrlOf(cur.src)}" alt="${esc2(cur.title)}" style="width:${z * 100}%"></div>
+    <div class="rvimg${big ? " big" : ""}" data-slot="${cur.slot}"><div class="rvpic" style="width:${z * 100}%"><img src="${rvUrlOf(cur.src)}" alt="${esc2(cur.title)}">${here.filter(function (f) { return f.box && f.box.slot === cur.slot; }).map(function (f) {
+      const b = f.box.b;
+      return `<button type="button" class="rvhl${r.hl === f.n ? " on" : ""}" title="${esc2(f.label)}" onclick="rvJump('${f.n}')" style="top:${b[0] / 10}%;left:${b[1] / 10}%;height:${(b[2] - b[0]) / 10}%;width:${(b[3] - b[1]) / 10}%"></button>`;
+    }).join("")}</div></div>
     <div class="rvtools">
       <button type="button" class="b" onclick="rvZoom(-0.5)" ${z <= 1 ? "disabled" : ""} aria-label="Zoom out">−</button><span>${Math.round(z * 100)}%</span>
       <button type="button" class="b" onclick="rvZoom(0.5)" ${z >= 4 ? "disabled" : ""} aria-label="Zoom in">+</button>
@@ -9346,13 +9454,14 @@ function rvEditor(f) {
 }
 function rvCard(f, i, L, phone) {
   const im = S.imgs[f.slot], hasImg = !!(im && im.url);
-  const thumb = phone && hasImg && im.thumb ? `<button type="button" class="rvthumb" onclick="rvShowSheet('${f.slot}')" aria-label="View the full sheet"><img src="${im.thumb}" alt=""></button>` : "";
+  const crop = rvCropHtml(f);
+  const thumb = crop ? "" : phone && hasImg && im.thumb ? `<button type="button" class="rvthumb" onclick="rvShowSheet('${f.slot}')" aria-label="View the full sheet"><img src="${im.thumb}" alt=""></button>` : "";
   return `<div class="rvc">${thumb}
     <div class="rvch">${phone ? `<b class="rvof">Check ${i + 1} of ${L}</b>` : ""}<span class="rvlab">${esc2(f.label)}</span><span class="rvsh">${esc2(rvSheetTitle(f.slot))}</span></div>
-    ${rvEditor(f)}
+    ${crop}${rvEditor(f)}
     <div class="rvcb"><button type="button" class="b live" onclick="rvOk('${f.n}')">Looks right</button>
       <button type="button" class="b" onclick="rvJump('${f.n}')">Go to field</button>
-      ${hasImg ? `<button type="button" class="b" onclick="rvShowSheet('${f.slot}')">${phone ? "View full sheet" : "Show on sheet"}</button>` : ""}</div></div>`;
+      ${hasImg ? `<button type="button" class="b" onclick="rvShowSheet('${f.slot}','${f.n}')">${phone ? "View full sheet" : "Show on sheet"}</button>` : ""}</div></div>`;
 }
 function rvFlagPanel(phone) {
   const fl = rvFlags(), r = rvS();
@@ -10440,13 +10549,14 @@ function estimateCostCents(modelId, px) { return 0; }
 
 function viewSettings() {
   return `<div class="card">
-    <div class="cardhead"><b>Settings</b><button class="b" onclick="goHome()">Back</button></div>${(function () { if (S.cfg.sheetUrl && !S.batch.status && !S.batch.busy) setTimeout(function () { loadBatch(true).then(function () { if (S.step === "settings") render(); }); }, 50); return ""; })()}
+    <div class="cardhead"><b>Settings</b><button class="b" onclick="goHome()">Back</button></div><div class="setwrap">${setTabsHtml()}<div class="setbody"><section class="setsec" id="set-gemini"><h3>Scanning with Gemini</h3><div class="setsplit"><div>${(function () { if (S.cfg.sheetUrl && !S.batch.status && !S.batch.busy) setTimeout(function () { loadBatch(true).then(function () { if (S.step === "settings") render(); }); }, 50); return ""; })()}
     <label class="fld" style="flex:1 1 100%"><span>Google AI Studio API key</span>
       <input type="password" value="${esc2(S.cfg.apiKey)}" placeholder="AIzaSy..."
         oninput="S.cfg.apiKey=this.value;saveCfg();S.mc.fetchedAt=0;S.mc.ownAt=''"></label>
     <p class="hint">Stored only in this browser. Anyone who can unlock this phone can read it,
       so use a dedicated key with a spend limit rather than your main one.</p>
     ${mcSettingsHtml()}
+    </div><div>
     <div class="row" style="margin-top:12px">
       <label class="fld" style="flex:1 1 140px"><span>Free-tier limit per minute</span>
         <input type="number" min="1" value="${S.cfg.rpm}" oninput="S.cfg.rpm=Math.max(1,Number(this.value)||15);saveCfg()"></label>
@@ -10460,7 +10570,7 @@ function viewSettings() {
         return `<button class="ck${S.cfg.imgMax === z.px ? " on" : ""}"
           onclick="S.cfg.imgMax=${z.px};saveCfg();render()"><i></i>${z.label}</button>`;
       }).join("")}</div></div>
-    <p class="hint">Running on Google AI Studio Free Tier (0¢ per patient). A smaller photo helps the scan complete faster. Photos already taken keep the size they were captured at.</p>
+    <p class="hint">Running on Google AI Studio Free Tier (0¢ per patient). A smaller photo helps the scan complete faster. Photos already taken keep the size they were captured at.</p></div></div></section><section class="setsec" id="set-sheet"><h3>Shared sheet &amp; keys</h3><div class="setsplit"><div>
     <label class="fld" style="flex:1 1 100%;margin-top:14px"><span>Google Sheet web-app URL (optional)</span>
       <input value="${esc2(S.cfg.sheetUrl)}" placeholder="https://script.google.com/macros/s/.../exec"
         oninput="S.cfg.sheetUrl=this.value;saveCfg();S.mc.fetchedAt=0"></label>
@@ -10480,6 +10590,7 @@ function viewSettings() {
     <div class="btns">${S.cfg.editKey ? `<button class="b" onclick="techKeyMake()" ${S.cfg.sheetUrl ? "" : "disabled"}>${String(S.cfg.techKey || "").trim() ? "Make this the technicians' key" : "Remove the technicians' key"}</button>` : ""}
       <button class="b" onclick="openTech()" ${techOn() ? "" : "disabled"}>Stents &amp; inventory</button></div>
     ${S.cfg.editKey ? `<p class="hint">Editors: type a key above and press “Make this the technicians' key” to set it in the shared sheet (it must differ from the edit key), then give it to the technicians — they put it here, without the edit key.</p>` : ""}
+    </div><div>
     <label class="fld" style="flex:1 1 100%;margin-top:14px"><span>Your name (recorded as “Saved by” on shared cases)</span>
       <input value="${esc2(S.cfg.userName || "")}" placeholder="e.g. Dr Priyanka"
         oninput="S.cfg.userName=this.value;saveCfg()"></label>
@@ -10490,8 +10601,18 @@ function viewSettings() {
       <button class="b" onclick="shareLink('registry')" ${S.cfg.sheetUrl ? "" : "disabled"}>Copy view-only registry link</button>
       <button class="b" onclick="shareLink('ot')" ${S.cfg.sheetUrl ? "" : "disabled"}>Copy view-only OT list link</button>
     </div>
-    <p class="hint">Send a link to any phone or computer: opening it sets the shared sheet on that device and shows the list. No API key is needed to view — and anyone viewing can download any case's Word report straight from the registry, without the edit key.</p>
-
+    <p class="hint">Send a link to any phone or computer: opening it sets the shared sheet on that device and shows the list. No API key is needed to view — and anyone viewing can download any case's Word report straight from the registry, without the edit key.</p></div></div></section>
+    <section class="setsec" id="set-inbox"><h3>Inbox batch scanner</h3><div class="setsplit"><div>
+      <p class="hint" style="margin-top:6px">Residents drop a case's PDF or page photos into the department's Drive inbox — the <b>CAG</b> folder for angiogram proformas, the <b>PTCA</b> folder for PTCA proformas and utilization reports — and the Sheet's script reads them one page at a time, 3 seconds between steps. Open <b>Inbox scans</b> on the front screen to check what it read. Setting up: paste Code${SCRIPT_WANTED}.gs into the Sheet's Apps Script, deploy a new version, run <b>setupBatchScanner</b> once there (it needs GEMINI_KEY in the script properties), share the inbox folder with the residents, then open Inbox scans here as an editor so the app sends its reading prompts.</p>
+      <div class="btns"><button class="b" onclick="openBatch()" ${S.cfg.sheetUrl ? "" : "disabled"}>Inbox scans</button>
+        <button class="b" onclick="batchOpenAndScan()" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Scan the inbox now</button>
+        <button class="b" onclick="batchPushPrompts(true).then(function(ok){flash(ok?'ok':'err',ok?'Reading prompts sent to the sheet.':'Could not send the prompts \u2014 the edit key and a Code13 sheet are needed.')})" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Send reading prompts now</button></div>
+      <p class="hint">${esc2(S.cfg.promptsSent === APP_VERSION + "@" + S.cfg.sheetUrl ? "This app version's prompts have been sent to this sheet." : "Prompts not yet sent from this version (sent automatically when an editor opens Inbox scans).")}</p>
+    </div><div>
+      ${scheduleSettingsHtml()}
+      ${housekeepSettingsHtml()}
+    </div></div></section>
+    <section class="setsec" id="set-people"><h3>Doctors &amp; technicians</h3><div class="setsplit"><div>
     <label class="fld" style="flex:1 1 100%;margin-top:14px"><span>Operator roster</span>
       <textarea rows="10" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px"
         placeholder="Dr. Full Name | Role | alias1, alias2"
@@ -10506,6 +10627,7 @@ function viewSettings() {
       <button class="b" onclick="if(confirm('Replace the roster above with the built-in default list — on every device?')){rosterReset('operators');}">Reset to default roster</button>
     </div>
 
+    </div><div>
     <label class="fld" style="flex:1 1 100%;margin-top:14px"><span>Technician roster</span>
       <textarea rows="7" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px"
         placeholder="Full Name | | alias1, alias2"
@@ -10518,6 +10640,7 @@ function viewSettings() {
       <button class="b" onclick="if(confirm('Replace the technician list above with the built-in default list — on every device?')){rosterReset('technicians');}">Reset to default technicians</button>
     </div>
 
+    </div></div></section><section class="setsec" id="set-hardware"><h3>Hardware &amp; short forms</h3><div class="setsplit"><div>
     <label class="fld" style="flex:1 1 100%;margin-top:14px"><span>Hardware and short forms</span>
       <textarea rows="14" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px"
         placeholder="Full name | Type | short form, other spellings"
@@ -10525,6 +10648,7 @@ function viewSettings() {
         >${esc2(operatorsToText(activeHardware()))}</textarea></label>
     <p class="hint rosterStatus">${esc2(rosterStatusText())}</p>
     <p class="hint" id="hwStatus" style="${hwListProblems(activeHardware()).length ? "color:#8a6a12" : ""}">${esc2(hwStatusText())}</p>
+    </div><div>
     <p class="hint">One device per line: <b>Full name | Type | short form, other spellings</b>. Type is Guide, Wire, Balloon, Stent, DCB,
       Cutting balloon, Guide extension, Microcatheter or Aspiration catheter. After a scan the utilization sheet is checked against this
       list: a short form such as <b>RS</b>, or any other spelling listed for a device, is replaced by its full name \u2014 so
@@ -10536,26 +10660,51 @@ function viewSettings() {
       <button class="b" onclick="if(confirm('Replace the hardware list above with the built-in default list — on every device?')){rosterReset('hardware');}">Reset to default hardware list</button>
     </div>
 
-    <div class="mcbox"><b>Inbox batch scanner</b>
-      <p class="hint" style="margin-top:6px">Residents drop a case's PDF or page photos into the department's Drive inbox — the <b>CAG</b> folder for angiogram proformas, the <b>PTCA</b> folder for PTCA proformas and utilization reports — and the Sheet's script reads them one page at a time, 3 seconds between steps. Open <b>Inbox scans</b> on the front screen to check what it read. Setting up: paste Code${SCRIPT_WANTED}.gs into the Sheet's Apps Script, deploy a new version, run <b>setupBatchScanner</b> once there (it needs GEMINI_KEY in the script properties), share the inbox folder with the residents, then open Inbox scans here as an editor so the app sends its reading prompts.</p>
-      <div class="btns"><button class="b" onclick="openBatch()" ${S.cfg.sheetUrl ? "" : "disabled"}>Inbox scans</button>
-        <button class="b" onclick="batchOpenAndScan()" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Scan the inbox now</button>
-        <button class="b" onclick="batchPushPrompts(true).then(function(ok){flash(ok?'ok':'err',ok?'Reading prompts sent to the sheet.':'Could not send the prompts \u2014 the edit key and a Code13 sheet are needed.')})" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Send reading prompts now</button></div>
-      <p class="hint">${esc2(S.cfg.promptsSent === APP_VERSION + "@" + S.cfg.sheetUrl ? "This app version's prompts have been sent to this sheet." : "Prompts not yet sent from this version (sent automatically when an editor opens Inbox scans).")}</p>
-      ${scheduleSettingsHtml()}
-      ${housekeepSettingsHtml()}
-    </div>
+    </div></div></section><section class="setsec" id="set-backup"><h3>Backup &amp; debug log</h3><div class="setsplit"><div>
     <div class="btns" style="margin-top:16px">
       <button class="b" onclick="S.step='logs';render()">View Debug Log</button>
     </div>
+    </div><div>
     <div class="btns" style="margin-top:16px">
       <button class="b" onclick="exportRegistryJson()">Export registry backup</button>
       <input type="file" accept="application/json,.json,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" id="impjson" hidden onchange="importRegistryJson(this)">
       <button class="b" onclick="document.getElementById('impjson').click()">Merge registry backup</button>
     </div>
     <p class="hint">Merge accepts the .json backup, or the .xlsx from \u201cDownload registry\u201d (from this app, or after Excel/Sheets re-saved it). Cases already here with the same CAG No are updated.</p>
+    </div></div></section></div></div>
     <p class="hint" style="margin-top:14px">App version ${APP_VERSION} \u00b7 made for sheet script version ${SCRIPT_WANTED} (Code${SCRIPT_WANTED}.gs). \u201cTest connection\u201d shows which version the sheet is running.</p></div>`;
 }
+
+/* 13.47 — Settings: the sections are one scrolling page; the tabs (left on a
+   PC, along the top on a phone) jump to a section and follow the scroll */
+const SET_SECS = [["set-gemini", "Scanning with Gemini"], ["set-sheet", "Shared sheet & keys"], ["set-inbox", "Inbox batch scanner"],
+  ["set-people", "Doctors & technicians"], ["set-hardware", "Hardware & short forms"], ["set-backup", "Backup & debug log"]];
+function setTabsHtml() {
+  const on = S.setOn || SET_SECS[0][0];
+  return `<nav class="settabs" aria-label="Settings sections">` + SET_SECS.map(function (x) {
+    return `<button type="button" data-s="${x[0]}" class="${x[0] === on ? "on" : ""}" onclick="setGo('${x[0]}')">${esc2(x[1])}</button>`;
+  }).join("") + `</nav>`;
+}
+function setTabsTop() { const t = document.querySelector(".settabs"); return rvWide() ? 16 : (t ? t.getBoundingClientRect().height + 10 : 60); }
+function setGo(id) {
+  const el = document.getElementById(id); if (!el) return;
+  S.setOn = id; setMark(id); S.setLock = Date.now();
+  const y = el.getBoundingClientRect().top + window.scrollY - setTabsTop();
+  try { window.scrollTo({ top: Math.max(0, y), behavior: "smooth" }); } catch (e) { window.scrollTo(0, y); }
+}
+function setMark(id) {
+  document.querySelectorAll(".settabs button").forEach(function (b) {
+    const on = b.getAttribute("data-s") === id; b.classList.toggle("on", on);
+    if (on && !rvWide()) { const n = b.parentNode; if (n) { const l = b.offsetLeft - 12; if (l < n.scrollLeft || b.offsetLeft + b.offsetWidth > n.scrollLeft + n.clientWidth) n.scrollTo({ left: l, behavior: "smooth" }); } }
+  });
+}
+window.addEventListener("scroll", function () {
+  if (S.step !== "settings" || (S.setLock && Date.now() - S.setLock < 700)) return;
+  const top = setTabsTop() + 100; let cur = SET_SECS[0][0];
+  SET_SECS.forEach(function (x) { const el = document.getElementById(x[0]); if (el && el.getBoundingClientRect().top <= top) cur = x[0]; });
+  if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 4) cur = SET_SECS[SET_SECS.length - 1][0];
+  if (cur !== S.setOn) { S.setOn = cur; setMark(cur); }
+}, { passive: true });
 
 /* the registry screen shows one kind of case at a time: CAG or PTCA */
 function regType() { return S.regType === "PTCA" ? "PTCA" : "CAG"; }
@@ -10665,7 +10814,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.46", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.47", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -12206,8 +12355,11 @@ function batchStatusStrip(st, card, restSlow) {
     st.keySet ? "" : "no Gemini key in the script",
     slow.length ? "not answering: " + slow.map(function (r) { return r.label; }).join(", ") : "",
   ].filter(Boolean);
+  const fold = (st.cagUrl ? `<a class="b" href="${esc2(st.cagUrl)}" target="_blank" rel="noopener">CAG folder</a>` : "") +
+    (st.ptcaUrl ? `<a class="b" href="${esc2(st.ptcaUrl)}" target="_blank" rel="noopener">PTCA folder</a>` : "") +
+    (st.inboxUrl ? `<a class="b" href="${esc2(st.inboxUrl)}" target="_blank" rel="noopener">Inbox</a>` : "");
   return `<div class="bstrip${bad ? " bad" : ""}"><span class="dot"></span><span class="t">${esc2(bits.join(" · "))}</span>
-    <button type="button" class="b" aria-expanded="${!!b.showSt}" onclick="S.batch.showSt=!S.batch.showSt;render()">${b.showSt ? "Hide details" : "Details"}</button></div>${b.showSt ? card : ""}`;
+    ${fold ? `<span class="bfold">${fold}</span>` : ""}<button type="button" class="b" aria-expanded="${!!b.showSt}" onclick="S.batch.showSt=!S.batch.showSt;render()">${b.showSt ? "Hide details" : "Details"}</button></div>${b.showSt ? card : ""}`;
 }
 document.addEventListener("click", function (e) {
   if (S.navMore && !(e.target.closest && e.target.closest("#appnav"))) { S.navMore = false; navPaint(); }
@@ -12419,10 +12571,11 @@ async function openBatchCase(caseId) {
   // pages panel and the retry buttons even when a draft or registry copy is used)
   got.concat(extra).forEach(function (s) {
     try {
-      const raw = JSON.parse(JSON.stringify(results[s]));
+      const raw = JSON.parse(JSON.stringify(results[s])), where = raw && raw.where, ks = s === "d" ? "d1" : s;
       if (s === "d") S.res.d1 = normalizeDiagramResult(raw);
       else if (ptca) S.res[s] = normalizePtcaResult(raw);
       else S.res[s] = normalizeOperators(normalizeTgLdl(normalizeLesions(raw)));
+      if (where && S.res[ks] && !S.res[ks].where) S.res[ks].where = where;
     } catch (e) { S.errs[s === "d" ? "d1" : s] = "stored reading unusable: " + (e.message || e); }
   });
   S.readBy = {};
