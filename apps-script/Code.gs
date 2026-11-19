@@ -83,6 +83,45 @@
  * (anyone with the URL); batchPrompts, batchRetry, batchMark, batchRunNow
  * (edit key). "whoami" replies v: 13 and says whether the scanner is set up.
  *
+ * What changed in 13.48 — lower Gemini bills, wrong-folder uploads, PTCA numbers
+ * - Google's half-price batch queue: on the automatic (night) runs, once a
+ *   case's pages are recognised, all its sheets go to Google as ONE batch
+ *   job (Batch API, 50% of the normal price) instead of one request at a
+ *   time. Every 5 minutes the script asks whether the job is done — also
+ *   outside the scan window — and stores the answers as before. A sheet the
+ *   queue could not read, a job Google fails, or one not back within
+ *   BATCH_QUEUE_HOURS (default 6) is read directly, as before. Scans started
+ *   from the app are never queued: "Scan the inbox now" reads new cases at
+ *   once (a case already queued keeps waiting), and "Scan now" on a queued
+ *   case cancels its job and reads it at once. Script property
+ *   BATCH_HALF_PRICE = on (default) | off.
+ * - The PTCA number: written xxxxAPzzzz (cath number, AP, PTCA number). When
+ *   the front page has no full number it is taken from the "PTCA / Cath No."
+ *   line at the top of pages 2-4 (hdrPtcaNo, read by app 13.48's prompts) or
+ *   the utilization sheet (Cath No. + "IP No. PTCA"). It labels the case in
+ *   the inbox list, and sheets that disagree (or a CAG number written in the
+ *   PTCA box) are noted as a problem on the case ("numbers").
+ * - The CAG proforma's CAG No.: digits only, the CAG number + the year of the
+ *   CAG. Letters, another form, or a year that is not the CAG date's (2020
+ *   read for 2026) are noted on the case ("numbers"). PTCA lookups by CAG No.
+ *   now match "2343/2026" and "23432026" as the same number.
+ * - Tokens: each page's note in the case log gives Google's own count —
+ *   tokens in, answer, thinking — and the case's finish note the totals.
+ * - Technicians: the stent folders are renamed "Used stents upload" and "Used
+ *   stents processed" (the same folders, renamed on the first run). A new
+ *   folder pair, "Inventory uploads" / "Inventory processed", takes photos of
+ *   stock RECEIVED: each sticker read there is added to the inventory
+ *   ("received", keyed STOCK <upload>-<n>). Action stentToStock moves a photo
+ *   read as used stents to the inventory instead (its stickers leave the
+ *   Stents tab, are added as received, the photo moves to Inventory
+ *   processed). invScanNow reads the inventory photos only; stentScanNow
+ *   still reads the used-stent photos only. Uploads tab: new "Purpose" column.
+ * - The wrong folder: a CAG proforma uploaded into the PTCA folder (or a
+ *   PTCA one into CAG) is noticed at page recognition — few pages fit and
+ *   several are "other" — looked at once more as the other form, and read
+ *   as that type ("wrong folder" in the case's log). If no page fits either
+ *   form the case fails before any reading is paid for.
+ *
  * What changed in 13.44 — the cath lab's technicians: stents and inventory
  * - A key of their own: script property TECH_KEY (different from EDIT_KEY).
  *   An editor can set it from the app (Settings → Technicians' key → "Make
@@ -184,7 +223,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -259,7 +298,7 @@ function handle(e) {
     var needEdit = { append: 1, remove: 1, otSave: 1, batchPrompts: 1, batchRetry: 1, batchMark: 1, batchRunNow: 1, rosterSave: 1, batchDraft: 1, batchHousekeepSet: 1, batchScheduleSet: 1, techKeySet: 1 };
     if (needEdit[action] && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to make changes.", canEdit: false });
     // 13.44 — what changes the inventory or the stents needs the technicians' key
-    var needTech = { invSave: 1, invApplyPending: 1, stentSave: 1, stentRetry: 1, stentDismiss: 1, stentScanNow: 1 };
+    var needTech = { invSave: 1, invApplyPending: 1, stentSave: 1, stentRetry: 1, stentDismiss: 1, stentScanNow: 1, stentToStock: 1, invScanNow: 1 };
     if (needTech[action] && !techAllowed(req.tkey)) return out({ ok: false, error: techRefused_(), canTech: false });
     switch (action) {
       case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_(), canTech: techAllowed(req.tkey), techSet: techKeyIsSet_() });
@@ -292,6 +331,9 @@ function handle(e) {
       case "stentRetry": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentRetry_(req)));
       case "stentDismiss": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentDismiss_(req)));
       case "stentScanNow": { lock.releaseLock(); return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentScanNow_())); }
+      // 13.48 — stock photos put in the used-stent folder by mistake; the inventory photos read now
+      case "stentToStock": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentToStock_(req)));
+      case "invScanNow": { lock.releaseLock(); return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, invScanNow_())); }
       default: return out({ ok: false, error: "unknown action " + action });
     }
   } catch (err) {
@@ -726,12 +768,20 @@ function lookupCase(q) {
     var rows = sh.getRange(2, 1, sh.getLastRow() - 1, have.length).getValues();
     for (var i = 0; i < rows.length; i++) {
       var g = function (h) { var k = have.indexOf(h); return k < 0 ? "" : cell(rows[i][k]); };
-      if (String(g("CAG No")).trim() === q) return lookupHit(have, rows[i]);
+      if (String(g("CAG No")).trim() === q || cagSame_(g("CAG No"), q)) return lookupHit(have, rows[i]);
       if (!byIpd && (String(g("IPD No")).trim() === q || String(g("OPD No")).trim() === q || String(g("IPD/OPD No")).trim() === q)) byIpd = { have: have, row: rows[i] };
     }
   }
   if (byIpd) return lookupHit(byIpd.have, byIpd.row);
   return { found: false };
+}
+/* 13.48: one CAG number however it is written ("2343/2026" = "23432026") */
+function cagSame_(a, b) {
+  a = String(a == null ? "" : a).trim(); b = String(b == null ? "" : b).trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  var da = a.replace(/\D/g, ""), db = b.replace(/\D/g, "");
+  return da.length >= 5 && da === db && !/[A-Za-z]/.test(a + b);
 }
 function lookupHit(have, row, noLesions) {
   var fields = [];
@@ -1024,9 +1074,19 @@ function batchFolders_() {
   var inbox = it.hasNext() ? it.next() : DriveApp.createFolder(name);
   var sub = function (n) { var s = inbox.getFoldersByName(n); return s.hasNext() ? s.next() : inbox.createFolder(n); };
   var props = PropertiesService.getScriptProperties();
-  // 13.44 — the technicians' stent photos: in, and once read
+  // 13.48: the stent folders are "Used stents upload" / "Used stents processed";
+  // a folder still under its old name is renamed (its files and link stay)
+  var renamed = function (prop, now, old) {
+    var custom = props.getProperty(prop);
+    if (custom) return sub(custom);
+    var a = inbox.getFoldersByName(now); if (a.hasNext()) return a.next();
+    var b = inbox.getFoldersByName(old); if (b.hasNext()) { var fo = b.next(); try { fo.setName(now); } catch (e) {} return fo; }
+    return inbox.createFolder(now);
+  };
+  // 13.44 — the technicians' stent photos: in, and once read; 13.48 — stock photos for the inventory
   return { inbox: inbox, cag: sub(BATCH_SUB_CAG), ptca: sub(BATCH_SUB_PTCA), done: sub(BATCH_DONE), fail: sub(BATCH_FAIL),
-    stentsIn: sub(props.getProperty("STENT_IN") || STENT_IN_DEFAULT), stentsDone: sub(props.getProperty("STENT_DONE") || STENT_DONE_DEFAULT) };
+    stentsIn: renamed("STENT_IN", STENT_IN_DEFAULT, STENT_IN_OLD), stentsDone: renamed("STENT_DONE", STENT_DONE_DEFAULT, STENT_DONE_OLD),
+    invIn: sub(props.getProperty("INVUP_IN") || INVUP_IN_DEFAULT), invDone: sub(props.getProperty("INVUP_DONE") || INVUP_DONE_DEFAULT) };
 }
 
 /* ---- the prompts the app sent ---- */
@@ -1238,10 +1298,17 @@ function batchTick(opts) {
   if (batchOff_()) return { ran: false, why: "off" };
   // an automatic run outside the scan window does nothing (a scan started from the app always runs)
   BATCH_GUARD_ = null;
+  // 13.48: which part the half-price queue plays in this run
+  var pollOnly = false;
+  BATCH_QUEUE_MODE_ = opts.only === "stents" || opts.only === "inventory" ? "" : opts.fromApp ? (opts.caseId ? "now" : "poll") : "send";
   if (!opts.fromApp) {
     var plan = batchPlan_();
-    if (plan.mode === "closed") return { ran: false, why: "outside the scan window (next automatic read at " + plan.next + ")" };
-    if (plan.guard) BATCH_GUARD_ = { reserve: plan.reserve };
+    if (plan.mode === "closed") {
+      // outside the window the run only collects the answers of queued jobs
+      if (!PropertiesService.getScriptProperties().getProperty("BATCH_QUEUE_OPEN")) return { ran: false, why: "outside the scan window (next automatic read at " + plan.next + ")" };
+      pollOnly = true; BATCH_QUEUE_MODE_ = "poll";
+    }
+    else if (plan.guard) BATCH_GUARD_ = { reserve: plan.reserve };
   }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(opts.fromApp ? 5000 : 1000)) { batchLogRow_(runId, "", "", "run", "skipped", "another run is in progress"); return { ran: false, why: "another run is in progress" }; }
@@ -1260,7 +1327,7 @@ function batchTick(opts) {
     if (!key) { batchLogRow_(runId, "", "", "run", "skipped", "no GEMINI_KEY in the script properties"); summary.why = "no GEMINI_KEY"; ended = true; return summary; }
     // 13.44: "Scan now" on the technicians' page reads the stent photos only
     // (they need no prompt from the app — the script has its own)
-    var onlyStents = opts.only === "stents";
+    var onlyStents = opts.only === "stents" || opts.only === "inventory";   // the technicians' photos only
     var prompts = onlyStents ? null : batchPrompts_();
     if (!onlyStents && !prompts) { batchLogRow_(runId, "", "", "run", "skipped", "no reading prompts yet — open the app once as an editor"); summary.why = "no prompts"; ended = true; return summary; }
     var models = batchModels_();
@@ -1270,12 +1337,15 @@ function batchTick(opts) {
       var tab = batchTabRows_();
       // resume anything a previous run left half-read, then take new files
       work = tab.rows.filter(function (r) { return r.status === "reading" || r.status === "queued"; });
-      if (opts.caseId) {
+      if (pollOnly) {
+        work = work.filter(function (r) { return r.results && r.results._job; });
+        if (!work.length) { batchQueueOpenSet_(false); ended = true; return { ran: false, why: "outside the scan window; no queued job left" }; }
+      } else if (opts.caseId) {
         // "Scan now" on one case: that case alone, whatever its state
         work = tab.rows.filter(function (r) { return r.caseId === String(opts.caseId); });
         if (!work.length) { summary.why = "case not found"; ended = true; return summary; }
         if (work[0].status !== "reading" && work[0].status !== "queued") { work[0].status = "queued"; }
-      } else {
+      } else if (!pollOnly) {
         // a run started from the app takes what is in the inbox now: the
         // upload-still-in-progress wait drops to 20 s and a lone photo is not held back
         var fresh = batchGroupInbox_(f, tab, !!opts.fromApp);
@@ -1283,14 +1353,17 @@ function batchTick(opts) {
       }
     }
     summary.pending = work.length;
-    // one line per run that has something to do (quiet runs are not logged)
-    if (work.length) batchLogRow_(runId, "", "", "run", opts.fromApp ? (opts.caseId ? "scan now (one case)" : "scan now") : "started",
+    // one line per run that has something to do (quiet runs are not logged;
+    // nor is a run whose cases only wait on the half-price queue)
+    var onlyWaiting = !opts.fromApp && work.length && work.every(function (c) { return c.results && c.results._job; });
+    if (work.length && !onlyWaiting) batchLogRow_(runId, "", "", "run", opts.fromApp ? (opts.caseId ? "scan now (one case)" : "scan now") : "started",
       work.length + " case(s) to work on: " + work.map(function (c) { return c.caseId + " [" + c.status + "]"; }).join(", "));
     var paused = 0, stopped = false;
     for (var i = 0; i < work.length; i++) {
       if (Date.now() - start > BATCH_BUDGET_MS - 30000) { summary.why = "time budget used; the rest continue next run"; paused++; break; }
       var c = work[i];
       var r = batchProcessCase_(c, f, prompts, models, key, start, runId);
+      if (r === "paused" && c.waiting) { summary.waiting = (summary.waiting || 0) + 1; summary.pending--; continue; }   // waits on the half-price queue
       summary.cases++;
       if (r === "scanned") summary.scanned++;
       else if (r === "failed") summary.failed++;
@@ -1300,7 +1373,7 @@ function batchTick(opts) {
     summary.pending = Math.max(0, summary.pending - summary.scanned - summary.failed);
     // 13.44 — then the technicians' stent photos, with the time this run has
     // left (not on "Scan now" of one case, nor once a limit stopped the run)
-    if (!opts.caseId && !stopped) {
+    if (!opts.caseId && !stopped && !pollOnly && opts.only !== "inventory") {
       try {
         var gapS = batchGapMs_();
         var st = stentTick_(f, models, key, runId, !!opts.fromApp, function () { Utilities.sleep(gapS); },
@@ -1310,18 +1383,36 @@ function batchTick(opts) {
         else if (st.pending) { paused++; summary.why = (summary.why ? summary.why + "; " : "") + st.pending + " stent photo(s) continue next run"; }
       } catch (eS) { batchLogRow_(runId, "", "", "stent photos", "error", String(eS && eS.message || eS)); }
     }
+    // 13.48 — the stock photos in "Inventory uploads", with the time left
+    if (!opts.caseId && !stopped && !pollOnly && opts.only !== "stents") {
+      try {
+        var gapI = batchGapMs_();
+        var iv = invPhotoTick_(f, models, key, runId, !!opts.fromApp, function () { Utilities.sleep(gapI); },
+          function () { return BATCH_BUDGET_MS - (Date.now() - start); });
+        summary.inventory = iv;
+        if (iv.stopped) { stopped = true; summary.why = (summary.why ? summary.why + "; " : "") + "inventory photos: " + iv.why; }
+        else if (iv.pending) { paused++; summary.why = (summary.why ? summary.why + "; " : "") + iv.pending + " inventory photo(s) continue next run"; }
+        if (iv.scanned || iv.failed) batchLogRow_(runId, "", "", "inventory photos", "finished", iv.scanned + " read (" + iv.units + " item(s) received), " + iv.failed + " failed");
+      } catch (eI) { batchLogRow_(runId, "", "", "inventory photos", "error", String(eI && eI.message || eI)); }
+    }
     // 13.43, for a scan started from the app: work is left only because this
     // run ran out of time, and it got somewhere (a page was answered, or a
     // silent model was set aside) — the app starts the next run itself
     summary.more = paused > 0 && !stopped && (BATCH_RUN_.ok > 0 || BATCH_RUN_.rested > 0);
     summary.note = BATCH_RUN_.notes.join("; ");
-    try { var hk = batchHousekeep_(f, runId); if (hk) summary.why = (summary.why ? summary.why + "; " : "") + hk; } catch (e) { batchLogRow_(runId, "", "", "housekeeping", "failed", String(e && e.message || e)); }
+    // 13.48: the queue flag goes once no case waits on a job any more
+    if (BATCH_QUEUE_MODE_ && PropertiesService.getScriptProperties().getProperty("BATCH_QUEUE_OPEN")) {
+      try { if (!batchTabRows_().rows.some(function (x) { return (x.status === "reading" || x.status === "queued") && x.results && x.results._job; })) batchQueueOpenSet_(false); } catch (eQ) {}
+    }
+    var whyCore = summary.why;   // what the log line reports (a case merely waiting is not news every 5 minutes)
+    if (summary.waiting) summary.why = (summary.why ? summary.why + "; " : "") + summary.waiting + " case(s) waiting in Google's half-price queue";
+    try { var hk = pollOnly ? "" : batchHousekeep_(f, runId); if (hk) whyCore = (whyCore ? whyCore + "; " : "") + hk; if (hk) summary.why = (summary.why ? summary.why + "; " : "") + hk; } catch (e) { batchLogRow_(runId, "", "", "housekeeping", "failed", String(e && e.message || e)); }
     var stDone = summary.stents && (summary.stents.scanned || summary.stents.failed) ? summary.stents : null;
-    if (summary.cases || summary.why || stDone) batchLogRow_(runId, "", "", "run", "finished", summary.cases + " case(s) worked on, " + summary.scanned + " scanned, " + summary.failed + " failed" +
+    if (summary.cases || whyCore || stDone) batchLogRow_(runId, "", "", "run", "finished", summary.cases + " case(s) worked on, " + summary.scanned + " scanned, " + summary.failed + " failed" +
       (stDone ? "; stent photos " + stDone.scanned + " read (" + stDone.stickers + " sticker(s)), " + stDone.failed + " failed" : "") +
       (summary.why ? " — " + summary.why : "") + (summary.note ? " — " + summary.note : "") + ", " + Math.round((Date.now() - start) / 1000) + " s");
     // a stent-only run leaves the proformas' last-run line as it was
-    if (!onlyStents) props.setProperty("BATCH_LAST", JSON.stringify({ at: new Date().toISOString(), runId: runId,
+    if (!onlyStents && (!pollOnly || summary.cases)) props.setProperty("BATCH_LAST", JSON.stringify({ at: new Date().toISOString(), runId: runId,
       cases: summary.cases, scanned: summary.scanned, failed: summary.failed, why: summary.why, secs: Math.round((Date.now() - start) / 1000) }));
     ended = true;
   } catch (err) {
@@ -1516,6 +1607,12 @@ function batchGroupInbox_(f, tab, manual) {
    Returns "scanned", "failed", "paused" (budget ran out; resumes next run)
    or "stopped" (quota exhausted; nothing more this run). */
 function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
+  if (!c.results || typeof c.results !== "object") c.results = {};
+  BATCH_CASE_TOK_ = c.results._tokens = c.results._tokens || {};
+  try { return batchProcessCase0_(c, f, prompts, models, key, runStart, runId); }
+  finally { BATCH_CASE_TOK_ = null; }
+}
+function batchProcessCase0_(c, f, prompts, models, key, runStart, runId) {
   var gap = batchGapMs_();
   var pause = function () { Utilities.sleep(gap); };
   var timeLeft = function () { return BATCH_BUDGET_MS - (Date.now() - runStart); };
@@ -1579,6 +1676,36 @@ function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
       batchNote_(c, runId, it.name, "page recognition", "ok", pages.map(function (p) { return (it.isPdf ? "p." + p.page + " → " : "") + BATCH_SLOT_WORD[p.slot] || p.slot; }).join("; "));
       pause();
     }
+    // 13.48 — the wrong folder: a CAG proforma dropped in PTCA (or the other
+    // way round) gives few or no pages of this type and several "other" ones.
+    // The pages are then looked at once more as the other form (one cheap
+    // page-recognition request per file); if that fits better, the case is
+    // read as that type. If no page fits either form, the case fails here,
+    // before any reading is paid for.
+    var fits = function (mp, t) { return mp.filter(function (m) { return BATCH_NEEDED_OF[t].indexOf(m.slot) >= 0; }).length; };
+    var hits = fits(map, type), others = map.filter(function (m) { return m.slot === "other"; }).length;
+    if (hits < 2 && others >= 2) {
+      var alt = type === "PTCA" ? "CAG" : "PTCA";
+      var map2 = [], okAlt = !(alt === "PTCA" && !prompts.ptcaReady);
+      for (var k2 = 0; okAlt && k2 < items.length; k2++) {
+        var itA = items[k2];
+        if (!itA) continue;
+        if (timeLeft() < 100000) { okAlt = false; break; }
+        var rA = batchCallChain_(key, models.pageChain || [models.page], batchPagePrompt_(itA.isPdf, prompts, alt), itA, null, pause, timeLeft);
+        if (!rA.ok) { okAlt = false; break; }
+        batchParsePages_(rA.json, itA.isPdf, alt).forEach(function (pA) {
+          map2.push({ fileIdx: k2, pdfPage: itA.isPdf ? pA.page : 0, slot: pA.slot, label: itA.isPdf ? itA.name + " p." + pA.page : itA.name, footer: pA.footer || "" });
+        });
+        pause();
+      }
+      var hits2 = okAlt ? fits(map2, alt) : 0;
+      if (hits2 >= 2 && hits2 > hits) {
+        batchNote_(c, runId, "", "page recognition", "wrong folder", "uploaded as " + type + " but " + hits2 + " page(s) are " + alt + " proforma pages \u2014 read as a " + alt + " case");
+        type = alt; c.type = alt; map = map2;
+      } else if (!hits) {
+        return batchFinish_(c, f, runId, "failed", "none of the pages is a " + type + (okAlt ? " or " + alt : "") + " proforma page \u2014 check the upload (nothing was read)");
+      }
+    }
     // a slot seen twice: the whole-PDF answer sometimes repeats a slot (the
     // diagram sheet called "Sheet 1" again, say), so each repeat in a PDF is
     // looked at on its own with the single-page prompt before being written
@@ -1610,6 +1737,13 @@ function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
     c.pageMap = map;
     c.pages = map.length;
     batchWriteRow_(c);
+  }
+
+  // 13.48 — the half-price queue: send the sheets as one job, or collect a
+  // finished job's answers; whatever is still unread is read directly below
+  if (BATCH_QUEUE_MODE_) {
+    var qs = batchQueueStep_(c, items, prompts, models, key, runId);
+    if (qs === "waiting") { c.waiting = true; return "paused"; }
   }
 
   // 2. read each recognised page with the app's prompt for that sheet
@@ -1660,7 +1794,7 @@ function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
       else if (!c.cagNo && (hdr.cagNo || hdr.ptcaNo)) c.cagNo = String(hdr.ptcaNo || hdr.cagNo);
       // a page that failed on an earlier run and has now been read: its old error goes
       c.errors = (c.errors || []).filter(function (e) { return e.slot !== slot; });
-      batchNote_(c, runId, m.label, "reading " + BATCH_SLOT_WORD[slot], "ok", (slot === "p1" || slot === "q1" ? (c.name + (c.cagNo ? " · " + (slot === "q1" ? "PTCA " : "CAG ") + c.cagNo : "")) : "") + (rr.via ? " (via " + rr.via + ")" : "") + (item.isPdf ? " · " + (rr.asImage || "whole PDF") : ""));
+      batchNote_(c, runId, m.label, "reading " + BATCH_SLOT_WORD[slot], "ok", (slot === "p1" || slot === "q1" ? (c.name + (c.cagNo ? " · " + (slot === "q1" ? "PTCA " : "CAG ") + c.cagNo : "")) : "") + (rr.via ? " (via " + rr.via + ")" : "") + (item.isPdf ? " · " + (rr.asImage || "whole PDF") : "") + (rr.tok ? " · " + rr.tok : ""));
     }
     batchWriteRow_(c);
     pause();
@@ -1668,6 +1802,8 @@ function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
 
   if (c.pending) { c.pending = false; batchWriteRow_(c); return "paused"; }
   if (!attempted && c.pageMap.length) batchNote_(c, runId, "", "reading", "nothing to do", "every page is read already, a duplicate, not a proforma page, or failed for good");
+  // 13.48: the PTCA number from every sheet that carries it, checked against each other
+  if (type === "PTCA") batchPtcaNumbers_(c); else batchCagNumber_(c);
   // 3. done: what was read decides the verdict
   var got = Object.keys(c.results).filter(function (k) { return BATCH_SLOTS_OF[type].indexOf(k) >= 0; });
   var missing = BATCH_NEEDED_OF[type].filter(function (s) { return !c.results[s]; });
@@ -1682,6 +1818,79 @@ function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
   return batchFinish_(c, f, runId, "scanned", nTick + " of 4 " + (type === "PTCA" ? "PTCA sheets" : "tick sheets") + " read" +
     (c.results.d ? " + diagram" : "") + (c.results.qu ? " + utilization report" : "") +
     (c.errors.length ? "; " + c.errors.length + " problem(s) noted" : ""));
+}
+/* ---- 13.48: the PTCA number ----
+   Written xxxxAPzzzz: the cath number, AP, the PTCA number (2356AP657). The
+   front page's PTCA / Cath No. comes first; the "PTCA / Cath No." line at the
+   top of pages 2-4 (hdrPtcaNo) and the utilization sheet (Cath No. + "IP No.
+   PTCA") fill it when the front page has no full number. Sheets that disagree
+   are noted as a problem on the case (step "numbers"), shown in the inbox
+   list and on the review screen, where the app flags the field as well. The
+   number becomes the case's label in the inbox list. */
+function batchPtcaNoNorm_(s) {
+  var t = String(s == null ? "" : s).trim().toUpperCase();
+  if (!t) return { kind: "", v: "" };
+  var m = /^(\d{2,6})\s*[-\/.\s]*\s*A\s*\.?\s*P\s*\.?\s*[-\/.\s]*\s*(\d{1,6})$/.exec(t);
+  if (m) return { kind: "full", v: m[1] + "AP" + m[2], cath: m[1], ptca: m[2] };
+  var d = t.replace(/\s+/g, "");
+  if (/^\d{2,6}$/.test(d)) return { kind: "cath", v: d, cath: d };
+  if (/^\d{1,4}[\/-]?20\d\d$/.test(d)) return { kind: "cagLike", v: d.replace(/\D/g, "") };
+  return { kind: "odd", v: t };
+}
+/* 13.48: the CAG proforma's CAG No. — digits only, CAG number + the year of
+   the CAG; a year that is not the CAG date's (2020 read for 2026) or letters
+   are noted on the case. The number is kept as written. */
+function batchYearOf_(s) {
+  var t = String(s == null ? "" : s).trim();
+  var m = /\b((?:19|20)\d\d)\b/.exec(t);
+  if (m) return Number(m[1]);
+  m = /\d{1,2}\s*[\/.\-]\s*\d{1,2}\s*[\/.\-]\s*(\d{2})\s*$/.exec(t);
+  return m ? 2000 + Number(m[1]) : 0;
+}
+function batchCagNumber_(c) {
+  var p1 = (c.results || {}).p1;
+  c.errors = (c.errors || []).filter(function (e) { return e.step !== "numbers"; });
+  if (!p1) return;
+  var t = String(p1.cagNo || "").trim(), why = "";
+  if (!t) why = "no CAG number was read";
+  else if (/[A-Za-z]/.test(t)) why = "CAG No. " + t + " contains letters \u2014 CAG numbers are digits only";
+  else {
+    var m = /^(\d{1,4})((?:19|20)\d\d)$/.exec(t.replace(/\D/g, ""));
+    var dy = batchYearOf_(p1.date);
+    if (!m) why = "CAG No. " + t + " is not a CAG number followed by its year";
+    else if (dy && Number(m[2]) !== dy) why = "CAG No. " + t + " ends in " + m[2] + " but the CAG date is in " + dy;
+    else if (!dy && Number(m[2]) > new Date().getFullYear()) why = "CAG No. " + t + " ends in " + m[2] + ", which has not come yet";
+  }
+  if (why) c.errors.push({ page: "", step: "numbers", reason: why + " \u2014 check against the paperwork" });
+}
+function batchPtcaNumbers_(c) {
+  var r = c.results || {}, src = [];
+  if (r.q1 && r.q1.ptcaNo) src.push({ where: "front page", n: batchPtcaNoNorm_(r.q1.ptcaNo), raw: String(r.q1.ptcaNo) });
+  ["q2", "q3", "q4"].forEach(function (k, i) { if (r[k] && r[k].hdrPtcaNo) src.push({ where: "page " + (i + 2) + " header", n: batchPtcaNoNorm_(r[k].hdrPtcaNo), raw: String(r[k].hdrPtcaNo) }); });
+  var u = r.qu && r.qu.util;
+  if (u && (u.cathNo || u.ipNo)) {
+    var whole = batchPtcaNoNorm_(u.cathNo);
+    var cc = String(u.cathNo || "").replace(/\D/g, ""), pp = String(u.ipNo || "").replace(/\D/g, "");
+    src.push({ where: "utilization sheet", n: whole.kind === "full" ? whole : cc && pp ? batchPtcaNoNorm_(cc + "AP" + pp) : cc ? batchPtcaNoNorm_(cc) : { kind: "", v: "" } });
+  }
+  var front = src.length && src[0].where === "front page" ? src[0].n : { kind: "", v: "" };
+  var fulls = src.filter(function (x) { return x.n.kind === "full"; });
+  var best = front.kind === "full" ? front
+    : front.kind === "cath" ? ((fulls.filter(function (x) { return x.n.cath === front.cath; })[0] || {}).n || front)
+    : (fulls[0] || {}).n || null;
+  var probs = [];
+  src.forEach(function (x) {
+    if (x.n.kind === "cagLike") probs.push("the " + x.where + " PTCA No. was read as " + x.raw + ", which looks like a CAG number");
+    else if (best && best.kind === "full" && x.n.kind === "full" && x.n.v !== best.v) probs.push("the " + x.where + " reads " + x.n.v);
+    else if (best && x.n.kind === "cath" && best.cath && x.n.cath !== best.cath) probs.push("the " + x.where + " gives cath number " + x.n.cath);
+  });
+  c.errors = (c.errors || []).filter(function (e) { return e.step !== "numbers"; });
+  if (!best || !best.v) c.errors.push({ page: "", step: "numbers", reason: "no PTCA number was found on any sheet — type it in from the paperwork" });
+  else {
+    c.cagNo = best.v;
+    if (probs.length) c.errors.push({ page: "", step: "numbers", reason: "the PTCA numbers on the sheets disagree — the report has " + best.v + "; " + probs.join("; ") + " — check against the paperwork" });
+    else if (best.kind !== "full") c.errors.push({ page: "", step: "numbers", reason: "only the cath number " + best.v + " was found — the PTCA number (xxxxAPzzzz) is incomplete" });
+  }
 }
 /* ---- Drive housekeeping ----
    Counts the cases whose files are still in Drive. Past BATCH_KEEP, the
@@ -1731,6 +1940,8 @@ function batchTry_(c, key) {
 }
 function batchFinish_(c, f, runId, status, why) {
   c.status = status;
+  var tk = c.results && c.results._tokens;
+  if (tk && tk.requests) why += " \u2014 " + tk.requests + " request(s), tokens in " + (tk["in"] || 0) + ", answer " + (tk.answer || 0) + ", thinking " + (tk.thinking || 0);
   c.scannedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
   batchNote_(c, runId, "", "finish", status, why);
   // the files move out of the inbox: a sub-folder per case under
@@ -2045,7 +2256,8 @@ function batchPdfPages_(bytes) {
     try { return asJpeg(pnum) || asPdf(pnum); } catch (e) { return null; }
   });
 }
-function batchGemini_(key, model, prompt, item, pdfPage) {
+/* the request for one page: { body, asImage } or { ok:false, reason, retry } */
+function batchBody_(model, prompt, item, pdfPage) {
   // the file's bytes, read from Drive once per run
   if (!item.bytes) {
     try { item.bytes = item.file.getBlob().getBytes(); }
@@ -2058,13 +2270,19 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
     var pi = item.pageImgs[pdfPage - 1];
     if (pi && pi.bytes && pi.bytes.length) { bytes = pi.bytes; mime = pi.mime; asImage = pi.how; prompt = prompt.replace(BATCH_PDF_WRAP_RE, ""); }
   }
-  var body = {
+  var gc = { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json" };
+  return { body: {
     contents: [{ role: "user", parts: [
       { inline_data: { mime_type: mime, data: Utilities.base64Encode(bytes) } },
       { text: prompt }
     ] }],
-    generationConfig: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json" }
-  };
+    generationConfig: gc
+  }, asImage: asImage };
+}
+function batchGemini_(key, model, prompt, item, pdfPage) {
+  var built = batchBody_(model, prompt, item, pdfPage);
+  if (!built.body) return built;
+  var body = built.body, asImage = built.asImage;
   batchCount_(model);
   // 13.43: the request has a time limit of its own, and is marked as "in the
   // air" while it waits — see BATCH_FETCH_SEC_DEFAULT
@@ -2115,19 +2333,212 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
   }
   var j;
   try { j = JSON.parse(text); } catch (e) { return { ok: false, reason: "Google's reply was not readable", retry: true }; }
+  batchTokAdd_(j && j.usageMetadata);
+  var rp = batchReply_(j);
+  if (!rp.ok) return rp;
+  BATCH_RUN_.ok++;
+  return { ok: true, json: rp.json, asImage: asImage, tok: batchTokWord_(j && j.usageMetadata) };
+}
+/* 13.48: what each request used, from Google's own count (usageMetadata):
+   tokens in (the page and the prompt), the answer, and the model's thinking
+   (thoughtsTokenCount, billed as output). Noted per page in the case log and
+   added up per case (results._tokens), so the cost of a case can be read off. */
+var BATCH_CASE_TOK_ = null;   // the case being read: its running totals
+function batchTokAdd_(u) {
+  if (!u || !BATCH_CASE_TOK_) return;
+  var t = BATCH_CASE_TOK_;
+  t["in"] = (t["in"] || 0) + (Number(u.promptTokenCount) || 0);
+  t.answer = (t.answer || 0) + (Number(u.candidatesTokenCount) || 0);
+  t.thinking = (t.thinking || 0) + (Number(u.thoughtsTokenCount) || 0);
+  t.requests = (t.requests || 0) + 1;
+}
+function batchTokWord_(u) {
+  if (!u) return "";
+  return "tokens: in " + (Number(u.promptTokenCount) || 0) + ", answer " + (Number(u.candidatesTokenCount) || 0) + ", thinking " + (Number(u.thoughtsTokenCount) || 0);
+}
+/* one generateContent answer (from a direct request, or one item of a batch
+   job) -> { ok, json } or { ok:false, reason, retry, tryOther } */
+function batchReply_(j) {
   var cand = j && j.candidates && j.candidates[0];
   var fin = cand && cand.finishReason;
   if (!cand) {
     var block = j && j.promptFeedback && j.promptFeedback.blockReason;
     return { ok: false, reason: block ? "Google declined to read this page (" + block + ")" : "the model returned nothing for this page", retry: !block };
   }
-  var out = ((cand.content && cand.content.parts) || []).map(function (p) { return p.text || ""; }).join("");
+  // a thinking model's thought summary (thought: true) is never part of the answer
+  var out = ((cand.content && cand.content.parts) || []).filter(function (p) { return !p.thought; }).map(function (p) { return p.text || ""; }).join("");
   if (fin === "MAX_TOKENS") return { ok: false, reason: "the model's answer was cut off (too long) — the page may be very busy; try re-scanning it on a phone", retry: false, tryOther: true };
   if (fin === "SAFETY" || fin === "RECITATION") return { ok: false, reason: "the model stopped (" + fin + ")", retry: false };
   var parsed = batchParseJson_(out);
   if (parsed === undefined) return { ok: false, reason: "the model's answer was not valid JSON (it wrote text instead of the form's fields)", retry: true };
-  BATCH_RUN_.ok++;
-  return { ok: true, json: parsed, asImage: asImage };
+  return { ok: true, json: parsed };
+}
+
+/* ============================================================
+   13.48 — Google's half-price batch queue (Batch API)
+   On an automatic run, once a case's pages are recognised, the sheets still
+   to read go to Google as one batch job on the reading model, at half the
+   normal price. Google's target is 24 hours; most jobs come back within
+   minutes to an hour or two. The job's name sits in the case's results
+   (_job) until its answers are in; a case is queued once (_queued), so a
+   sheet the queue could not read is read directly, never queued again.
+   ============================================================ */
+var BATCH_QUEUE_HOURS_DEFAULT = 6;
+var BATCH_QUEUE_MAX_BYTES = 18 * 1024 * 1024;     // Google takes inline batch jobs under 20 MB
+var BATCH_QUEUE_MODE_ = "";   // set by batchTick: "send" (automatic run), "poll" (only look at queued jobs), "now" (Scan now on one case: cancel and read at once)
+function batchQueueOn_() {
+  var raw = String(PropertiesService.getScriptProperties().getProperty("BATCH_HALF_PRICE") || "").trim().toLowerCase();
+  return !/^(off|no|0|false)$/.test(raw);
+}
+function batchQueueHours_() {
+  var raw = PropertiesService.getScriptProperties().getProperty("BATCH_QUEUE_HOURS"), v = Number(raw);
+  return raw != null && String(raw).trim() !== "" && isFinite(v) && v > 0 ? Math.min(40, v) : BATCH_QUEUE_HOURS_DEFAULT;
+}
+function batchJobSubmit_(key, model, reqs, label) {
+  var resp;
+  try {
+    resp = batchFetch_(GEMINI_API + "/models/" + model + ":batchGenerateContent", {
+      method: "post", contentType: "application/json", headers: { "x-goog-api-key": key }, muteHttpExceptions: true,
+      payload: JSON.stringify({ batch: { display_name: String(label || "cag-scanner").slice(0, 120), input_config: { requests: { requests: reqs } } } }) }, 90);
+  } catch (e) { return { ok: false, reason: "the request to Google failed: " + String(e && e.message || e) }; }
+  var code = resp.getResponseCode(), text = resp.getContentText();
+  if (code !== 200) return { ok: false, reason: "Google answered " + code + ": " + mcClassify(code, text, model).note };
+  var j = null; try { j = JSON.parse(text); } catch (e) {}
+  var name = j && (j.name || (j.metadata && j.metadata.name) || (j.batch && j.batch.name));
+  if (!name) return { ok: false, reason: "Google's answer named no batch job" };
+  return { ok: true, name: String(name) };
+}
+/* the answers of a finished job, wherever Google put them (the docs show
+   both response.inlinedResponses and dest.inlinedResponses, nested once more) */
+function batchFindInlined_(o, depth) {
+  depth = depth || 0;
+  if (!o || typeof o !== "object" || depth > 6) return null;
+  if (Array.isArray(o.inlinedResponses)) return o.inlinedResponses;
+  var ks = Object.keys(o);
+  for (var i = 0; i < ks.length; i++) { var r = batchFindInlined_(o[ks[i]], depth + 1); if (r) return r; }
+  return null;
+}
+/* -> { state: "running" | "done" | "failed" | "unknown", items, reason } */
+function batchJobPoll_(key, name) {
+  var resp;
+  try { resp = batchFetch_(GEMINI_API + "/" + name, { method: "get", headers: { "x-goog-api-key": key }, muteHttpExceptions: true }, 60); }
+  catch (e) { return { state: "unknown", reason: "the request to Google failed: " + String(e && e.message || e) }; }
+  var code = resp.getResponseCode(), text = resp.getContentText();
+  if (code === 404) return { state: "failed", reason: "Google no longer has this batch job" };
+  if (code !== 200) return { state: "unknown", reason: "Google answered " + code };
+  var j = null; try { j = JSON.parse(text); } catch (e) { return { state: "unknown", reason: "Google's answer was not readable" }; }
+  var st = String((j.metadata && j.metadata.state) || j.state || (j.batch && j.batch.state) || "");
+  if (/FAILED|CANCELL?ED|EXPIRED/i.test(st) || (j.done && j.error)) {
+    return { state: "failed", reason: (st || "the job failed") + (j.error && j.error.message ? ": " + String(j.error.message).slice(0, 200) : "") };
+  }
+  if (/SUCCEEDED/i.test(st) || j.done) {
+    var items = batchFindInlined_(j);
+    return items ? { state: "done", items: items } : { state: "failed", reason: "the finished job held no answers" };
+  }
+  return { state: "running", what: st };
+}
+function batchJobCancel_(key, name) {
+  try { batchFetch_(GEMINI_API + "/" + name + ":cancel", { method: "post", contentType: "application/json", payload: "{}", headers: { "x-goog-api-key": key }, muteHttpExceptions: true }, 30); } catch (e) {}
+}
+/* Is there any case waiting on a job? (kept in BATCH_QUEUE_OPEN so the
+   5-minute runs outside the scan window can skip the sheet when there is none) */
+function batchQueueOpenSet_(on) {
+  var pp = PropertiesService.getScriptProperties();
+  if (on) pp.setProperty("BATCH_QUEUE_OPEN", "1"); else pp.deleteProperty("BATCH_QUEUE_OPEN");
+}
+/* One case's part in the queue, called before its sheets are read directly.
+   Returns "waiting" (the case waits for its job; nothing else to do now) or
+   "live" (read whatever is still unread directly, as before). */
+function batchQueueStep_(c, items, prompts, models, key, runId) {
+  var mode = BATCH_QUEUE_MODE_;
+  if (!c.results || typeof c.results !== "object") c.results = {};
+  var job = c.results._job;
+  if (job && job.name) {
+    var st = batchJobPoll_(key, job.name);
+    var mins = Math.round((Date.now() - Number(job.at || 0)) / 60000);
+    if (st.state === "running" || st.state === "unknown") {
+      var tooLong = mins >= batchQueueHours_() * 60;
+      if (mode !== "now" && !tooLong) return "waiting";
+      batchJobCancel_(key, job.name);
+      delete c.results._job;
+      batchNote_(c, runId, "", "half-price queue", "cancelled", mode === "now" ? "Scan now: the queued job (" + mins + " min) is cancelled and the sheets are read at once"
+        : "not back after " + mins + " min — the sheets are read directly instead");
+      batchWriteRow_(c);
+      return "live";
+    }
+    delete c.results._job;
+    if (st.state === "failed") {
+      batchNote_(c, runId, "", "half-price queue", "failed", st.reason + " — the sheets are read directly instead");
+      batchWriteRow_(c);
+      return "live";
+    }
+    // done: each answer goes where a direct read's would
+    var got = 0, miss = [];
+    (job.slots || []).forEach(function (sl, i) {
+      var it = null;
+      for (var k = 0; k < st.items.length; k++) { var md = st.items[k] && st.items[k].metadata; if (md && md.key === sl.slot) { it = st.items[k]; break; } }
+      if (!it) it = st.items[i];
+      var rp = !it ? { ok: false, reason: "no answer came back" }
+        : it.error ? { ok: false, reason: "Google: " + String(it.error.message || it.error.code || "error").slice(0, 200) }
+        : batchReply_(it.response || it);
+      var um = it && !it.error ? (it.response || it).usageMetadata : null;
+      batchTokAdd_(um);
+      if (!rp.ok) { miss.push(BATCH_SLOT_WORD[sl.slot] + " (" + rp.reason + ")"); return; }
+      c.results[sl.slot] = rp.json;
+      c.readBy = c.readBy || {}; c.readBy[sl.slot] = job.model;
+      var hdr = rp.json && typeof rp.json === "object" ? rp.json : {};
+      if (sl.slot === "p1") { c.name = String(hdr.name || ""); c.cagNo = String(hdr.cagNo || ""); }
+      else if (sl.slot === "q1") { c.name = String(hdr.name || ""); c.cagNo = String(hdr.ptcaNo || hdr.cathNo || hdr.cagNo || ""); }
+      else if (!c.cagNo && (hdr.cagNo || hdr.ptcaNo)) c.cagNo = String(hdr.ptcaNo || hdr.cagNo);
+      c.errors = (c.errors || []).filter(function (e) { return e.slot !== sl.slot; });
+      batchNote_(c, runId, sl.label, "reading " + BATCH_SLOT_WORD[sl.slot], "ok",
+        (sl.slot === "p1" || sl.slot === "q1" ? c.name + (c.cagNo ? " · " + (sl.slot === "q1" ? "PTCA " : "CAG ") + c.cagNo + " · " : " · ") : "") + "half-price queue, " + mins + " min" + (sl.how ? " · " + sl.how : "") + (um ? " · " + batchTokWord_(um) : ""));
+      got++;
+    });
+    BATCH_RUN_.ok += got;
+    if (miss.length) batchNote_(c, runId, "", "half-price queue", "partly", got + " sheet(s) read; read directly instead: " + miss.join("; "));
+    batchWriteRow_(c);
+    return "live";
+  }
+  if (mode !== "send" || !batchQueueOn_() || c.results._queued) return "live";
+  // the sheets still to read — the same ones the direct loop would read
+  var todo = [];
+  c.pageMap.forEach(function (m) {
+    if (m.dup || m.slot === "other" || m.slot === "unknown" || !m.slot) return;
+    if (c.results[m.slot]) return;
+    if ((c.errors || []).some(function (e) { return e.slot === m.slot; })) return;
+    if (m.slot === "d" && !prompts.d) return;
+    if (!prompts[m.slot] || !items[m.fileIdx]) return;
+    if (todo.some(function (t) { return t.slot === m.slot; })) return;
+    todo.push({ m: m, slot: m.slot, item: items[m.fileIdx] });
+  });
+  if (!todo.length) return "live";
+  var model = (models.readChain || [models.read])[0];
+  var reqs = [], slots = [], size = 0;
+  for (var t = 0; t < todo.length; t++) {
+    var b = batchBody_(model, batchReadPrompt_(prompts[todo[t].slot], todo[t].item.isPdf, todo[t].m.pdfPage), todo[t].item, todo[t].m.pdfPage);
+    if (!b.body) return "live";
+    size += b.body.contents[0].parts[0].inline_data.data.length + 4000;
+    reqs.push({ request: b.body, metadata: { key: todo[t].slot } });
+    slots.push({ slot: todo[t].slot, label: todo[t].m.label, how: todo[t].item.isPdf ? (b.asImage || "whole PDF") : "" });
+  }
+  c.results._queued = 1;
+  if (size > BATCH_QUEUE_MAX_BYTES) {
+    batchNote_(c, runId, "", "half-price queue", "skipped", "the pages are too large together (" + Math.round(size / 1048576) + " MB) for one job — read directly");
+    batchWriteRow_(c);
+    return "live";
+  }
+  var sub = batchJobSubmit_(key, model, reqs, "cag-scanner " + c.caseId);
+  if (!sub.ok) {
+    batchNote_(c, runId, "", "half-price queue", "not used", sub.reason + " — the sheets are read directly");
+    batchWriteRow_(c);
+    return "live";
+  }
+  c.results._job = { name: sub.name, model: model, at: Date.now(), slots: slots };
+  batchQueueOpenSet_(true);
+  batchNote_(c, runId, "", "half-price queue", "sent", slots.length + " sheet(s) sent to Google's batch queue on " + model + " (half price) — usually back within minutes to a few hours; read directly if not back in " + batchQueueHours_() + " h");
+  batchWriteRow_(c);
+  return "waiting";
 }
 /* how long this request may take: BATCH_FETCH_SEC (script property, 20 to
    240 s; default 90), and never past BATCH_RUN_END_MS of the run */
@@ -2394,6 +2805,8 @@ function batchRetry_(caseId) {
   var r = tab.byId[caseId];
   if (!r) return false;
   if (r.filesRemoved) throw new Error("this case's files were removed from Drive by housekeeping on " + r.filesRemoved + " — upload the PDF again as a new case");
+  // 13.48: a job still in Google's half-price queue for this case is cancelled
+  if (r.results && r.results._job && r.results._job.name) { var kq = geminiKey_(); if (kq) batchJobCancel_(kq, r.results._job.name); }
   var f = batchFolders_();
   var typeName = batchType_(r.type) === "PTCA" ? BATCH_SUB_PTCA : BATCH_SUB_CAG;
   var back = batchType_(r.type) === "PTCA" ? f.ptca : f.cag;
@@ -3516,13 +3929,17 @@ function invSave_(req) {
 
 /* ---------------- stent stickers ---------------- */
 var STENT_TAB = "Stents", STENT_UP_TAB = "Stent uploads";
-var STENT_IN_DEFAULT = "Stents uploads", STENT_DONE_DEFAULT = "Stents scanned";
+var STENT_IN_DEFAULT = "Used stents upload", STENT_DONE_DEFAULT = "Used stents processed";
+var STENT_IN_OLD = "Stents uploads", STENT_DONE_OLD = "Stents scanned";          // names before 13.48: renamed on the first run
+/* 13.48: photos of stock RECEIVED (stent boxes, other devices) go in their own
+   folder; each sticker read there is added to the inventory, never taken off */
+var INVUP_IN_DEFAULT = "Inventory uploads", INVUP_DONE_DEFAULT = "Inventory processed";
 var STENT_KEEP_DEFAULT = 200;
 var STENT_HEAD = ["Sticker id", "Upload id", "Patient", "PTCA / Cath No", "IP No", "Date", "Device", "Brand", "Manufacturer", "Size",
   "Diameter (mm)", "Length (mm)", "REF", "LOT", "Serial No", "Expiry", "Mfg date", "GTIN", "Barcode / QR text", "Other",
   "Unsure", "Photo", "Scanned at", "Read by", "Bill no", "Bill date", "Vendor", "Billed at", "Billed by", "Edited", "Notes", "File id", "Photo removed"];
 var STENT_UP_HEAD = ["Upload id", "Status", "File", "File id", "Uploaded", "Scanned at", "Stickers", "Patient", "Number",
-  "Errors", "Log", "Tries", "Read by", "Photo removed", "By"];
+  "Errors", "Log", "Tries", "Read by", "Photo removed", "By", "Purpose"];
 /* the fields of a sticker row as the app knows them (index = column) */
 var STENT_KEYS = ["id", "up", "patient", "ptcaNo", "ipNo", "date", "device", "brand", "mfr", "size", "dia", "len", "ref", "lot", "serial",
   "expiry", "mfg", "gtin", "codes", "other", "unsure", "photo", "scannedAt", "readBy", "billNo", "billDate", "vendor", "billedAt", "billedBy",
@@ -3685,7 +4102,7 @@ function stentUpRows_() {
       var errs = []; try { errs = JSON.parse(cell(v[9]) || "[]") || []; } catch (e) { errs = cell(v[9]) ? [cell(v[9])] : []; }
       rows.push({ row: i + 2, id: cell(v[0]), status: cell(v[1]), file: cell(v[2]), fileId: cell(v[3]), uploaded: cell(v[4]), scannedAt: cell(v[5]),
         stickers: Number(v[6]) || 0, patient: cell(v[7]), number: cell(v[8]), errors: errs, log: cell(v[10]), tries: Number(v[11]) || 0,
-        readBy: cell(v[12]), photoGone: cell(v[13]), by: cell(v[14]) });
+        readBy: cell(v[12]), photoGone: cell(v[13]), by: cell(v[14]), purpose: cell(v[15]) === "stock" ? "stock" : "used" });
     });
   }
   var byId = {}, byFile = {};
@@ -3695,7 +4112,7 @@ function stentUpRows_() {
 function stentUpWrite_(r) {
   var sh = stentUpTab_();
   var vals = [r.id, r.status, r.file || "", r.fileId || "", r.uploaded || "", r.scannedAt || "", r.stickers || 0, r.patient || "", r.number || "",
-    JSON.stringify(r.errors || []).slice(0, 20000), String(r.log || "").slice(-20000), r.tries || 0, r.readBy || "", r.photoGone || "", r.by || ""];
+    JSON.stringify(r.errors || []).slice(0, 20000), String(r.log || "").slice(-20000), r.tries || 0, r.readBy || "", r.photoGone || "", r.by || "", r.purpose === "stock" ? "stock" : "used"];
   // formatted as text before the values go in, so a time is never turned into a date
   if (!r.row) r.row = sh.getLastRow() + 1;
   var rg = sh.getRange(r.row, 1, 1, STENT_UP_HEAD.length);
@@ -3710,10 +4127,11 @@ function stentNote_(r, runId, step, outcome, detail) {
 }
 function stentPhotoUrl_(fileId) { return fileId ? "https://drive.google.com/file/d/" + fileId + "/view" : ""; }
 /* the photos waiting in Stents uploads become rows of the uploads tab */
-function stentTakeNew_(f, tab, manual) {
+function stentTakeNew_(f, tab, manual, purpose) {
+  var stock = purpose === "stock";
   var minAge = manual ? 20 * 1000 : BATCH_MIN_AGE_MS;
   var now = Date.now(), fresh = [];
-  var it = f.stentsIn.getFiles();
+  var it = (stock ? f.invIn : f.stentsIn).getFiles();
   while (it.hasNext()) {
     var file = it.next();
     var mime = String(file.getMimeType() || "").toLowerCase();
@@ -3725,10 +4143,10 @@ function stentTakeNew_(f, tab, manual) {
   fresh.sort(function (a, b) { return a.t - b.t; });
   return fresh.map(function (x) {
     var stem = String(x.file.getName()).replace(/\.[A-Za-z0-9]+$/, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
-    var id = "ST" + Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + (stem ? "-" + stem : "");
+    var id = (stock ? "IN" : "ST") + Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + (stem ? "-" + stem : "");
     var n = 2; while (tab.byId[id]) id = id.replace(/~\d+$/, "") + "~" + (n++);
     var r = { id: id, status: "queued", file: x.file.getName(), fileId: x.file.getId(),
-      uploaded: Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm"), errors: [], log: "", tries: 0, row: 0 };
+      uploaded: Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm"), errors: [], log: "", tries: 0, row: 0, purpose: stock ? "stock" : "used" };
     stentUpWrite_(r);
     tab.rows.push(r); tab.byId[id] = r; tab.byFile[r.fileId] = r;
     return r;
@@ -3740,8 +4158,8 @@ function stentTakeNew_(f, tab, manual) {
 function stentTick_(f, models, key, runId, manual, pause, timeLeft) {
   var out = { scanned: 0, failed: 0, stickers: 0, pending: 0, stopped: false, why: "", taken: 0 };
   var tab = stentUpRows_();
-  out.taken = stentTakeNew_(f, tab, manual).length;
-  var work = tab.rows.filter(function (r) { return r.status === "queued"; });
+  out.taken = stentTakeNew_(f, tab, manual, "used").length;
+  var work = tab.rows.filter(function (r) { return r.status === "queued" && r.purpose !== "stock"; });
   if (work.length) batchLogRow_(runId, "", "", "stent photos", "started", work.length + " photo(s) to read");
   for (var i = 0; i < work.length; i++) {
     if (timeLeft() < 100000) { out.pending = work.length - i; out.why = "time budget used; the other stent photos continue next run"; break; }
@@ -3836,11 +4254,15 @@ function stentList_() {
 function stentStatus_() {
   var f = batchFolders_();
   var tab = stentUpRows_();
-  var count = function (s) { return tab.rows.filter(function (r) { return r.status === s; }).length; };
+  var count = function (s) { return tab.rows.filter(function (r) { return r.status === s && r.purpose !== "stock"; }).length; };
   var waiting = 0; try { var it = f.stentsIn.getFiles(); while (it.hasNext()) { var x = it.next(); if (!tab.byFile[x.getId()]) waiting++; } } catch (e) {}
   var inDone = 0; try { var it2 = f.stentsDone.getFiles(); while (it2.hasNext()) { it2.next(); inDone++; } } catch (e) {}
   var last = null; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty("STENT_LAST") || "null"); } catch (e) {}
-  return { inUrl: f.stentsIn.getUrl(), doneUrl: f.stentsDone.getUrl(), inName: f.stentsIn.getName(), doneName: f.stentsDone.getName(),
+  var invWaiting = 0; try { var it3 = f.invIn.getFiles(); while (it3.hasNext()) { var y = it3.next(); if (!tab.byFile[y.getId()]) invWaiting++; } } catch (e) {}
+  var cnt = function (s, p) { return tab.rows.filter(function (r) { return r.status === s && (r.purpose === "stock") === (p === "stock"); }).length; };
+  return { invInUrl: f.invIn.getUrl(), invInName: f.invIn.getName(), invDoneUrl: f.invDone.getUrl(), invDoneName: f.invDone.getName(),
+    invWaiting: invWaiting + cnt("queued", "stock"), invFailed: cnt("failed", "stock"), invScanned: cnt("scanned", "stock"),
+    inUrl: f.stentsIn.getUrl(), doneUrl: f.stentsDone.getUrl(), inName: f.stentsIn.getName(), doneName: f.stentsDone.getName(),
     keep: stentKeepN_(), inDone: inDone, waiting: waiting + count("queued"), failed: count("failed"), scanned: count("scanned"),
     last: last, schedule: batchPlan_(), keySet: !!geminiKey_(), scheduled: batchTriggers_().length > 0 && !batchOff_() };
 }
@@ -3848,7 +4270,7 @@ function stentUploads_() {
   var tab = stentUpRows_();
   return { uploads: tab.rows.slice(-300).reverse().map(function (r) {
     return { id: r.id, status: r.status, file: r.file, fileId: r.fileId, uploaded: r.uploaded, scannedAt: r.scannedAt, stickers: r.stickers,
-      patient: r.patient, number: r.number, errors: r.errors, log: String(r.log || "").split("\n").slice(-12).join("\n"), tries: r.tries, readBy: r.readBy, photoGone: r.photoGone, by: r.by };
+      patient: r.patient, number: r.number, errors: r.errors, log: String(r.log || "").split("\n").slice(-12).join("\n"), tries: r.tries, readBy: r.readBy, photoGone: r.photoGone, by: r.by, purpose: r.purpose };
   }) };
 }
 /* a sticker row corrected, added by hand, marked billed, or deleted */
@@ -3958,7 +4380,8 @@ function stentUpload_(req) {
   var ext = mime === "application/pdf" ? ".pdf" : mime === "image/png" ? ".png" : ".jpg";
   var who = cathStr_(req.label, 40).replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
   var name = "stent_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + (who ? "_" + who : "") + ext;
-  var file = f.stentsIn.createFile(Utilities.newBlob(bytes, mime, name));
+  // 13.48: a stock photo (purpose "stock") goes to Inventory uploads
+  var file = (String(req.purpose || "") === "stock" ? f.invIn : f.stentsIn).createFile(Utilities.newBlob(bytes, mime, String(req.purpose || "") === "stock" ? name.replace(/^stent_/, "stock_") : name));
   if (req.by) { try { file.setDescription("uploaded from the app by " + cathStr_(req.by, 60)); } catch (e) {} }
   return { fileId: file.getId(), name: name };
 }
@@ -3982,6 +4405,96 @@ function stentReadBill_(req) {
   return { model: res.model || "", bill: { number: cathStr_(b.number, 60), date: cathStr_(b.date, 30), vendor: cathStr_(b.vendor, 120),
       patient: cathStr_(b.patient, 120), ipNo: cathStr_(b.ipNo, 40), ptcaNo: cathStr_(b.ptcaNo, 40), amount: cathStr_(b.amount, 30) },
     items: (Array.isArray(j.items) ? j.items : []).slice(0, 30).map(stentNormItem_) };
+}
+/* ---- 13.48: stock photos (Inventory uploads) ----
+   Each sticker read on a photo in "Inventory uploads" is one unit RECEIVED:
+   a "received" move on the matching item (made if new), keyed "STOCK
+   <upload id>-<n>" so a photo read again replaces its own moves. The photo
+   moves to "Inventory processed". Nothing goes on the Stents tab, which is
+   the record of stents USED. */
+function invReceiveStickers_(list, upId, label, by) {
+  var items = invItems_();
+  var mv = invMovesAll_().filter(function (m) { return m.caseKey.indexOf("STOCK " + upId + "-") === 0; });
+  if (mv.length) invDeleteRows_(mv.map(function (m) { return m.row; }));
+  var rows = [], n = 0;
+  list.forEach(function (st) {
+    if (!st || !(st.brand || st.size || st.dia)) return;
+    n++;
+    var kind = invKindOf_(st.device || "stent");
+    var it = invEnsure_(items, kind, cathStr_(st.brand, 120) || INV_KIND_LABEL[kind], invStickerSize_(st), by);
+    rows.push(invMoveRow_({ item: it.id, kind: "received", units: 1, qty: 1, caseKey: "STOCK " + upId + "-" + n,
+      raw: [st.brand, st.size, st.lot ? "LOT " + st.lot : "", st.serial ? "SN " + st.serial : "", st.expiry ? "EXP " + st.expiry : ""].filter(Boolean).join(" "),
+      where: "stock photo", by: by || "", note: "from the inventory photo " + (label || upId) }));
+  });
+  if (items.some(function (x) { return x.isNew; })) invWriteTab_(items);
+  if (rows.length) invAppendMoves_(rows);
+  return n;
+}
+function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
+  var out = { scanned: 0, failed: 0, units: 0, pending: 0, stopped: false, why: "" };
+  var tab = stentUpRows_();
+  stentTakeNew_(f, tab, manual, "stock");
+  var work = tab.rows.filter(function (r) { return r.status === "queued" && r.purpose === "stock"; });
+  if (work.length) batchLogRow_(runId, "", "", "inventory photos", "started", work.length + " photo(s) to read");
+  for (var i = 0; i < work.length; i++) {
+    if (timeLeft() < 100000) { out.pending = work.length - i; out.why = "time budget used; the other inventory photos continue next run"; break; }
+    var r = work[i], file = null;
+    try { file = DriveApp.getFileById(r.fileId); if (file.isTrashed()) file = null; } catch (e) { file = null; }
+    var done = function () { try { if (file) file.moveTo(f.invDone); } catch (e) { stentNote_(r, runId, "move", "failed", String(e && e.message || e)); } };
+    if (!file) { r.status = "failed"; r.errors = [{ step: "file", reason: "the photo is no longer in Drive" }]; stentUpWrite_(r); out.failed++; continue; }
+    var mime = String(file.getMimeType() || "").toLowerCase();
+    var item = { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" };
+    var res = batchCallChain_(key, models.readChain || [models.read], STENT_PROMPT, item, null, pause, timeLeft);
+    if (res.quota && !res.ok) { out.stopped = true; out.why = res.reason; stentNote_(r, runId, "reading", "stopped", res.reason); stentUpWrite_(r); break; }
+    r.tries = (r.tries || 0) + 1;
+    if (!res.ok && res.retry && r.tries < BATCH_MAX_TRIES) { stentNote_(r, runId, "reading", "will retry", res.reason); stentUpWrite_(r); pause(); continue; }
+    var list = [];
+    if (res.ok) stentNormRead_(res.json).forEach(function (sh) { list = list.concat(sh.stickers); });
+    if (!res.ok || !list.length) {
+      r.status = "failed"; r.errors = [{ step: "reading", reason: res.ok ? "no sticker could be read on this photo" : res.reason }];
+      stentNote_(r, runId, "reading", "failed", r.errors[0].reason); done(); stentUpWrite_(r); out.failed++; pause(); continue;
+    }
+    var n = invReceiveStickers_(list, r.id, r.file, "inventory photo");
+    r.status = "scanned"; r.stickers = n; r.errors = []; r.readBy = res.model || "";
+    r.scannedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
+    stentNote_(r, runId, "reading", "ok", n + " item(s) added to the inventory as received");
+    done(); stentUpWrite_(r);
+    out.scanned++; out.units += n;
+    pause();
+  }
+  return out;
+}
+/* The fix for stock photos put in "Used stents upload" by mistake: their
+   stickers leave the Stents tab (so they are no longer taken off), each is
+   added as received instead, and the photo moves to "Inventory processed". */
+function stentToStock_(req) {
+  var ids = Array.isArray(req.ids) ? req.ids.map(String) : [];
+  if (!ids.length) throw new Error("no photo picked");
+  var by = cathStr_(req.by, 60) || "technician";
+  var f = batchFolders_(), tab = stentUpRows_(), all = stentRowsAll_();
+  var moved = 0, units = 0, skipped = [];
+  ids.forEach(function (id) {
+    var r = tab.byId[id];
+    if (!r || r.purpose === "stock") { skipped.push(id); return; }
+    var mine = all.filter(function (x) { return x.up === r.id; });
+    units += invReceiveStickers_(mine, r.id, r.file, by);
+    if (mine.length) stentDeleteRows_(mine.map(function (x) { return x.row; }));
+    all = stentRowsAll_();
+    try { DriveApp.getFileById(r.fileId).moveTo(f.invDone); } catch (e) {}
+    r.purpose = "stock";
+    r.log = (r.log ? r.log + "\n" : "") + cathNow_() + " moved to the inventory by " + by + ": " + mine.length + " sticker(s) added as received, no longer taken off as used";
+    stentUpWrite_(r);
+    moved++;
+  });
+  // the stickers that left the Stents tab are no longer taken off
+  var items = invItems_(), mv = invMovesAll_();
+  invSyncStickers_(items, mv, by);
+  if (items.some(function (x) { return x.isNew; })) invWriteTab_(items);
+  return { moved: moved, units: units, skipped: skipped, said: moved + " photo(s) moved to the inventory: " + units + " item(s) added as received" + (skipped.length ? "; " + skipped.length + " skipped (already stock or not found)" : "") + "." };
+}
+/* "Read inventory photos now" on the technicians' page */
+function invScanNow_() {
+  return batchTick({ fromApp: true, only: "inventory" });
 }
 /* "Scan now" on the technicians' page: the stent photos only */
 function stentScanNow_() {
