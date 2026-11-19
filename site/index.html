@@ -8593,7 +8593,7 @@ async function retryFailed() {
   nowHave.forEach(function (s) { mergeInto(merged, stripForMerge(s.slot, S.res[s.slot])); });
   // keep any hand-typed corrections the user already made on top of the rescan
   mergeInto(merged, ptca ? S.P : S.D);
-  if (ptca) { S.P = merged; ptcaAfterMerge(S.P); ptcaNumbersFill(S.P, S.res); } else { S.D = merged; cagNumbersFlag(S.D); }
+  if (ptca) { S.P = merged; ptcaAfterMerge(S.P); ptcaNumbersFill(S.P, S.res); } else { S.D = merged; cagNumbersFill(S.D, S.res); }
   const stillBad = AS.filter(function (s) { return S.imgs[s.slot] && !S.res[s.slot]; });
   S.busy = false; S.phase = ""; S.scanning = null;
   S.err = stillBad.length
@@ -8696,7 +8696,7 @@ function buildReport() {
   });
   merged.readBy = readByOfSession();
   S.D = merged;
-  cagNumbersFlag(S.D);
+  cagNumbersFill(S.D, S.res);
   adoptDiagramFindings(S.D, { a1: !!S.res.a1, a2: !!S.res.a2, a3: !!S.res.a3 });
   const dropped = pruneUnsupportedPlan(S.D);
   const missing = SLOTS.filter(function (s) { return S.imgs[s.slot] && !S.res[s.slot]; });
@@ -8883,14 +8883,37 @@ function yearOfDate(s) {
   m = /\d{1,2}\s*[\/.\-]\s*\d{1,2}\s*[\/.\-]\s*(\d{2})\s*$/.exec(t);
   return m ? 2000 + Number(m[1]) : 0;
 }
+/* 13.49: a proforma with no CAG number takes it from the diagram sheet
+   (or, failing that, an angiography sheet's header); the reviewer is told
+   where it came from. A proforma number the diagram disagrees with is noted. */
+function cagNoDigits(v) { return String(v == null ? "" : v).replace(/\D/g, ""); }
+function cagNumbersFill(D, res) {
+  res = res || {};
+  const dd = res.d1 && (res.d1.diagram || res.d1);
+  const dg = dd && has(dd.cagNo) ? String(dd.cagNo).trim() : "";
+  const src = [["the diagram sheet", dg], ["angiography sheet 2", res.a1 && res.a1.cagNo], ["angiography sheet 3", res.a2 && res.a2.cagNo], ["angiography sheet 4", res.a3 && res.a3.cagNo]]
+    .filter(function (x) { return has(x[1]) && cagNoDigits(x[1]); });
+  const p1No = res.p1 && has(res.p1.cagNo) ? String(res.p1.cagNo) : "";
+  D.cagNoFrom = ""; D.cagNoFromV = "";
+  if (!has(D.cagNo) && src.length) D.cagNo = String(src[0][1]).trim();
+  if (!p1No && has(D.cagNo)) {
+    // where the number in the report came from, when sheet 1 had none
+    const hit = src.filter(function (x) { return cagNoDigits(x[1]) === cagNoDigits(D.cagNo); })[0];
+    if (hit) { D.cagNoFrom = hit[0]; D.cagNoFromV = String(hit[1]).trim(); }
+  }
+  D.cagNoDiag = dg;
+  cagNumbersFlag(D);
+}
 function cagProformaNoWarns(D) {
   const out = [];
-  if (!has(D.cagNo)) return ["no CAG number was read"];
+  if (!has(D.cagNo)) return ["no CAG number was read on the proforma or the diagram sheet"];
+  if (D.cagNoFrom && cagNoDigits(D.cagNoFromV) === cagNoDigits(D.cagNo)) out.push("the proforma has no CAG number \u2014 " + String(D.cagNo).trim() + " was taken from " + D.cagNoFrom);
+  else if (has(D.cagNoDiag) && cagNoDigits(D.cagNoDiag) !== cagNoDigits(D.cagNo)) out.push("the diagram sheet reads " + D.cagNoDiag + "; the report has " + String(D.cagNo).trim());
   const t = String(D.cagNo).trim();
-  if (/[A-Za-z]/.test(t)) return ["CAG No. " + t + " contains letters \u2014 CAG numbers are digits only"];
+  if (/[A-Za-z]/.test(t)) return out.concat(["CAG No. " + t + " contains letters \u2014 CAG numbers are digits only"]);
   const d = t.replace(/\D/g, "");
   const m = /^(\d{1,4})((?:19|20)\d\d)$/.exec(d);
-  if (!m) return ["CAG No. " + t + " is not a CAG number followed by its year (e.g. 2371/" + new Date().getFullYear() + ")"];
+  if (!m) return out.concat(["CAG No. " + t + " is not a CAG number followed by its year (e.g. 2371/" + new Date().getFullYear() + ")"]);
   const y = Number(m[2]), dy = yearOfDate(D.date);
   if (dy && y !== dy) out.push("CAG No. " + t + " ends in " + y + " but the CAG date is in " + dy);
   else if (!dy && y > new Date().getFullYear()) out.push("CAG No. " + t + " ends in " + y + ", which has not come yet");
@@ -10985,7 +11008,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.48", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.49", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -12289,6 +12312,7 @@ async function loadBatch(force) {
     const j = await sheetApi("batchList", {}, 40000);
     S.batch.list = j.cases || [];
     S.batch.at = Date.now();
+    setTimeout(batchPrefetch, 400);
   } catch (e) {
     S.batch.err = /unknown action/i.test(String(e && e.message))
       ? "The shared sheet's script is older than this app — paste Code" + SCRIPT_WANTED + ".gs into the Sheet's Apps Script, redeploy, and run setupBatchScanner once."
@@ -12686,6 +12710,12 @@ async function openBatchCase(caseId) {
   if (S.batch.open) return;
   if (!editAllowedNow()) return;
   S.batch.open = caseId; render();
+  const t0 = Date.now();
+  // 13.49: the case's files start downloading now, alongside the readings
+  // (their ids come with the inbox list); usually they are already here,
+  // fetched in the background while the list was open
+  const listed = ((S.batch && S.batch.list) || []).filter(function (c) { return c.caseId === caseId; })[0];
+  if (listed && listed.fileIds) listed.fileIds.forEach(function (id) { batchPagesOf(caseId, id); });
   let j;
   try {
     j = await sheetApi("batchGet", { caseId: caseId }, 40000);
@@ -12762,43 +12792,12 @@ async function openBatchCase(caseId) {
     // the last draft saved to the sheet, to tell "saved" from "changed since"
     draftAt: j.draftAt || "", draftBy: j.draftBy || "", draftJson: j.draft || "", saving: false, saveMsg: "" };
   if (j.filesRemoved) { S.batchCase.files = []; S.batchCase.errors = (S.batchCase.errors || []).concat([{ page: "", step: "files", reason: "the PDF/photos were removed from Drive by housekeeping on " + j.filesRemoved + " — the readings below are kept, but the pages cannot be shown" }]); }
-  // the pages, so the report can be checked against them: fetched one file
-  // at a time, a PDF split here the way an uploaded PDF is
-  S.pdf = { name: "", busy: true, msg: "Fetching the pages…" };
-  render();
-  const slotOf = function (m) { return m.slot === "d" ? "d1" : (need.concat(ptca ? ["qu"] : []).indexOf(m.slot) >= 0 ? m.slot : ""); };
-  try {
-    for (let fi = 0; fi < S.batchCase.files.length; fi++) {
-      const f = S.batchCase.files[fi];
-      pdfPhase("Fetching " + f.name + "…");
-      let fj;
-      try { fj = await sheetApi("batchFile", { caseId: caseId, fileId: f.id }, 120000); }
-      catch (e) { S.batchCase.pages.push({ label: f.name, err: "could not fetch: " + (e.message || e) }); continue; }
-      const maps = S.batchCase.pageMap.filter(function (m) { return m.fileIdx === fi; });
-      if (/pdf/i.test(fj.mime || "")) {
-        const blob = b64ToBlob(fj.b64, "application/pdf");
-        blob.name = f.name;
-        await eachPdfPage(blob, function (cv, pageNo) {
-          const url = cv.toDataURL("image/jpeg", 0.85);
-          const img = { url: url, b64: url.split(",")[1], thumb: thumbOf(cv) };
-          const m = maps.filter(function (x) { return x.pdfPage === pageNo; })[0];
-          const slot = m && !m.dup ? slotOf(m) : "";
-          if (slot && !S.imgs[slot]) S.imgs[slot] = img;
-          S.batchCase.pages.push({ label: f.name + " p." + pageNo, slot: slot, thumb: img.thumb, url: url, note: m ? (m.dup ? "duplicate — not read" : BATCH_SLOT_TITLE[m.slot] || m.slot) : "not recognised" });
-        });
-      } else {
-        const img = await imageFromDataUrl("data:" + (fj.mime || "image/jpeg") + ";base64," + fj.b64);
-        const m = maps[0];
-        const slot = m && !m.dup ? slotOf(m) : "";
-        if (slot && !S.imgs[slot]) S.imgs[slot] = img;
-        S.batchCase.pages.push({ label: f.name, slot: slot, thumb: img.thumb, url: img.url, note: m ? (m.dup ? "duplicate — not read" : BATCH_SLOT_TITLE[m.slot] || m.slot) : "not recognised" });
-      }
-    }
-  } catch (e) {
-    S.batchCase.pages.push({ label: "pages", err: "could not show the pages: " + (e.message || e) });
-  }
+  // 13.49: the review screen opens now, with the readings; the pages fill in
+  // behind it (from the background cache when they are already fetched)
+  const token = {};
+  S.batchCase.token = token;
+  S.batchCase.ms = { readings: Date.now() - t0, pages: 0, cached: 0, files: S.batchCase.files.length };
   S.pdf = { name: "", busy: false, msg: "" };
-  S.batchCase.loading = false;
   S.batch.open = "";
   if (S.batch.canEdit) sheetApi("batchMark", { caseId: caseId, mark: "opened", by: S.cfg.userName || "" }).catch(function () {});
   if (restored) {
@@ -12809,11 +12808,91 @@ async function openBatchCase(caseId) {
       : "Showing the saved registry copy of this case (with its corrections); downloading the Word report updates that row.";
     render();
   } else if (ptca) buildPtcaReport(); else buildReport();          // merges the readings and opens the review screen
+  try { window.scrollTo(0, 0); } catch (e) {}
+  const bc = S.batchCase;
+  const slotOf = function (m) { return m.slot === "d" ? "d1" : (need.concat(ptca ? ["qu"] : []).indexOf(m.slot) >= 0 ? m.slot : ""); };
+  const still = function () { return S.batchCase === bc && bc.token === token; };
+  // every file at once; shown in their order as each arrives
+  const jobs = bc.files.map(function (f) { const was = BATCH_PAGES[f.id]; const pr = batchPagesOf(caseId, f.id); return { f: f, pr: pr, cached: !!(was && was.done) }; });
+  for (let fi = 0; fi < jobs.length; fi++) {
+    const f = jobs[fi].f;
+    if (still()) { S.pdf.msg = "Fetching " + f.name + "…"; pdfPhase(S.pdf.msg); }
+    let got;
+    try { got = await jobs[fi].pr; }
+    catch (e) { delete BATCH_PAGES[f.id]; if (still()) { bc.pages.push({ label: f.name, err: "could not fetch: " + (e.message || e) }); render(); } continue; }
+    if (!still()) return;                   // the reviewer has moved on
+    if (jobs[fi].cached) bc.ms.cached++;
+    const maps = bc.pageMap.filter(function (m) { return m.fileIdx === fi; });
+    got.forEach(function (pg) {
+      const m = got.length === 1 && !pg.pageNo ? maps[0] : maps.filter(function (x) { return x.pdfPage === pg.pageNo; })[0];
+      const slot = m && !m.dup ? slotOf(m) : "";
+      if (slot && !S.imgs[slot]) S.imgs[slot] = pg.img;
+      bc.pages.push({ label: f.name + (pg.pageNo ? " p." + pg.pageNo : ""), slot: slot, thumb: pg.img.thumb, url: pg.img.url,
+        note: m ? (m.dup ? "duplicate — not read" : BATCH_SLOT_TITLE[m.slot] || m.slot) : "not recognised" });
+    });
+    render();
+  }
+  if (!still()) return;
+  bc.loading = false;
+  bc.ms.pages = Date.now() - t0;
   const miss = need.filter(function (s) { return !S.res[s] && !S.imgs[s]; });
   if (ptca && !S.res.qu && !S.imgs.qu) miss.push("qu");
   if (miss.length) S.err = (S.err ? S.err + " " : "") + "Not among the uploaded pages: " + miss.map(function (s) { return BATCH_SLOT_TITLE[s]; }).join("; ") + " — fill those in by hand.";
   render();
-  try { window.scrollTo(0, 0); } catch (e) {}
+}
+/* 13.49 — a case's files, fetched once and split into pages once, kept in
+   memory (the newest 16 files) so a case opens from here when it is ready */
+const BATCH_PAGES = {};
+let BATCH_PAGES_ORDER = [];
+function batchPagesOf(caseId, fileId) {
+  const have = BATCH_PAGES[fileId];
+  if (have) return have.pr;
+  const rec = { done: false, pr: null };
+  rec.pr = (async function () {
+    const fj = await sheetApi("batchFile", { caseId: caseId, fileId: fileId }, 120000);
+    const out = [];
+    if (/pdf/i.test(fj.mime || "")) {
+      const lib = await loadPdfJs();
+      const bin = atob(fj.b64), u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      const doc = await lib.getDocument({ data: u8 }).promise;
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const cv = await pdfPageToCanvas(page);
+        const url = cv.toDataURL("image/jpeg", 0.85);
+        out.push({ pageNo: i, img: { url: url, b64: url.split(",")[1], thumb: thumbOf(cv) } });
+        try { page.cleanup(); } catch (e) {}
+      }
+      try { doc.destroy(); } catch (e) {}
+    } else {
+      out.push({ pageNo: 0, img: await imageFromDataUrl("data:" + (fj.mime || "image/jpeg") + ";base64," + fj.b64) });
+    }
+    rec.done = true;
+    return out;
+  })();
+  rec.pr.catch(function () { if (BATCH_PAGES[fileId] === rec) delete BATCH_PAGES[fileId]; });
+  BATCH_PAGES[fileId] = rec;
+  BATCH_PAGES_ORDER = BATCH_PAGES_ORDER.filter(function (k) { return k !== fileId; }).concat([fileId]);
+  while (BATCH_PAGES_ORDER.length > 16) { const k = BATCH_PAGES_ORDER.shift(); if (BATCH_PAGES[k] && BATCH_PAGES[k].done) delete BATCH_PAGES[k]; }
+  return rec.pr;
+}
+/* while the inbox list is open: the cases waiting to be checked are fetched
+   one after another — all of them on a computer, the top two on a phone
+   (and none on a phone that says it is saving data) */
+let BATCH_PREFETCHING = false;
+async function batchPrefetch() {
+  if (BATCH_PREFETCHING || !S.batch || !S.batch.list) return;
+  const conn = navigator.connection || {};
+  if (conn.saveData) return;
+  const max = rvWide() ? 8 : 2;
+  const todo = S.batch.list.filter(function (c) { return c.status === "scanned" && !c.filesRemoved && c.fileIds && c.fileIds.length; }).slice(0, max);
+  BATCH_PREFETCHING = true;
+  try {
+    for (const c of todo) {
+      if (S.step !== "batch" && !S.batchCase) break;
+      await Promise.all(c.fileIds.map(function (id) { return batchPagesOf(c.caseId, id).catch(function () {}); }));
+    }
+  } finally { BATCH_PREFETCHING = false; }
 }
 function batchToggleBig(i) { S.batchCase.big = S.batchCase.big === i ? "" : i; render(); }
 /* the strip at the top of the review screen while an inbox case is open */
@@ -12839,6 +12918,10 @@ function batchPanel() {
         <img src="${big ? p.url : p.thumb}" alt="${esc2(p.label)}" onclick="batchToggleBig(${i})" style="${big ? "height:auto;max-height:none;cursor:zoom-out" : "cursor:zoom-in"}">
         <figcaption><b>${esc2(p.note || "")}</b>${esc2(p.label)}</figcaption></figure>`;
     }).join("") + `</div><p class="hint">Tap a page to enlarge it.</p>`;
+  }
+  if (bc.ms) {
+    const sec = function (n) { return (n / 1000).toFixed(1) + " s"; };
+    h += `<p class="hint" style="margin-top:2px">Opened in ${sec(bc.ms.readings)}${bc.ms.pages ? " · pages shown at " + sec(bc.ms.pages) + (bc.ms.files ? " (" + bc.ms.cached + " of " + bc.ms.files + " file" + (bc.ms.files === 1 ? "" : "s") + " already fetched)" : "") : ""}</p>`;
   }
   h += `<div class="btns"><button class="b" onclick="batchStash();S.batchCase=null;openBatch()">Back to inbox scans</button></div></div>`;
   return h;

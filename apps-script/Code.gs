@@ -83,6 +83,14 @@
  * (anyone with the URL); batchPrompts, batchRetry, batchMark, batchRunNow
  * (edit key). "whoami" replies v: 13 and says whether the scanner is set up.
  *
+ * What changed in 13.49 — inbox cases open faster, CAG number from the diagram
+ *   - "Open & check": a case's file is served after reading only the case-ID
+ *     and file-ID columns (not every row's readings), and the inbox list now
+ *     carries each case's file ids, so the app fetches the pages ahead of time
+ *     and opens the review screen before the pages arrive.
+ *   - A CAG proforma with no CAG number takes it from the diagram sheet (or an
+ *     angiography sheet), with a note on the case saying where it came from.
+ *
  * What changed in 13.48 — lower Gemini bills, wrong-folder uploads, PTCA numbers
  * - Google's half-price batch queue: on the automatic (night) runs, once a
  *   case's pages are recognised, all its sheets go to Google as ONE batch
@@ -223,7 +231,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -1851,8 +1859,15 @@ function batchCagNumber_(c) {
   var p1 = (c.results || {}).p1;
   c.errors = (c.errors || []).filter(function (e) { return e.step !== "numbers"; });
   if (!p1) return;
-  var t = String(p1.cagNo || "").trim(), why = "";
-  if (!t) why = "no CAG number was read";
+  var t = String(p1.cagNo || "").trim(), why = "", from = "";
+  // 13.49: no number on the proforma: the diagram sheet's (or an angiography sheet's)
+  if (!t) {
+    var r = c.results || {}, dg = r.d && (r.d.diagram || r.d);
+    var alt = [["the diagram sheet", dg && dg.cagNo], ["angiography sheet 2", r.a1 && r.a1.cagNo], ["angiography sheet 3", r.a2 && r.a2.cagNo], ["angiography sheet 4", r.a3 && r.a3.cagNo]];
+    for (var i = 0; i < alt.length && !t; i++) if (String(alt[i][1] || "").replace(/\D/g, "")) { t = String(alt[i][1]).trim(); from = alt[i][0]; }
+    if (t) c.cagNo = t;
+  }
+  if (!t) why = "no CAG number was read on the proforma or the diagram sheet";
   else if (/[A-Za-z]/.test(t)) why = "CAG No. " + t + " contains letters \u2014 CAG numbers are digits only";
   else {
     var m = /^(\d{1,4})((?:19|20)\d\d)$/.exec(t.replace(/\D/g, ""));
@@ -1861,6 +1876,7 @@ function batchCagNumber_(c) {
     else if (dy && Number(m[2]) !== dy) why = "CAG No. " + t + " ends in " + m[2] + " but the CAG date is in " + dy;
     else if (!dy && Number(m[2]) > new Date().getFullYear()) why = "CAG No. " + t + " ends in " + m[2] + ", which has not come yet";
   }
+  if (from) why = "the proforma has no CAG number \u2014 " + t + " was taken from " + from + (why ? "; " + why : "");
   if (why) c.errors.push({ page: "", step: "numbers", reason: why + " \u2014 check against the paperwork" });
 }
 function batchPtcaNumbers_(c) {
@@ -2718,7 +2734,7 @@ function batchStatus_() {
 function batchList_() {
   var tab = batchTabRows_();
   return tab.rows.map(function (r) {
-    return { caseId: r.caseId, status: r.status, created: r.created, updated: r.updated, files: r.files,
+    return { caseId: r.caseId, status: r.status, created: r.created, updated: r.updated, files: r.files, fileIds: r.fileIds,
       pages: r.pages, grouping: r.grouping, name: r.name, cagNo: r.cagNo, type: r.type,
       uploaded: r.uploaded, scannedAt: r.scannedAt, checkedAt: r.checkedAt, filesRemoved: r.filesRemoved,
       sheets: Object.keys(r.results || {}).filter(function (k) { return BATCH_SLOTS.indexOf(k) >= 0; }),
@@ -2761,10 +2777,13 @@ function batchGet_(req) {
 /* the bytes of one of a case's files, so the app can show the page beside
    the review screen (and, for a PDF, split it itself the way it does now) */
 function batchFile_(req) {
-  var tab = batchTabRows_();
-  var r = tab.byId[String(req.caseId || "")];
-  var id = String(req.fileId || "");
-  if (!r || r.fileIds.indexOf(id) < 0) throw new Error("that file is not part of that case");
+  // 13.49: only the case-ID and file-ID columns are read (not every row's readings)
+  var sh = batchTab_(), id = String(req.fileId || ""), cid = String(req.caseId || ""), ok = false;
+  if (sh.getLastRow() >= 2) {
+    var vals = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues();
+    for (var i = 0; i < vals.length && !ok; i++) if (cell(vals[i][0]) === cid && cell(vals[i][5]).split("\n").indexOf(id) >= 0) ok = true;
+  }
+  if (!ok) throw new Error("that file is not part of that case");
   var f = DriveApp.getFileById(id);
   var blob = f.getBlob();
   return { fileId: id, name: f.getName(), mime: String(blob.getContentType() || f.getMimeType() || ""),
