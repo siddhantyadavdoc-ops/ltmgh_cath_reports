@@ -12567,8 +12567,8 @@ document.addEventListener("click", function (e) {
    one list for one proforma type, with its own search box under the tabs */
 const BATCH_TABS = [
   { id: "", label: "All" },
-  { id: "scanned-CAG", label: "To check · CAG", status: "scanned", type: "CAG", title: "Scanned — to be checked" },
   { id: "scanned-PTCA", label: "To check · PTCA", status: "scanned", type: "PTCA", title: "Scanned — to be checked" },
+  { id: "scanned-CAG", label: "To check · CAG", status: "scanned", type: "CAG", title: "Scanned — to be checked" },
   { id: "waiting-CAG", label: "Waiting · CAG", status: "waiting", type: "CAG", title: "Waiting to be scanned" },
   { id: "waiting-PTCA", label: "Waiting · PTCA", status: "waiting", type: "PTCA", title: "Waiting to be scanned" },
   { id: "failed", label: "Failed", status: "failed", type: "", title: "Failed" },
@@ -12643,11 +12643,14 @@ function batchListsHtml() {
   };
   const bhead = `<div class="bhead"><span></span><span>Patient</span><span>Read by</span><span>Sheets</span><span>Times</span><span></span></div>`;
   // every section is split in two: CAG cases first, then PTCA, each with its own count
-  const section = function (title, items, row, tone, empty, cap) {
+  // (13.49: "to be checked" shows PTCA first)
+  const section = function (title, items, row, tone, empty, cap, ptcaFirst) {
     const cag = items.filter(function (c) { return !batchIsPtca(c); }), ptca = items.filter(batchIsPtca);
     let h = `<div class="card"><div class="cardhead"><b>${title}</b><span class="${items.length ? tone : "dim"}">${items.length}</span></div>`;
     if (!items.length) { if (empty) h += `<p class="hint">${empty}</p>`; return h + `</div>`; }
-    [["CAG", cag, "#1c7a55"], ["PTCA", ptca, "#1f5fc2"]].forEach(function (g) {
+    const groups = [["CAG", cag, "#1c7a55"], ["PTCA", ptca, "#1f5fc2"]];
+    if (ptcaFirst) groups.reverse();
+    groups.forEach(function (g) {
       h += `<div class="subhead"><span><span class="tag" style="background:${g[2]}">${g[0]}</span> ${g[1].length} ${g[1].length === 1 ? "case" : "cases"}</span></div>`;
       if (!g[1].length) h += `<p class="hint" style="margin:2px 0 6px">No ${g[0]} cases here.</p>`;
       else h += bhead + (cap ? g[1].slice(0, cap) : g[1]).map(row).join("") + (cap && g[1].length > cap ? `<p class="hint">Showing the latest ${cap} of ${g[1].length}.</p>` : "");
@@ -12657,7 +12660,7 @@ function batchListsHtml() {
   const nOf = function (id) { const t = BATCH_TABS.filter(function (x) { return x.id === id; })[0]; return all.filter(function (c) { return inTab(c, t); }).length; };
   const nFail = nOf("failed"), nWait = nOf("waiting-CAG") + nOf("waiting-PTCA"), nSaved = nOf("saved-CAG") + nOf("saved-PTCA");
   const tileB = function (n, label, id, tone) { return `<button type="button" class="btile ${tone}${tab.id === id ? " on" : ""}" onclick="batchTabPick('${id}')"><b>${n}</b><span>${label}</span></button>`; };
-  let h = `<div class="btiles">${tileB(nOf("scanned-CAG"), "CAG to check", "scanned-CAG", "g1")}${tileB(nOf("scanned-PTCA"), "PTCA to check", "scanned-PTCA", "g2")}${tileB(nWait, "waiting to be read", nOf("waiting-CAG") || !nWait ? "waiting-CAG" : "waiting-PTCA", "yel")}${tileB(nFail, "failed", "failed", "red")}${tileB(nSaved, "checked and saved", "saved-CAG", "grey")}</div>`;
+  let h = `<div class="btiles">${tileB(nOf("scanned-PTCA"), "PTCA to check", "scanned-PTCA", "g2")}${tileB(nOf("scanned-CAG"), "CAG to check", "scanned-CAG", "g1")}${tileB(nWait, "waiting to be read", nOf("waiting-CAG") || !nWait ? "waiting-CAG" : "waiting-PTCA", "yel")}${tileB(nFail, "failed", "failed", "red")}${tileB(nSaved, "checked and saved", "saved-CAG", "grey")}</div>`;
   h += `<div class="tabs">` + BATCH_TABS.map(function (t) {
     const n = t.id ? all.filter(function (c) { return inTab(c, t); }).length : all.length;
     // 13.48: to check = greens (CAG darker, PTCA lighter), waiting = yellow, failed = red
@@ -12666,7 +12669,7 @@ function batchListsHtml() {
   }).join("") + `</div>`;
   if (!tab.id) {
     h += `<p class="hint" style="margin:2px 0 8px">Showing every list${q ? ", narrowed by the search above" : ""}. Pick a tab to see one list on its own, with a search box of its own.</p>`;
-    h += section("Scanned — to be checked", ready, readyRow, "live", "Nothing waiting. Cases appear here a few minutes after their pages reach the inbox.");
+    h += section("Scanned — to be checked", ready, readyRow, "live", "Nothing waiting. Cases appear here a few minutes after their pages reach the inbox.", 0, true);
     h += section("Failed", failed, failedRow, "miss", "No failed cases.");
     if (busy.length) h += section("Waiting to be scanned", busy, busyRow, "dim", "");
     if (saved.length) h += section("Checked and saved", saved, savedRow, "dim", "", 40);
