@@ -526,6 +526,10 @@ body.hasnav #appnav{display:flex}
   background:#fde68a;color:#5c3b00;font:inherit;text-align:left;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .expbar.gone{background:#fecaca;color:#7f1d1d}
 .expbar .nx{font-size:12.5px;opacity:.85}
+.remind{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;margin:8px 0;padding:10px 14px;border-radius:10px;background:#e0ecff;border:1px solid #9cb9ef;font-size:14px}
+.remind.wk{background:#eef6ea;border-color:#a9d39b}
+.dayph{margin-top:8px}
+.daydiff{margin:6px 0;padding:8px 10px;background:#fff6dc;border-radius:8px;font-size:13.5px}
 .flash{animation:flashbox 1.6s ease}
 @keyframes flashbox{0%,60%{box-shadow:0 0 0 4px #e11d48}100%{box-shadow:none}}
 .invrow.exp-gone{box-shadow:inset 3px 0 0 #b42318}.invrow.exp-soon{box-shadow:inset 3px 0 0 #d97706}
@@ -13097,7 +13101,8 @@ function viewTech() {
 function techInvTake(j) {
   const T = S.tech;
   T.inv = { items: j.items || [], start: j.start || "", moves: j.moves || [], moveCount: j.moveCount || 0, pending: j.pending || [],
-    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null, stockPhotos: j.stockPhotos || [] };
+    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null, stockPhotos: j.stockPhotos || [],
+    dayLast: j.dayLast || "", weeklyLast: j.weeklyLast || "", dayPhotos: j.dayPhotos || [], weeklyResult: j.weeklyResult || null, ptcaToday: !!j.ptcaToday };
   T.invAt = Date.now();
   // 13.45: new stent stickers (or the first opening) — the sheet brings the inventory in line
   if (j.needSync && !T.saving && (!T.syncAt || Date.now() - T.syncAt > 60000)) {
@@ -13135,7 +13140,9 @@ function techInvHtml() {
       <button class="invtile${toCheck ? " amber" : ""}" onclick="var e=document.getElementById('techReview');if(e)e.scrollIntoView({block:'start'})"><b>${toCheck}</b><span>stent${toCheck === 1 ? "" : "s"} to check</span></button>
     </div>
     ${T.invForm ? techInvFormHtml() : ""}
+    ${techRemindHtml()}
     ${rvWide() ? "" : techExpiryBarHtml()}
+    ${techDayHtml()}
     ${techInvPhotosHtml()}
     ${techInvPendingHtml()}
     <div class="invlay${rvWide() && techExpiryList().length ? " hasexp" : ""}">
@@ -13676,6 +13683,66 @@ function boxExpDays(b) {
   const today = new Date(); const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   return Math.round((Date.parse(iso + "T00:00:00Z") - t0) / 86400000);
 }
+/* 13.50 — reminders: the day's used-instruments photo (from 3 pm, until one
+   is uploaded or "No PTCA today" is pressed) and the weekly shelf photos (due
+   7 days after the last) */
+function techTodayIso() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function techRemindHtml() {
+  const inv = S.tech.inv || {}, today = techTodayIso(), h = new Date().getHours();
+  let skip = ""; try { skip = localStorage.getItem("noUsedPhoto") || ""; } catch (e) {}
+  let out = "";
+  if (h >= 15 && inv.dayLast !== today && skip !== today)
+    out += `<div class="remind"><span><b>Today's used instruments not photographed yet.</b> One or two photos of the box flaps / labels of everything opened today.</span>
+      <span class="btns" style="margin:0"><button class="b primary" onclick="document.getElementById('daycam').click()">Take the photo</button>
+      <button class="b" onclick="try{localStorage.setItem('noUsedPhoto','${today}')}catch(e){};render()">No PTCA today</button></span></div>`;
+  const wl = inv.weeklyLast;
+  const due = !wl || (Date.parse(today) - Date.parse(wl)) / 86400000 >= 7;
+  if (due) out += `<div class="remind wk"><span><b>Weekly shelf photos due</b>${wl ? " (last " + esc2(techDate(wl)) + ")" : ""}: photograph every stack and row, front boxes readable.</span>
+      <span class="btns" style="margin:0"><button class="b" onclick="document.getElementById('wkcam').click()">Take photos</button>
+      <button class="b" onclick="document.getElementById('wkfile').click()">Upload photos</button></span></div>`;
+  return out;
+}
+/* the photos of the day's used instruments: each label matched to its box,
+   compared with that day's utilization sheets */
+function techDayHtml() {
+  const T = S.tech, inv = T.inv || {}, ph = inv.dayPhotos || [], wr = inv.weeklyResult;
+  const bx = inv.boxes || [];
+  const unseen = bx.filter(function (b) { return b.status === "unseen"; });
+  let h = `<div class="invphotos dayph"><div><b>Instruments used, from the day's photo</b>
+      <p class="hint">At the end of the day, one or two photos of the box flaps / labels of everything opened. Each is matched to its box on the shelf (by LOT), so the right box leaves the stock list and its expiry alert; the photo is checked against the day's utilization sheets. The counts themselves come from the sheets.</p></div>
+    <input type="file" accept="image/*" capture="environment" id="daycam" hidden onchange="techUpload(this,'day')">
+    <input type="file" accept="image/*" multiple id="dayfile" hidden onchange="techUpload(this,'day')">
+    <input type="file" accept="image/*" capture="environment" id="wkcam" hidden onchange="techUpload(this,'weekly')">
+    <input type="file" accept="image/*" multiple id="wkfile" hidden onchange="techUpload(this,'weekly')">
+    <div class="btns" style="margin:0"><button class="b" onclick="document.getElementById('daycam').click()" ${T.uploading ? "disabled" : ""}>Photo of today's used</button>
+      <button class="b" onclick="document.getElementById('dayfile').click()" ${T.uploading ? "disabled" : ""}>Upload</button>
+      <button class="b" onclick="document.getElementById('wkfile').click()" ${T.uploading ? "disabled" : ""}>Weekly shelf photos</button></div>`;
+  const last = ph.filter(function (p) { return p.status === "scanned"; }).slice(0, 3);
+  last.forEach(function (p) {
+    const r = p.result || {};
+    h += `<div class="boxlist"><b>${esc2(techDate(r.day || String(p.uploaded).slice(0, 10)))}</b> <span class="hint">${p.url ? `<a href="${esc2(p.url)}" target="_blank" rel="noopener">${esc2(p.file)}</a>` : esc2(p.file)} · ${r.matched || 0} matched to their box${(r.noBox || []).length ? " · " + r.noBox.length + " with no stock box" : ""}</span>
+      ${(r.differs || []).length ? `<div class="daydiff"><b>Photo and utilization sheets differ:</b>${r.differs.map(function (d) { return `<div>${esc2(d.what)} — sheets ${d.sheets}, photo ${d.photo}</div>`; }).join("")}<span class="hint">Check the day's sheets: a device missing from a sheet is not taken off the stock.</span></div>` : `<div class="hint" style="color:var(--live)">Matches the day's utilization sheets.</div>`}
+      ${(r.noBox || []).length ? `<div class="hint">No stock box (bought before the stock photos, or not photographed): ${esc2(r.noBox.join("; "))}</div>` : ""}</div>`;
+  });
+  ph.filter(function (p) { return p.status === "queued"; }).slice(0, 1).forEach(function () { h += `<p class="hint">A photo is waiting to be read.</p>`; });
+  if (wr && ((wr.sizes || []).length || unseen.length)) {
+    h += `<details class="boxlist"${unseen.length || (wr.sizes || []).length ? " open" : ""}><summary><b>Weekly shelf check — ${esc2(techDate(wr.day))}</b> <span class="hint">${wr.photos} photo${wr.photos === 1 ? "" : "s"} · ${esc2((wr.brands || []).length + " brand" + ((wr.brands || []).length === 1 ? "" : "s"))}</span></summary>`;
+    if ((wr.sizes || []).length) h += `<div class="daydiff"><b>Shelf and list differ:</b>${wr.sizes.map(function (z) {
+      return `<div class="row alignend" style="justify-content:space-between"><span>${esc2(z.what)} — photo ${z.photo}, list ${z.stock}</span>${z.item ? `<button class="b" onclick="techWeeklySet('${esc2(z.item)}',${z.photo})" ${T.saving ? "disabled" : ""}>Set the count to ${z.photo}</button>` : ""}</div>`; }).join("")}
+      <span class="hint">A box hidden behind another, or on a shelf not photographed, also shows here — set the count only once you have looked.</span></div>`;
+    if (unseen.length) h += `<p class="hint" style="margin-top:6px"><b>Not on this week's photos (${unseen.length})</b> — most likely used; left out of the expiry alerts:</p>` +
+      unseen.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','back')" ${T.saving ? "disabled" : ""}>Still on the shelf</button>`); }).join("");
+    h += `</details>`;
+  }
+  return h + `</div>`;
+}
+async function techWeeklySet(id, n) {
+  if (!confirm("Set the count of this size to " + n + " (what the weekly photos show)?")) return;
+  const T = S.tech; T.saving = true; render();
+  try { const j = await sheetApi("invSave", { op: { op: "count", id: id, counted: n, note: "weekly shelf photos" }, by: S.cfg.userName || "" }, 60000); techInvTake(j); T.invSaid = j.said || "Saved."; }
+  catch (e) { T.invSaid = "Not saved: " + (e.message || e); }
+  T.saving = false; render();
+}
 /* a box's item has fewer in stock than boxes photographed (balloons, wires…
    are taken off by the utilization sheet, which does not say which box): the
    boxes that expire first are taken as the ones used — first to expire, first
@@ -13696,7 +13763,7 @@ function techPresumedUsed() {
 function techExpiryList() {
   const gone = techPresumedUsed();
   const bx = ((S.tech.inv && S.tech.inv.boxes) || []).filter(function (b) {
-    if (b.usedBy || gone[b.id] || b.status === "discarded" || b.status === "repeat" || b.status === "background") return false;
+    if (b.usedBy || gone[b.id] || !(b.status === "in stock" || b.status === "check")) return false;
     const d = boxExpDays(b); return d != null && d <= EXPIRY_WARN_DAYS;
   });
   return bx.map(function (b) { return Object.assign({ _d: boxExpDays(b) }, b); }).sort(function (a, c) { return a._d - c._d; });
@@ -14594,6 +14661,10 @@ async function techUpload(input, purpose) {
     } catch (e) { bad = e.message || String(e); break; }
   }
   T.uploading = false;
+  if (purpose === "day" || purpose === "weekly") {
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Instruments used upload" : "Weekly shelf photos") + (bad ? "; then: " + bad : "") + (ok ? " — read at the next scan, or press “Read inventory photos now”." : "");
+    T.statusAt = 0; await techLoad(true); return;
+  }
   if (purpose === "stock") {
     T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Inventory uploads" + (bad ? "; then: " + bad : "") + (ok ? " — read at the next scan, or press “Read inventory photos now”." : "");
     T.statusAt = 0; await techLoad(true); return;
