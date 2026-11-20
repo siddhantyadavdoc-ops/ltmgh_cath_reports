@@ -513,6 +513,7 @@ body.hasnav #appnav{display:flex}
 .boxlist.chk .bxhead{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-bottom:4px}
 .boxlist.chk .bxhead b{color:#b42318}
 .boxlist.nm>summary b{color:#8a4b00}
+.boxlist.conf .bxhead b{color:#8a4b00}
 .bxrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--hair)}
 .bxrow.open{display:block}
 .bxrow .bxrow{border-bottom:0;padding:0 0 4px}
@@ -13134,7 +13135,8 @@ function techInvPhotosHtml() {
   const bx = (T.inv && T.inv.boxes) || [];
   const inStock = bx.filter(function (b) { return b.status === "in stock"; });
   const chk = bx.filter(function (b) { return b.status === "check"; });
-  const rep = bx.filter(function (b) { return b.status === "repeat"; });
+  const rep = bx.filter(function (b) { return b.status === "repeat" && !techBoxToConfirm(b); });
+  const conf = bx.filter(techBoxToConfirm);
   const used = inStock.filter(function (b) { return b.usedBy; }).length;
   let h = `<div class="invphotos"><div><b>Stock received, from photos</b>
       <p class="hint">Photograph the boxes on the shelf (spines to the camera, the size and the LOT readable). Every box is kept with its LOT, REF and expiry; a box seen on two photos is counted once. ${esc2([(st.invWaiting || 0) + " photo" + (st.invWaiting === 1 ? "" : "s") + " waiting", (st.invFailed || 0) + " failed", (st.invScanned || 0) + " read"].join(" · "))}</p>
@@ -13147,12 +13149,18 @@ function techInvPhotosHtml() {
       ${st.invInUrl ? `<a class="b" href="${esc2(st.invInUrl)}" target="_blank" rel="noopener">${esc2(st.invInName || "Inventory uploads")} folder</a>` : ""}</div>
     ${T.invSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.invSaid)}</p>` : ""}`;
   if (chk.length) h += `<div class="boxlist chk"><div class="bxhead"><b>Boxes to check (${chk.length})</b><span class="hint">Not counted. Fix what was misread and add it, or discard it.</span></div>${chk.map(techBoxCheckHtml).join("")}</div>`;
+  if (conf.length) h += `<div class="boxlist chk conf"><div class="bxhead"><b>LOT to confirm (${conf.length})</b><span class="hint">Looks like a box already counted, but its LOT was read one character differently. Find the box on the shelf and type the LOT printed on it.</span></div>${conf.map(techBoxConfirmHtml).join("")}</div>`;
   const nm = (T.inv && T.inv.boxNoMatch) || [];
   if (nm.length) h += `<details class="boxlist nm"><summary><b>Used stents with no matching box (${nm.length})</b> <span class="hint">a sticker read since the first stock photo whose LOT and size fit no box in stock</span></summary>
       <p class="hint">Check the LOT on the sticker and on the box: one of them may be misread, or that box was never photographed.</p>
-      ${nm.map(function (x) { return `<div class="bxrow"><div class="bxmain"><b>${esc2((x.brand || "") + " " + stentNum(x.dia) + " × " + stentNum(x.len))}</b>
+      ${nm.map(function (x) {
+        const btns = (x.near ? `<button class="b" onclick="techNoBox('sticker','${esc2(x.sticker)}')" ${T.saving ? "disabled" : ""}>Sticker misread — LOT is ${esc2(x.near.lot)}</button>
+          <button class="b" onclick="techNoBox('box','${esc2(x.sticker)}')" ${T.saving ? "disabled" : ""}>Box misread — LOT is ${esc2(x.lot)}</button>` : "") +
+          `<button class="b" onclick="techNoBox('ok','${esc2(x.sticker)}')" ${T.saving ? "disabled" : ""}>Box not photographed — OK</button>`;
+        return `<div class="bxrow"><div class="bxmain"><b>${esc2((x.brand || "") + " " + stentNum(x.dia) + " × " + stentNum(x.len))}</b>
         <span>LOT ${esc2(x.lot || "?")} · ${esc2([x.ptcaNo ? "PTCA " + x.ptcaNo : "", x.patient, x.date ? techDate(x.date) : ""].filter(Boolean).join(" · "))}</span>
-        ${x.near ? `<span class="why">a box in stock has LOT ${esc2(x.near.lot)} (one character apart, on ${esc2(x.near.photo || "a photo")}) — probably the same; correct the misread LOT</span>` : `<span class="why">no box of this size has a LOT close to it</span>`}</div></div>`; }).join("")}</details>`;
+        ${x.near ? `<span class="why">a box in stock has LOT ${esc2(x.near.lot)} (one character apart, on ${esc2(x.near.photo || "a photo")}) — check the sticker and that box, and press the one that is right</span>` : `<span class="why">no box of this size has a LOT close to it — check the sticker's LOT; if it is right, the box came before the stock photos or was never photographed</span>`}</div>
+        <div class="btns" style="margin:0">${btns}</div></div>`; }).join("")}</details>`;
   if (rep.length) h += `<details class="boxlist rep"${T.repOpen ? " open" : ""} ontoggle="S.tech.repOpen=this.open"><summary><b>Repeats, not counted (${rep.length})</b> <span class="hint">the same LOT and size already in stock from another photo</span></summary>
       <p class="hint">Photos of one shelf overlap, so a box seen again is counted once. If it really is another box (more of that LOT came in), press <b>Another box — count it</b>.</p>
       ${rep.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','in stock')" ${T.saving ? "disabled" : ""}>Another box — count it</button>`); }).join("")}</details>`;
@@ -13190,6 +13198,49 @@ async function techBoxSave(id, status, withFields) {
   try { const r = await sheetApi("boxSave", { id: id, status: status, fields: fields, by: S.cfg.userName || "" }, 60000); T.invSaid = r.said || "Saved."; T.boxEdit = ""; }
   catch (e) { T.invSaid = "Not saved: " + (e.message || e); }
   T.saving = false; T.invAt = 0;
+  await techLoad(true);
+}
+/* a repeat taken as the same box only because its LOT was one character off */
+function techBoxToConfirm(b) { return b.status === "repeat" && /check the LOT/.test(b.why || "") && !b.checkedBy; }
+function techBoxConfirmHtml(b) {
+  const T = S.tech, bx = (T.inv && T.inv.boxes) || [];
+  const first = bx.filter(function (x) { return x.id === b.same; })[0];
+  const lots = [b.lot, first && first.lot].filter(Boolean);
+  return `<div class="bxrow open">${techBoxRowHtml(b, "")}
+    ${first ? `<p class="hint" style="margin:0 0 4px">Already counted: LOT <b>${esc2(first.lot)}</b> on ${esc2(first.photo || "")}${first.place ? " (" + esc2(first.place) + ")" : ""}${techBoxUnit(first) ? " · (91) " + esc2(techBoxUnit(first)) : ""}. This photo read LOT <b>${esc2(b.lot)}</b>${techBoxUnit(b) ? " · (91) " + esc2(techBoxUnit(b)) : ""}.</p>` : ""}
+    <div class="row alignend"><label class="fld" style="flex:0 1 170px"><span>LOT printed on the box</span><input id="cf_${esc2(b.id)}" list="cfl_${esc2(b.id)}" placeholder="${esc2(lots[0] || "")}"></label>
+      <datalist id="cfl_${esc2(b.id)}">${lots.map(function (l) { return `<option value="${esc2(l)}">`; }).join("")}</datalist>
+      <button class="b live" onclick="techBoxConfirm('${esc2(b.id)}','same')" ${T.saving ? "disabled" : ""}>Same box — not counted again</button>
+      <button class="b" onclick="techBoxConfirm('${esc2(b.id)}','in stock')" ${T.saving ? "disabled" : ""}>Different box — count it</button></div></div>`;
+}
+async function techBoxConfirm(id, how) {
+  const T = S.tech, el = document.getElementById("cf_" + id), lot = el ? el.value.trim() : "";
+  if (!lot) { T.invSaid = "Type the LOT printed on the box first (pick one of the two readings, or type what the box says)."; render(); return; }
+  T.saving = true; render();
+  try {
+    const r = await sheetApi("boxSave", how === "same" ? { id: id, status: "same", lot: lot, by: S.cfg.userName || "" } : { id: id, status: "in stock", fields: { lot: lot }, by: S.cfg.userName || "" }, 60000);
+    T.invSaid = r.said || "Saved.";
+  } catch (e) { T.invSaid = "Not saved: " + (e.message || e); }
+  T.saving = false; T.invAt = 0;
+  await techLoad(true);
+}
+/* a used stent whose LOT fits no box: fix the sticker, fix the box, or accept */
+async function techNoBox(how, stickerId) {
+  const T = S.tech, x = ((T.inv && T.inv.boxNoMatch) || []).filter(function (y) { return y.sticker === stickerId; })[0];
+  if (!x) return;
+  const say = how === "sticker" ? "Change the sticker's LOT from " + x.lot + " to " + x.near.lot + " (the box's)?"
+    : how === "box" ? "Change the box's LOT from " + x.near.lot + " to " + x.lot + " (the sticker's)?"
+    : "Accept this used stent with no box? (Its box came before the stock photos or was never photographed.)";
+  if (!confirm(say)) return;
+  T.saving = true; render();
+  try {
+    let r;
+    if (how === "sticker") r = await sheetApi("stentSave", { id: x.sticker, set: { lot: x.near.lot }, by: S.cfg.userName || "" }, 60000);
+    else if (how === "box") r = await sheetApi("boxSave", { id: x.near.id, status: "in stock", fields: { lot: x.lot }, by: S.cfg.userName || "" }, 60000);
+    else r = await sheetApi("boxNoMatchOk", { sticker: x.sticker, by: S.cfg.userName || "" }, 60000);
+    T.invSaid = (r && r.said) || "Saved.";
+  } catch (e) { T.invSaid = "Not saved: " + (e.message || e); }
+  T.saving = false; T.invAt = 0; T.stents = null;
   await techLoad(true);
 }
 async function techInvReread() {

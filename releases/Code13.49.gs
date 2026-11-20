@@ -315,7 +315,7 @@ function handle(e) {
     var needEdit = { append: 1, remove: 1, otSave: 1, batchPrompts: 1, batchRetry: 1, batchMark: 1, batchRunNow: 1, rosterSave: 1, batchDraft: 1, batchHousekeepSet: 1, batchScheduleSet: 1, techKeySet: 1 };
     if (needEdit[action] && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to make changes.", canEdit: false });
     // 13.44 — what changes the inventory or the stents needs the technicians' key
-    var needTech = { invSave: 1, invApplyPending: 1, stentSave: 1, stentRetry: 1, stentDismiss: 1, stentScanNow: 1, stentToStock: 1, invScanNow: 1, invReread: 1, boxSave: 1 };
+    var needTech = { invSave: 1, invApplyPending: 1, stentSave: 1, stentRetry: 1, stentDismiss: 1, stentScanNow: 1, stentToStock: 1, invScanNow: 1, invReread: 1, boxSave: 1, boxNoMatchOk: 1 };
     if (needTech[action] && !techAllowed(req.tkey)) return out({ ok: false, error: techRefused_(), canTech: false });
     switch (action) {
       case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_(), canTech: techAllowed(req.tkey), techSet: techKeyIsSet_() });
@@ -351,6 +351,7 @@ function handle(e) {
       // 13.48 — stock photos put in the used-stent folder by mistake; the inventory photos read now
       case "stentToStock": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentToStock_(req)));
       case "invReread": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, invReread_(req)));
+      case "boxNoMatchOk": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, boxNoMatchOk_(req)));
       case "boxSave": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, boxSave_(req)));
       case "invScanNow": { lock.releaseLock(); return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, invScanNow_())); }
       default: return out({ ok: false, error: "unknown action " + action });
@@ -4754,13 +4755,38 @@ function boxSave_(req) {
     var why = boxWhy_(b, null);
     if (why) throw new Error("not added: " + why);
     b.status = "in stock"; b.why = ""; b.same = "";
+  } else if (to === "same") {
+    // a repeat confirmed as the box already counted; the LOT actually on the
+    // box (when given) corrects whichever reading was wrong
+    if (b.status !== "repeat") throw new Error("only a repeat can be confirmed as the same box");
+    var lot = cathStr_(req.lot, 60), first = null;
+    for (var j = 0; j < boxes.length; j++) if (boxes[j].id === b.same) first = boxes[j];
+    if (lot) {
+      b.lot = lot;
+      if (first && invNorm_(first.lot) !== invNorm_(lot)) {
+        first.why = "LOT corrected from " + first.lot + " to " + lot + " by " + by + " (checked on the box)"; first.lot = lot; first.checkedBy = by; first.checkedAt = cathNow_();
+        boxWrite_(first);
+      }
+    }
+    b.why = "same box as on " + (first ? first.photo || "another photo" : "another photo") + (lot ? ", LOT " + lot : "") + " — confirmed by " + by;
   } else if (to === "discarded") { b.status = "discarded"; b.why = cathStr_(req.note, 200) || "discarded"; }
   else if (to === "check") { b.status = "check"; b.why = cathStr_(req.note, 200) || "sent back to check"; }
   else throw new Error("unknown change");
   b.checkedBy = by; b.checkedAt = cathNow_();
   boxWrite_(b);
   boxSyncMoves_(by);
-  return { said: (b.brand + " " + b.dia + " × " + b.len + " LOT " + b.lot).trim() + ": " + (b.status === "in stock" ? "added to the stock" : b.status === "discarded" ? "discarded" : "back to check") + "." };
+  return { said: (b.brand + " " + b.dia + " × " + b.len + " LOT " + b.lot).trim() + ": " + (b.status === "in stock" ? "added to the stock" : b.status === "discarded" ? "discarded" : to === "same" ? "confirmed as the same box, not counted again" : "back to check") + "." };
+}
+/* a used stent with no matching box, accepted as it is (its box came before
+   the stock photos, or was never photographed) */
+function boxNoMatchOk_(req) {
+  var id = cathStr_(req.sticker, 60);
+  if (!id) throw new Error("no sticker given");
+  var pr = PropertiesService.getScriptProperties(), list = [];
+  try { list = JSON.parse(pr.getProperty("BOX_NOMATCH_OK") || "[]") || []; } catch (e) { list = []; }
+  if (list.indexOf(id) < 0) list.push(id);
+  pr.setProperty("BOX_NOMATCH_OK", JSON.stringify(list.slice(-2000)));
+  return { said: "Noted — that used stent is no longer listed." };
 }
 /* the boxes for the technicians' page; a box in stock that a used stent's
    sticker fits (same LOT and kind) shows that PTCA */
@@ -4787,7 +4813,9 @@ function boxList_() {
   // stock: its LOT may be misread on the sticker or the box, or that box was
   // never photographed; the nearest box (LOT one character apart) is named
   var since = boxes.map(function (b) { return String(b.readAt).slice(0, 10); }).filter(Boolean).sort()[0] || "";
-  var noBox = !since ? [] : stickers.filter(function (st) { return !taken[st.id] && invStickerDate_(st) >= since; }).map(function (st) {
+  var okList = [];
+  try { okList = JSON.parse(PropertiesService.getScriptProperties().getProperty("BOX_NOMATCH_OK") || "[]") || []; } catch (e) {}
+  var noBox = !since ? [] : stickers.filter(function (st) { return !taken[st.id] && okList.indexOf(st.id) < 0 && invStickerDate_(st) >= since; }).map(function (st) {
     var near = boxes.filter(function (b) {
       return b.status === "in stock" && Number(b.dia) === Number(st.dia) && Number(b.len) === Number(st.len) && boxEdit1_(invNorm_(b.lot), invNorm_(st.lot));
     })[0];
