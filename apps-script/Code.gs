@@ -1397,17 +1397,18 @@ function batchTick(opts) {
   // 13.48: which part the half-price queue plays in this run
   var pollOnly = false;
   BATCH_QUEUE_MODE_ = opts.only === "stents" || opts.only === "inventory" ? "" : opts.fromApp ? (opts.caseId ? "now" : "poll") : "send";
+  PHOTO_MODE_ = opts.only === "stents" || opts.only === "inventory" ? "now" : opts.fromApp ? "poll" : "send";
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
   try { fixing = invAutoFix_(runId); invImport20Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
-  if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; }
+  if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
     if (plan.mode === "closed") {
       // outside the window the run only collects the answers of queued jobs
       if (!PropertiesService.getScriptProperties().getProperty("BATCH_QUEUE_OPEN")) return { ran: false, why: "outside the scan window (next automatic read at " + plan.next + ")" };
-      pollOnly = true; BATCH_QUEUE_MODE_ = "poll";
+      pollOnly = true; BATCH_QUEUE_MODE_ = "poll"; PHOTO_MODE_ = "poll";
     }
     else if (plan.guard) BATCH_GUARD_ = { reserve: plan.reserve };
   }
@@ -1474,7 +1475,7 @@ function batchTick(opts) {
     summary.pending = Math.max(0, summary.pending - summary.scanned - summary.failed);
     // 13.44 — then the technicians' stent photos, with the time this run has
     // left (not on "Scan now" of one case, nor once a limit stopped the run)
-    if (!opts.caseId && !stopped && !pollOnly && opts.only !== "inventory") {
+    if (!opts.caseId && !stopped && opts.only !== "inventory") {
       try {
         var gapS = batchGapMs_();
         var st = stentTick_(f, models, key, runId, !!opts.fromApp, function () { Utilities.sleep(gapS); },
@@ -1485,7 +1486,7 @@ function batchTick(opts) {
       } catch (eS) { batchLogRow_(runId, "", "", "stent photos", "error", String(eS && eS.message || eS)); }
     }
     // 13.48 — the stock photos in "Inventory uploads", with the time left
-    if (!opts.caseId && !stopped && !pollOnly && opts.only !== "stents") {
+    if (!opts.caseId && !stopped && opts.only !== "stents") {
       try {
         var gapI = batchGapMs_();
         var iv = invPhotoTick_(f, models, key, runId, !!opts.fromApp, function () { Utilities.sleep(gapI); },
@@ -1503,7 +1504,8 @@ function batchTick(opts) {
     summary.note = BATCH_RUN_.notes.join("; ");
     // 13.48: the queue flag goes once no case waits on a job any more
     if (BATCH_QUEUE_MODE_ && PropertiesService.getScriptProperties().getProperty("BATCH_QUEUE_OPEN")) {
-      try { if (!batchTabRows_().rows.some(function (x) { return (x.status === "reading" || x.status === "queued") && x.results && x.results._job; })) batchQueueOpenSet_(false); } catch (eQ) {}
+      try { if (!batchTabRows_().rows.some(function (x) { return (x.status === "reading" || x.status === "queued") && x.results && x.results._job; }) &&
+                 !stentUpRows_().rows.some(function (x) { return x.status === "queued" && x.result && x.result._job; })) batchQueueOpenSet_(false); } catch (eQ) {}
     }
     var whyCore = summary.why;   // what the log line reports (a case merely waiting is not news every 5 minutes)
     if (summary.waiting) summary.why = (summary.why ? summary.why + "; " : "") + summary.waiting + " case(s) waiting in Google's half-price queue";
@@ -2494,6 +2496,61 @@ function batchReply_(j) {
    ============================================================ */
 var BATCH_QUEUE_HOURS_DEFAULT = 6;
 var BATCH_QUEUE_MAX_BYTES = 18 * 1024 * 1024;     // Google takes inline batch jobs under 20 MB
+/* 13.50 — the technicians' photos (used stents, stock, weekly shelf, the
+   day's used instruments) go to Google's half-price batch queue on the night
+   runs and are read when the answer is back; outside the night only "Read
+   now" on the technicians' page reads them — at once, at the full price
+   (and a photo already in the queue is taken out of it).
+   PHOTO_MODE_: "send" (a night run), "poll" (only collect answers), "now". */
+var PHOTO_MODE_ = "poll";
+function photoRead_(r, prompt, item, models, key, runId, pause, timeLeft) {
+  var mode = PHOTO_MODE_;
+  r.result = r.result && typeof r.result === "object" ? r.result : {};
+  var job = r.result._job;
+  if (job && job.name) {
+    var st = batchJobPoll_(key, job.name);
+    var mins = Math.round((Date.now() - Number(job.at || 0)) / 60000);
+    if (st.state === "running" || st.state === "unknown") {
+      var tooLong = mins >= batchQueueHours_() * 60;
+      if (mode !== "now" && !tooLong) return { waiting: true };
+      batchJobCancel_(key, job.name);
+      delete r.result._job;
+      stentNote_(r, runId, "half-price queue", "cancelled", mode === "now" ? "Read now: taken out of the queue (" + mins + " min) and read at once" : "not back after " + mins + " min — read directly instead");
+      stentUpWrite_(r);
+      if (mode === "poll" && !tooLong) return { waiting: true };
+    } else {
+      delete r.result._job;
+      var it = st.state === "done" ? st.items[0] : null;
+      var rp = st.state !== "done" ? { ok: false, reason: st.reason } : !it ? { ok: false, reason: "no answer came back" }
+        : it.error ? { ok: false, reason: "Google: " + String(it.error.message || it.error.code || "error").slice(0, 200) } : batchReply_(it.response || it);
+      if (it && !it.error) batchTokAdd_((it.response || it).usageMetadata);
+      if (rp.ok) {
+        stentNote_(r, runId, "half-price queue", "ok", "answer back after " + mins + " min (half price)");
+        return { ok: true, json: rp.json, model: job.model, queued: true };
+      }
+      stentNote_(r, runId, "half-price queue", "failed", rp.reason + " — read directly instead");
+      stentUpWrite_(r);
+    }
+  }
+  if (mode === "send" && batchQueueOn_() && !r.result._sent) {
+    var model = (models.readChain || [models.read])[0];
+    var b = batchBody_(model, prompt, item, null);
+    if (b.body) {
+      var sub = batchJobSubmit_(key, model, [{ request: b.body, metadata: { key: r.id } }], "cag-scanner photo " + r.id);
+      r.result._sent = 1;
+      if (sub.ok) {
+        r.result._job = { name: sub.name, model: model, at: Date.now() };
+        batchQueueOpenSet_(true);
+        stentNote_(r, runId, "half-price queue", "sent", "sent to Google's half-price queue on " + model + " — usually back within minutes to a few hours");
+        stentUpWrite_(r);
+        return { waiting: true };
+      }
+      stentNote_(r, runId, "half-price queue", "not used", sub.reason + " — read directly");
+    }
+  }
+  if (mode === "poll") return { waiting: true };     // read at night, or on "Read now"
+  return batchCallChain_(key, models.readChain || [models.read], prompt, item, null, pause, timeLeft);
+}
 var BATCH_QUEUE_MODE_ = "";   // set by batchTick: "send" (automatic run), "poll" (only look at queued jobs), "now" (Scan now on one case: cancel and read at once)
 function batchQueueOn_() {
   var raw = String(PropertiesService.getScriptProperties().getProperty("BATCH_HALF_PRICE") || "").trim().toLowerCase();
@@ -4377,7 +4434,8 @@ function stentTick_(f, models, key, runId, manual, pause, timeLeft) {
     if (file.getSize() > BATCH_MAX_FILE) { r.status = "failed"; r.errors = [{ step: "file", reason: "larger than 20 MB, which Gemini will not accept — upload it smaller" }]; stentNote_(r, runId, "file", "failed", "larger than 20 MB"); stentFinishMove_(f, file, r, runId); stentUpWrite_(r); out.failed++; continue; }
     var mime = String(file.getMimeType() || "").toLowerCase();
     var item = { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" };
-    var res = batchCallChain_(key, models.readChain || [models.read], STENT_PROMPT, item, null, pause, timeLeft);
+    var res = photoRead_(r, STENT_PROMPT, item, models, key, runId, pause, timeLeft);
+    if (res.waiting) { out.waiting = (out.waiting || 0) + 1; continue; }
     if (res.quota && !res.ok) { out.stopped = true; out.why = res.reason; stentNote_(r, runId, "reading", "stopped", res.reason); stentUpWrite_(r); break; }
     r.tries = (r.tries || 0) + 1;
     if (!res.ok && res.retry && r.tries < BATCH_MAX_TRIES) { stentNote_(r, runId, "reading", "will retry", res.reason + " — tried again next run"); stentUpWrite_(r); pause(); continue; }
@@ -4465,20 +4523,25 @@ function stentStatus_() {
   var waiting = 0; try { var it = f.stentsIn.getFiles(); while (it.hasNext()) { var x = it.next(); if (!tab.byFile[x.getId()]) waiting++; } } catch (e) {}
   var inDone = 0; try { var it2 = f.stentsDone.getFiles(); while (it2.hasNext()) { it2.next(); inDone++; } } catch (e) {}
   var last = null; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty("STENT_LAST") || "null"); } catch (e) {}
-  var invWaiting = 0; try { var it3 = f.invIn.getFiles(); while (it3.hasNext()) { var y = it3.next(); if (!tab.byFile[y.getId()]) invWaiting++; } } catch (e) {}
-  var cnt = function (s, p) { return tab.rows.filter(function (r) { return r.status === s && (r.purpose === "stock") === (p === "stock"); }).length; };
+  var invWaiting = 0;
+  [f.invIn, f.usedIn, f.weeklyIn].forEach(function (fo) { try { var it3 = fo.getFiles(); while (it3.hasNext()) { var y = it3.next(); if (!tab.byFile[y.getId()]) invWaiting++; } } catch (e) {} });
+  try { var kf = invKindFolders_(f); INV_KIND_ORDER.forEach(function (k) { var it4 = kf[k].inF.getFiles(); while (it4.hasNext()) { var z = it4.next(); if (!tab.byFile[z.getId()]) invWaiting++; } }); } catch (e) {}
+  // 13.50: "stock" here = every photo that is not a used-stent photo (stock, weekly, the day's used instruments)
+  var cnt = function (s, p) { return tab.rows.filter(function (r) { return r.status === s && (r.purpose !== "used") === (p === "stock"); }).length; };
+  var inQueue = tab.rows.filter(function (r) { return r.status === "queued" && r.result && r.result._job; }).length;
   return { invInUrl: f.invIn.getUrl(), invInName: f.invIn.getName(), invDoneUrl: f.invDone.getUrl(), invDoneName: f.invDone.getName(),
     invWaiting: invWaiting + cnt("queued", "stock"), invFailed: cnt("failed", "stock"), invScanned: cnt("scanned", "stock"),
     inUrl: f.stentsIn.getUrl(), doneUrl: f.stentsDone.getUrl(), inName: f.stentsIn.getName(), doneName: f.stentsDone.getName(),
     keep: stentKeepN_(), inDone: inDone, waiting: waiting + count("queued"), failed: count("failed"), scanned: count("scanned"),
-    last: last, schedule: batchPlan_(), keySet: !!geminiKey_(), scheduled: batchTriggers_().length > 0 && !batchOff_() };
+    inQueue: inQueue, last: last, schedule: batchPlan_(), keySet: !!geminiKey_(), scheduled: batchTriggers_().length > 0 && !batchOff_() };
 }
 function stentUploads_() {
   var tab = stentUpRows_();
   return { uploads: tab.rows.slice(-300).reverse().map(function (r) {
     return { id: r.id, status: r.status, file: r.file, fileId: r.fileId, uploaded: r.uploaded, scannedAt: r.scannedAt, stickers: r.stickers,
-      patient: r.patient, number: r.number, errors: r.errors, log: String(r.log || "").split("\n").slice(-12).join("\n"), tries: r.tries, readBy: r.readBy, photoGone: r.photoGone, by: r.by, purpose: r.purpose };
-  }) };
+      patient: r.patient, number: r.number, errors: r.errors, log: String(r.log || "").split("\n").slice(-12).join("\n"), tries: r.tries, readBy: r.readBy, photoGone: r.photoGone, by: r.by, purpose: r.purpose,
+      inQueue: !!(r.result && r.result._job), queuedAt: r.result && r.result._job ? r.result._job.at : 0 };
+  }), night: batchPlan_() };
 }
 /* a sticker row corrected, added by hand, marked billed, or deleted */
 function stentSave_(req) {
@@ -4550,7 +4613,7 @@ function stentRetry_(req) {
   if (r.photoGone) throw new Error("this photo was deleted on " + r.photoGone + " (only the newest " + stentKeepN_() + " are kept) — upload it again");
   var billed = stentRowsAll_().filter(function (x) { return x.up === r.id && (x.billNo || x.billedAt || x.edited); });
   if (billed.length) throw new Error("a sticker from this photo has been corrected or marked billed — reading it again would lose that; correct the stickers by hand instead");
-  r.status = "queued"; r.tries = 0; r.errors = [];
+  r.status = "queued"; r.result = null; r.tries = 0; r.errors = [];
   r.log = (r.log ? r.log + "\n" : "") + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm:ss") + " retry: queued again from the app" + (req.by ? " by " + cathStr_(req.by, 60) : "");
   stentUpWrite_(r);
   return { queued: r.id };
@@ -4838,7 +4901,11 @@ function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
   stentTakeNew_(f, tab, manual, "weekly");
   var work = tab.rows.filter(function (r) { return r.status === "queued" && (r.purpose === "stock" || r.purpose === "weekly"); });
   var weeklyDays = {};
-  if (!work.length) return out;
+  if (!work.length) {
+    // 13.50: the day's used-instruments photos are read even when no stock photo waits
+    if (timeLeft() > 100000) { try { out.day = dayTick_(f, models, key, runId, manual, pause, timeLeft); } catch (e) { batchLogRow_(runId, "", "", "used instruments", "error", String(e && e.message || e)); } }
+    return out;
+  }
   batchLogRow_(runId, "", "", "inventory photos", "started", work.length + " photo(s) to read");
   var boxes = boxRowsAll_(), stickers = stentRowsAll_().filter(invIsStentSticker_), changed = false;
   for (var i = 0; i < work.length; i++) {
@@ -4856,7 +4923,8 @@ function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
     if (!file) { r.status = "failed"; r.errors = [{ step: "file", reason: "the photo is no longer in Drive" }]; stentUpWrite_(r); out.failed++; continue; }
     var mime = String(file.getMimeType() || "").toLowerCase();
     var item = { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" };
-    var res = batchCallChain_(key, models.readChain || [models.read], STOCK_PROMPT, item, null, pause, timeLeft);
+    var res = photoRead_(r, STOCK_PROMPT, item, models, key, runId, pause, timeLeft);
+    if (res.waiting) { out.waiting = (out.waiting || 0) + 1; continue; }
     if (res.quota && !res.ok) { out.stopped = true; out.why = res.reason; stentNote_(r, runId, "reading", "stopped", res.reason); stentUpWrite_(r); break; }
     r.tries = (r.tries || 0) + 1;
     if (!res.ok && res.retry && r.tries < BATCH_MAX_TRIES) { stentNote_(r, runId, "reading", "will retry", res.reason); stentUpWrite_(r); pause(); continue; }
@@ -4914,7 +4982,8 @@ function dayTick_(f, models, key, runId, manual, pause, timeLeft) {
     try { file = DriveApp.getFileById(r.fileId); if (file.isTrashed()) file = null; } catch (e) { file = null; }
     if (!file) { r.status = "failed"; r.errors = [{ step: "file", reason: "the photo is no longer in Drive" }]; stentUpWrite_(r); out.failed++; continue; }
     var mime = String(file.getMimeType() || "").toLowerCase();
-    var res = batchCallChain_(key, models.readChain || [models.read], DAY_PROMPT, { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" }, null, pause, timeLeft);
+    var res = photoRead_(r, DAY_PROMPT, { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" }, models, key, runId, pause, timeLeft);
+    if (res.waiting) { out.waiting = (out.waiting || 0) + 1; continue; }
     if (res.quota && !res.ok) { stentNote_(r, runId, "reading", "stopped", res.reason); stentUpWrite_(r); break; }
     r.tries = (r.tries || 0) + 1;
     if (!res.ok && res.retry && r.tries < BATCH_MAX_TRIES) { stentNote_(r, runId, "reading", "will retry", res.reason); stentUpWrite_(r); pause(); continue; }
@@ -5044,7 +5113,7 @@ function stentToStock_(req) {
     if (mine.length) stentDeleteRows_(mine.map(function (x) { return x.row; }));
     all = stentRowsAll_();
     try { DriveApp.getFileById(r.fileId).moveTo(f.invDone); } catch (e) {}
-    r.purpose = "stock"; r.status = "queued"; r.tries = 0; r.stickers = 0;
+    r.purpose = "stock"; r.status = "queued"; r.result = null; r.tries = 0; r.stickers = 0;
     r.log = (r.log ? r.log + "\n" : "") + cathNow_() + " moved to the inventory by " + by + ": " + mine.length + " sticker(s) no longer taken off as used; to be read again as a stock photo";
     stentUpWrite_(r);
     moved++;
@@ -5065,7 +5134,7 @@ function invReread_(req) {
   var boxes = boxRowsAll_().filter(function (b) { return want[b.up]; });
   boxDeleteRows_(boxes.map(function (b) { return b.row; }));
   list.forEach(function (r) {
-    r.status = "queued"; r.tries = 0; r.stickers = 0; r.errors = [];
+    r.status = "queued"; r.result = null; r.tries = 0; r.stickers = 0; r.errors = [];
     r.log = (r.log ? r.log + "\n" : "") + cathNow_() + " to be read again (box by box) — asked by " + by;
     stentUpWrite_(r);
   });
@@ -5114,7 +5183,7 @@ function invAutoFix_(runId) {
   tab = stentUpRows_();
   stock.forEach(function (r0) {
     var r = tab.byId[r0.id];
-    r.status = "queued"; r.tries = 0; r.stickers = 0; r.errors = [];
+    r.status = "queued"; r.result = null; r.tries = 0; r.stickers = 0; r.errors = [];
     r.log = (r.log ? r.log + "\n" : "") + cathNow_() + " automatic correction (13.49): to be read again box by box";
     stentUpWrite_(r);
   });
@@ -5298,7 +5367,7 @@ function invAutoFix50_(runId) {
   if (list.length) {
     var want2 = {}; list.forEach(function (r) { want2[r.id] = 1; });
     boxDeleteRows_(boxRowsAll_().filter(function (b) { return want2[b.up]; }).map(function (b) { return b.row; }));
-    list.forEach(function (r) { r.status = "queued"; r.tries = 0; r.stickers = 0; r.errors = []; r.log = (r.log ? r.log + "\n" : "") + cathNow_() + " 13.50: read again with the new reader (every instrument, foreground only, each box's place)"; stentUpWrite_(r); });
+    list.forEach(function (r) { r.status = "queued"; r.result = null; r.tries = 0; r.stickers = 0; r.errors = []; r.log = (r.log ? r.log + "\n" : "") + cathNow_() + " 13.50: read again with the new reader (every instrument, foreground only, each box's place)"; stentUpWrite_(r); });
     boxSyncMoves_("13.50 re-read");
     batchLogRow_(runId, "", "", "stock re-read (13.50)", "started", list.length + " photo(s) from " + BOX_FROM_SINCE + " read again");
   } else rec.finished = rec.at;

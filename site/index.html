@@ -528,6 +528,8 @@ body.hasnav #appnav{display:flex}
 .expbar .nx{font-size:12.5px;opacity:.85}
 .remind{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;margin:8px 0;padding:10px 14px;border-radius:10px;background:#e0ecff;border:1px solid #9cb9ef;font-size:14px}
 .remind.wk{background:#eef6ea;border-color:#a9d39b}
+.nightbar{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;justify-content:space-between;margin:6px 0 10px;padding:9px 14px;border-radius:10px;background:#1f2a44;color:#e8edf7;font-size:13.5px}
+.nightbar .hint{color:#c9d3e6}
 .dayph{margin-top:8px}
 .daydiff{margin:6px 0;padding:8px 10px;background:#fff6dc;border-radius:8px;font-size:13.5px}
 .flash{animation:flashbox 1.6s ease}
@@ -13063,10 +13065,25 @@ function stLoose(s) { return stCode(s).replace(/[OQD]/g, "0").replace(/[IL]/g, "
 function stGtin(s) { const d = String(s == null ? "" : s).replace(/\D/g, ""); return d.length === 13 ? "0" + d : d.length === 14 ? d : ""; }
 
 /* ---------------- the page ---------------- */
+/* 13.50: every technicians' photo is read at night at half price — said at the top whenever one waits */
+function techNightWin() {
+  const sc = (S.tech.status && S.tech.status.stents && S.tech.status.stents.schedule) || {};
+  return sc.window || "20:00–04:00";
+}
+function techNightNote(short) {
+  return short ? "read tonight (" + techNightWin() + ") at half price" : "Photos are read tonight (" + techNightWin() + ") through Google's half-price queue — the result is here by the next morning. Needed now? Press Read now: read at once, at the full price.";
+}
+function techNightBanner() {
+  const st = (S.tech.status && S.tech.status.stents) || {};
+  const n = (st.waiting || 0) + (st.invWaiting || 0);
+  if (!n) return "";
+  return `<div class="nightbar"><span><b>${n} photo${n === 1 ? "" : "s"} waiting</b> — ${esc2(techNightNote(true))}${st.inQueue ? " · " + st.inQueue + " already in Google's queue" : ""}.</span>
+    <span class="hint">Needed now? <b>Read now</b> reads at once, at the full price.</span></div>`;
+}
 function viewTech() {
   const T = S.tech, st = T.status;
   let h = `<div class="cardhead pad"><b>Stents &amp; inventory</b>
-    <div class="btns"><button class="b primary" onclick="S.tech.tab='photos';techScanNow()" ${T.scanning ? "disabled" : ""} title="Reads only the photos in the Used stents upload folder">${T.scanning ? "Scanning…" : "Scan used stents inbox"}</button>
+    <div class="btns"><button class="b primary" onclick="S.tech.tab='photos';techScanNow()" ${T.scanning ? "disabled" : ""} title="Reads the photos in the Used stents upload folder at once (full price)">${T.scanning ? "Reading…" : "Read used-stent photos now"}</button>
     <button class="b" onclick="techLoad(true)" ${T.loading ? "disabled" : ""}>${T.loading ? "Loading…" : "Refresh"}</button>
     ${S.cfg.editKey ? `<button class="b" onclick="openBatch()">Inbox scans</button>` : ""}
     <button class="b" onclick="openRegistry()">View cases</button>
@@ -13087,6 +13104,7 @@ function viewTech() {
   const badge = { inv: (neg ? `<span class="n bad">${neg} below 0</span>` : "") + (expN ? `<span class="n" style="background:#fde68a;color:#7a4b00">${expN} expiring</span>` : ""),
     stents: T.stents ? `<span class="n">${T.stents.length}</span>` : "",
     photos: s2.waiting || s2.failed ? `<span class="n${s2.failed ? " bad" : ""}">${[s2.waiting ? s2.waiting + " waiting" : "", s2.failed ? s2.failed + " failed" : ""].filter(Boolean).join(", ")}</span>` : "" };
+  h += techNightBanner();
   h += `<div class="tabs">` + TECH_TABS.map(function (t) {
     return `<button class="tab${T.tab === t[0] ? " on" : ""}" onclick="techTab('${t[0]}')">${t[1]}${badge[t[0]] || ""}</button>`;
   }).join("") + `</div>`;
@@ -13189,7 +13207,7 @@ function techInvPhotosHtml() {
     <input type="file" accept="image/*,application/pdf,.pdf" multiple id="invfile" hidden onchange="techUpload(this,'stock')">
     <div class="btns" style="margin:0"><button class="b" onclick="document.getElementById('invcam').click()" ${T.uploading ? "disabled" : ""}>Take a photo</button>
       <button class="b" onclick="document.getElementById('invfile').click()" ${T.uploading ? "disabled" : ""}>Upload photos</button>
-      <button class="b" onclick="techInvScanNow()" ${T.invScanning ? "disabled" : ""}>${T.invScanning ? "Reading…" : "Read inventory photos now"}</button>
+      <button class="b" onclick="techInvScanNow()" ${T.invScanning ? "disabled" : ""} title="Reads the waiting stock, weekly and used-instruments photos at once, at the full price">${T.invScanning ? "Reading…" : "Read now (full price)"}</button>
       ${st.invInUrl ? `<a class="b" href="${esc2(st.invInUrl)}" target="_blank" rel="noopener">${esc2(st.invInName || "Inventory uploads")} folder</a>` : ""}</div>
     ${T.invSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.invSaid)}</p>` : ""}
     ${techBoxFixHtml()}`;
@@ -13328,7 +13346,7 @@ function techStockPhotosHtml() {
       const r = p.result || {};
       const kinds = Object.keys(r.kinds || {}).map(function (k) { return r.kinds[k] + " " + techKindOne(k).toLowerCase() + (r.kinds[k] === 1 ? "" : "s"); }).join(", ");
       return `<div class="bxrow"><div class="bxmain"><b>${p.url ? `<a href="${esc2(p.url)}" target="_blank" rel="noopener">${esc2(p.file)}</a>` : esc2(p.file)}</b>
-        <span>${esc2([p.status === "scanned" ? (kinds || "nothing read in the foreground") : p.status === "failed" ? "could not be read: " + (p.error || "") : "waiting to be read",
+        <span>${esc2([p.status === "scanned" ? (kinds || "nothing read in the foreground") : p.status === "failed" ? "could not be read: " + (p.error || "") : (p.result && p.result._job ? "in Google's half-price queue — collected automatically" : "waiting — " + techNightNote(true)),
           p.status === "scanned" ? (r.added || 0) + " added, " + (r.repeat || 0) + " repeats, " + (r.check || 0) + " to check" + (r.background ? ", " + r.background + " in the background" : "") : ""].filter(Boolean).join(" · "))}</span>
         <span class="m">${esc2(["uploaded " + techDate(String(p.uploaded || "").slice(0, 10)), p.folder ? "to " + p.folder : "", r.movedTo ? "filed in " + r.movedTo : ""].filter(Boolean).join(" · "))}</span>
         ${r.note ? `<span class="why">${esc2(r.note)}</span>` : ""}</div></div>`;
@@ -13724,7 +13742,7 @@ function techDayHtml() {
       ${(r.differs || []).length ? `<div class="daydiff"><b>Photo and utilization sheets differ:</b>${r.differs.map(function (d) { return `<div>${esc2(d.what)} — sheets ${d.sheets}, photo ${d.photo}</div>`; }).join("")}<span class="hint">Check the day's sheets: a device missing from a sheet is not taken off the stock.</span></div>` : `<div class="hint" style="color:var(--live)">Matches the day's utilization sheets.</div>`}
       ${(r.noBox || []).length ? `<div class="hint">No stock box (bought before the stock photos, or not photographed): ${esc2(r.noBox.join("; "))}</div>` : ""}</div>`;
   });
-  ph.filter(function (p) { return p.status === "queued"; }).slice(0, 1).forEach(function () { h += `<p class="hint">A photo is waiting to be read.</p>`; });
+  ph.filter(function (p) { return p.status === "queued"; }).slice(0, 1).forEach(function (p) { h += `<p class="hint" style="color:#8a6a12">${p.result && p.result._job ? "Today's photo is in Google's half-price queue — the result appears here when it is back." : "Today's photo is uploaded; it is " + esc2(techNightNote(true)) + " and checked against the day's sheets. Needed now? Read now (full price)."}</p>`; });
   if (wr && ((wr.sizes || []).length || unseen.length)) {
     h += `<details class="boxlist"${unseen.length || (wr.sizes || []).length ? " open" : ""}><summary><b>Weekly shelf check — ${esc2(techDate(wr.day))}</b> <span class="hint">${wr.photos} photo${wr.photos === 1 ? "" : "s"} · ${esc2((wr.brands || []).length + " brand" + ((wr.brands || []).length === 1 ? "" : "s"))}</span></summary>`;
     if ((wr.sizes || []).length) h += `<div class="daydiff"><b>Shelf and list differ:</b>${wr.sizes.map(function (z) {
@@ -14608,7 +14626,7 @@ function techPhotosHtml() {
     "read automatically at night (" + (p.window || "20:00–04:00") + ")" + (p.mode === "closed" && p.next ? ", next from " + p.next : "");
   return `<div class="card"><div class="cardhead"><div><b>Used-stent photos</b>
       <p class="hint">${esc2([(st.waiting || 0) + " waiting", (st.failed || 0) + " failed", (st.scanned || 0) + " read", (st.inDone || 0) + " photo" + (st.inDone === 1 ? "" : "s") + " kept (the newest " + (st.keep || 200) + ")", auto].join(" · "))}</p></div>
-      <div class="btns" style="margin:0"><button class="b primary" onclick="techScanNow()" ${T.scanning ? "disabled" : ""}>${T.scanning ? "Reading…" : "Read the new photos now"}</button></div></div>
+      <div class="btns" style="margin:0"><button class="b primary" onclick="techScanNow()" ${T.scanning ? "disabled" : ""}>${T.scanning ? "Reading…" : "Read now (full price)"}</button></div></div>
     ${T.scanSaid ? `<div class="warn blue">${esc2(T.scanSaid)}</div>` : ""}
     <p class="hint">One photo per patient: write the patient's name and PTCA / Cath number on a sheet, stick that patient's stent labels beside them, and photograph it flat and close, every label sharp. Put it in the Drive folder <b>${esc2(st.inName || "Used stents upload")}</b> — or upload it here. After reading, the photo moves to <b>${esc2(st.doneName || "Used stents processed")}</b>; only the newest ${st.keep || 200} photos are kept there, and what was read stays in the sheet's Stents tab.</p>
     <input type="file" accept="image/*" capture="environment" id="stcam" hidden onchange="techUpload(this)">
@@ -14620,7 +14638,7 @@ function techPhotosHtml() {
     ${T.upSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.upSaid)}</p>` : ""}
     <div class="uplist" id="upList">${techUploadsListHtml()}</div></div>`;
 }
-const UP_TAG = { queued: ["WAITING", "#d9a400"], scanned: ["READ", "#1c7a55"], failed: ["FAILED", "#c00000"], dismissed: ["DISMISSED", "#9a9ea8"] };
+const UP_TAG = { queued: ["WAITING · TONIGHT", "#d9a400"], scanned: ["READ", "#1c7a55"], failed: ["FAILED", "#c00000"], dismissed: ["DISMISSED", "#9a9ea8"] };
 function techUploadsListHtml() {
   const T = S.tech;
   if (!T.uploads) return T.loading ? `<p class="hint">Loading…</p>` : "";
@@ -14633,9 +14651,10 @@ function techUploadsListHtml() {
   return bulk + T.uploads.slice(0, 80).map(function (u) {
     const tag = u.purpose === "stock" ? ["STOCK", "#0e7490"] : (UP_TAG[u.status] || [String(u.status || "").toUpperCase(), "#5f6470"]);
     const errs = (u.errors || []).map(function (e) { return typeof e === "string" ? e : (e.reason || ""); }).filter(Boolean);
+    if (u.status === "queued") errs.unshift(u.inQueue ? "In Google's half-price queue since " + new Date(u.queuedAt).toTimeString().slice(0, 5) + " — the answer is collected automatically" : "Will be " + techNightNote(true) + ". Press Read now for it at once (full price).");
     return `<div class="pick"><div class="who"><b>${esc2(u.patient || u.file || u.id)} <span class="tag" style="background:${tag[1]}">${tag[0]}</span></b>
       <span>${esc2([u.number ? "PTCA " + u.number : "", u.stickers ? u.stickers + " sticker" + (u.stickers === 1 ? "" : "s") : "", u.uploaded ? "uploaded " + u.uploaded : "", u.scannedAt ? "read " + u.scannedAt : "", u.photoGone ? "photo deleted " + u.photoGone : ""].filter(Boolean).join(" · "))}</span>
-      ${errs.length ? `<span style="color:#c00000">${esc2(errs.join("; "))}</span>` : ""}
+      ${errs.length ? `<span style="color:${u.status === "queued" ? "#8a6a12" : "#c00000"}">${esc2(errs.join("; "))}</span>` : ""}
       <span>${esc2(u.file || "")}${u.by ? " · uploaded by " + esc2(u.by) : ""}</span></div>
       <div class="btns" style="margin:0">
         ${u.fileId && !u.photoGone ? `<button class="b" onclick="techPhoto('${esc2(u.fileId)}')">Photo</button>` : ""}
@@ -14662,14 +14681,14 @@ async function techUpload(input, purpose) {
   }
   T.uploading = false;
   if (purpose === "day" || purpose === "weekly") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Instruments used upload" : "Weekly shelf photos") + (bad ? "; then: " + bad : "") + (ok ? " — read at the next scan, or press “Read inventory photos now”." : "");
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Instruments used upload" : "Weekly shelf photos") + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
   if (purpose === "stock") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Inventory uploads" + (bad ? "; then: " + bad : "") + (ok ? " — read at the next scan, or press “Read inventory photos now”." : "");
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Inventory uploads" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
-  T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" + (bad ? "; then: " + bad : "") + (ok ? " — read at the next scan, or press “Scan used stents inbox”." : "");
+  T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read used-stent photos now (full price)." : "");
   T.upAt = 0; T.statusAt = 0;
   await techLoad(true);
 }
@@ -14704,7 +14723,7 @@ async function techScanNow() {
 }
 async function techUpRetry(id) {
   if (!confirm("Read this photo again from the start? Its stickers are read afresh at the next scan.")) return;
-  try { await sheetApi("stentRetry", { id: id, by: S.cfg.userName || "" }, 40000); S.tech.upAt = 0; S.tech.statusAt = 0; techSay("Queued — it is read at the next scan."); techLoad(true); }
+  try { await sheetApi("stentRetry", { id: id, by: S.cfg.userName || "" }, 40000); S.tech.upAt = 0; S.tech.statusAt = 0; techSay("Queued — " + techNightNote(true) + ", or press Read now (full price)."); techLoad(true); }
   catch (e) { techSay(e.message || String(e), true); }
 }
 async function techUpDismiss(id) {
