@@ -514,6 +514,14 @@ body.hasnav #appnav{display:flex}
 .boxlist.chk .bxhead b{color:#b42318}
 .boxlist.nm>summary b{color:#8a4b00}
 .boxlist.conf .bxhead b{color:#8a4b00}
+.expcard{border:1px solid #f1c27d;background:#fffaf0;border-radius:10px;padding:10px 12px;margin:8px 0}
+.exphead{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.exphead b.r{color:#b42318}.exphead b.a{color:#8a4b00}
+.expgrp.gone .bxmain .why{color:#b42318;font-weight:600}
+.expgrp.soon .bxmain .why{color:#8a4b00;font-weight:600}
+.expdot{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px;background:#fde68a;color:#7a4b00}
+.sttile.exp-gone{box-shadow:inset 0 0 0 2px #b42318}.expdot.gone{background:#fecaca;color:#991b1b}
+.sttile.exp-soon{box-shadow:inset 0 0 0 2px #d97706}
 .boxfix{flex:1 1 100%;margin:4px 0 0;padding:8px 10px;border-radius:8px;background:#eaf6ef;font-size:13px}
 .boxfix.run{background:#fff6dc}
 .bxrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--hair)}
@@ -13057,7 +13065,8 @@ function viewTech() {
   h += techReviewHtml();
   const neg = T.inv ? (T.inv.items || []).filter(function (x) { return x.tracked && x.stock < 0; }).length : 0;
   const s2 = st.stents || {};
-  const badge = { inv: neg ? `<span class="n bad">${neg} below 0</span>` : "",
+  const expN = T.inv ? techExpiryList().filter(function (b) { return b.status === "in stock"; }).length : 0;
+  const badge = { inv: (neg ? `<span class="n bad">${neg} below 0</span>` : "") + (expN ? `<span class="n" style="background:#fde68a;color:#7a4b00">${expN} expiring</span>` : ""),
     stents: T.stents ? `<span class="n">${T.stents.length}</span>` : "",
     photos: s2.waiting || s2.failed ? `<span class="n${s2.failed ? " bad" : ""}">${[s2.waiting ? s2.waiting + " waiting" : "", s2.failed ? s2.failed + " failed" : ""].filter(Boolean).join(", ")}</span>` : "" };
   h += `<div class="tabs">` + TECH_TABS.map(function (t) {
@@ -13112,6 +13121,7 @@ function techInvHtml() {
       <button class="invtile${toCheck ? " amber" : ""}" onclick="var e=document.getElementById('techReview');if(e)e.scrollIntoView({block:'start'})"><b>${toCheck}</b><span>stent${toCheck === 1 ? "" : "s"} to check</span></button>
     </div>
     ${T.invForm ? techInvFormHtml() : ""}
+    ${techExpiryHtml()}
     ${techInvPhotosHtml()}
     ${techInvPendingHtml()}
     <div class="invlay">
@@ -13583,8 +13593,9 @@ function techStentGroupsHtml(mine, words) {
       h += `<div class="sttiles">` + list.map(function (x) {
         const c = !x.tracked ? "off" : !invCounted(x) && x.stock === 0 ? "nc" : invStockClass(x);
         const dl = stentDiaLen(x.size);
-        return `<button type="button" class="sttile ${c}${T.invOpen === x.id ? " on" : ""}" onclick="techInvOpen('${x.id}')" title="${esc2(x.brand + " " + x.size)}">
-          <span class="sz">${esc2(stentNum(dl.d) + " × " + stentNum(dl.l))}</span><span class="stk ${c}">${c === "nc" ? "—" : x.stock}</span></button>`;
+        const ex = techItemExpiry(x.id);
+        return `<button type="button" class="sttile ${c}${T.invOpen === x.id ? " on" : ""}${ex ? " exp-" + ex : ""}" onclick="techInvOpen('${x.id}')" title="${esc2(x.brand + " " + x.size + (ex === "gone" ? " — a box has expired" : ex === "soon" ? " — a box expires within 2 weeks" : ""))}">
+          <span class="sz">${esc2(stentNum(dl.d) + " × " + stentNum(dl.l))}</span><span class="stk ${c}">${c === "nc" ? "—" : x.stock}</span>${ex ? `<span class="expdot ${ex}">${ex === "gone" ? "expired" : "expiring"}</span>` : ""}</button>`;
       }).join("") + `</div>`;
       const op = list.filter(function (x) { return x.id === T.invOpen; })[0];
       if (op) h += `<div class="sttilepanel"><div class="stpt"><b>${esc2(op.brand + " " + op.size)}</b> <span class="hint">${esc2([op.used ? "used " + op.used : "", op.lastUsed ? "last " + techDate(op.lastUsed) : "", op.tracked ? "" : "not tracked"].filter(Boolean).join(" · "))}</span></div>${techInvPanelHtml(op)}${techSizeBoxesHtml(op)}${techSizeStickersHtml(op)}</div>`;
@@ -13632,13 +13643,60 @@ function stentCompanyColour(b) {
   const n = stentCompany(b).toLowerCase(); let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
   return STENT_SPARE[h % STENT_SPARE.length];
 }
+/* 13.50 — expiry alerts: every box known from stock photos (not yet used)
+   whose expiry has passed, or comes within EXPIRY_WARN_DAYS */
+const EXPIRY_WARN_DAYS = 14;
+function boxExpIso(e) {
+  const t = String(e || "").trim();
+  let m = /^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?$/.exec(t);
+  if (m) { const y = +m[1], mo = +m[2]; const d = m[3] ? +m[3] : new Date(Date.UTC(y, mo, 0)).getUTCDate(); return y + "-" + String(mo).padStart(2, "0") + "-" + String(d).padStart(2, "0"); }
+  m = /^(\d{1,2})[-\/.](\d{4})$/.exec(t);                                   // 06-2028: the end of that month
+  if (m) { const y = +m[2], mo = +m[1]; return y + "-" + String(mo).padStart(2, "0") + "-" + String(new Date(Date.UTC(y, mo, 0)).getUTCDate()).padStart(2, "0"); }
+  m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/.exec(t);                     // 23-03-2028
+  if (m) return m[3] + "-" + String(+m[2]).padStart(2, "0") + "-" + String(+m[1]).padStart(2, "0");
+  return "";
+}
+function boxExpDays(b) {
+  const iso = boxExpIso(b.expiry); if (!iso) return null;
+  const today = new Date(); const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((Date.parse(iso + "T00:00:00Z") - t0) / 86400000);
+}
+function techExpiryList() {
+  const bx = ((S.tech.inv && S.tech.inv.boxes) || []).filter(function (b) {
+    if (b.usedBy || b.status === "discarded" || b.status === "repeat" || b.status === "background") return false;
+    const d = boxExpDays(b); return d != null && d <= EXPIRY_WARN_DAYS;
+  });
+  return bx.map(function (b) { return Object.assign({ _d: boxExpDays(b) }, b); }).sort(function (a, c) { return a._d - c._d; });
+}
+function techItemExpiry(itemId) {
+  if (!itemId) return "";
+  let w = "";
+  techExpiryList().forEach(function (b) { if (b.item === itemId && b.status === "in stock") w = b._d < 0 ? "gone" : (w || "soon"); });
+  return w;
+}
+function techExpiryHtml() {
+  const list = techExpiryList();
+  if (!list.length) return "";
+  const gone = list.filter(function (b) { return b._d < 0; }), soon = list.filter(function (b) { return b._d >= 0; });
+  const row = function (b) {
+    const when = b._d < 0 ? "expired " + techDate(boxExpIso(b.expiry)) : b._d === 0 ? "expires today" : "expires in " + b._d + " day" + (b._d === 1 ? "" : "s") + " (" + techDate(boxExpIso(b.expiry)) + ")";
+    return techBoxRowHtml(Object.assign({}, b, { why: when + (b.status === "check" ? " — not counted (to check)" : " — counted in stock") }),
+      b.status === "in stock" && b._d < 0 ? `<button class="b" onclick="techBoxSave('${esc2(b.id)}','discarded')" ${S.tech.saving ? "disabled" : ""}>Taken off the shelf</button>` : "");
+  };
+  return `<div class="expcard"><div class="exphead"><b>Expiry alerts</b>
+      <span class="hint">${gone.length ? `<b class="r">${gone.length} expired</b>` : ""}${gone.length && soon.length ? " · " : ""}${soon.length ? `<b class="a">${soon.length} expiring within 2 weeks</b> — use first` : ""}</span></div>
+    ${gone.length ? `<div class="expgrp gone">${gone.map(row).join("")}</div>` : ""}
+    ${soon.length ? `<div class="expgrp soon">${soon.map(row).join("")}</div>` : ""}
+    <p class="hint">From the boxes on the stock photos (a box already used for a PTCA is left out). An expired box taken off the shelf: press <b>Taken off the shelf</b> so it is no longer counted.</p></div>`;
+}
 function techInvRowHtml(x) {
   const T = S.tech, open = T.invOpen === x.id;
   const nc = !invCounted(x);
   const unit = (INV_KIND_BY[x.kind] || {}).unit;
   const meta = [x.used ? "used " + x.used : "", x.reused ? "reused " + x.reused : "", x.onSheet ? "on sheets " + x.onSheet : "", x.lastUsed ? "last " + techDate(x.lastUsed) : "",
     x.tracked ? (nc && x.stock < 0 ? "no stock entered yet" : "") : "not tracked", unit ? unit : ""].filter(Boolean).join(" · ");
-  const badge = nc && x.stock === 0 ? `<span class="stk nc">not counted yet</span>` : `<span class="stk ${invStockClass(x)}">${x.stock}</span>`;
+  const ex = techItemExpiry(x.id);
+  const badge = (ex ? `<span class="expdot ${ex}">${ex === "gone" ? "expired" : "expiring"}</span>` : "") + (nc && x.stock === 0 ? `<span class="stk nc">not counted yet</span>` : `<span class="stk ${invStockClass(x)}">${x.stock}</span>`);
   return `<div class="invrow${open ? " open" : ""}${x.tracked ? "" : " off"}" onclick="techInvOpen('${x.id}')">
       <span class="sz">${esc2(x.size || "—")}</span><span class="meta">${esc2(meta)}</span>
       ${badge}</div>` + (open ? techInvPanelHtml(x) : "");
