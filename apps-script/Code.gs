@@ -83,6 +83,24 @@
  * (anyone with the URL); batchPrompts, batchRetry, batchMark, batchRunNow
  * (edit key). "whoami" replies v: 13 and says whether the scanner is set up.
  *
+ * What changed in 13.50 — every instrument from stock photos, start dates, photos
+ *   - Stock photos are read for every kind of equipment (balloons, wires,
+ *     guides… not only stents), foreground boxes only; boxes behind are
+ *     listed as "background", not counted. Each box keeps its place in the
+ *     photo (box_2d), so the page can ring it ("Show in photo"). A brand that
+ *     prints no LOT is told apart by its own number (serial).
+ *   - Balloons and other diameter × length kinds are grouped like stents.
+ *   - Each item has its own "Counts from" date (Inventory tab, new column):
+ *     uses dated before it are not taken off. An item first counted from a
+ *     photo taken from 20 Nov 2026 starts the day after that photo; set by
+ *     hand (one item or a whole brand) it is never changed automatically.
+ *   - "Inventory uploads" and "Inventory processed" get a folder per kind of
+ *     equipment. A photo is filed in the processed folder of what it mostly
+ *     shows (a tie: stents if any, else alphabetically); a photo in the wrong
+ *     folder is read as what it shows, and said so.
+ *   - Once after deploying: the stock photos uploaded from 20 Nov are read
+ *     again with the new reader.
+ *
  * What changed in 13.49 — inbox cases open faster, CAG number from the diagram,
  *   stock photos read box by box
  *   - Stock photos (Inventory uploads) are read with a prompt for boxes on a
@@ -245,7 +263,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -320,7 +338,7 @@ function handle(e) {
     var needEdit = { append: 1, remove: 1, otSave: 1, batchPrompts: 1, batchRetry: 1, batchMark: 1, batchRunNow: 1, rosterSave: 1, batchDraft: 1, batchHousekeepSet: 1, batchScheduleSet: 1, techKeySet: 1 };
     if (needEdit[action] && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to make changes.", canEdit: false });
     // 13.44 — what changes the inventory or the stents needs the technicians' key
-    var needTech = { invSave: 1, invApplyPending: 1, stentSave: 1, stentRetry: 1, stentDismiss: 1, stentScanNow: 1, stentToStock: 1, invScanNow: 1, invReread: 1, boxSave: 1, boxNoMatchOk: 1 };
+    var needTech = { invSave: 1, invApplyPending: 1, stentSave: 1, stentRetry: 1, stentDismiss: 1, stentScanNow: 1, stentToStock: 1, invScanNow: 1, invReread: 1, boxSave: 1, boxNoMatchOk: 1, boxPhoto: 1 };
     if (needTech[action] && !techAllowed(req.tkey)) return out({ ok: false, error: techRefused_(), canTech: false });
     switch (action) {
       case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_(), canTech: techAllowed(req.tkey), techSet: techKeyIsSet_() });
@@ -357,6 +375,7 @@ function handle(e) {
       case "stentToStock": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, stentToStock_(req)));
       case "invReread": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, invReread_(req)));
       case "boxNoMatchOk": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, boxNoMatchOk_(req)));
+      case "boxPhoto": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, boxPhoto_(req)));
       case "boxSave": return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, boxSave_(req)));
       case "invScanNow": { lock.releaseLock(); return out(Object.assign({ ok: true, canTech: true, v: SCRIPT_VERSION }, invScanNow_())); }
       default: return out({ ok: false, error: "unknown action " + action });
@@ -1114,6 +1133,43 @@ function batchFolders_() {
     invIn: sub(props.getProperty("INVUP_IN") || INVUP_IN_DEFAULT), invDone: sub(props.getProperty("INVUP_DONE") || INVUP_DONE_DEFAULT) };
 }
 
+/* 13.50 — one folder per kind of equipment inside "Inventory uploads", and its
+   twin inside "Inventory processed": made on first need, their ids kept (so a
+   run does not look up 32 folders by name each time) */
+var INV_KIND_FOLDER = { stent: "Stents", balloon: "Balloons", dcb: "Drug-coated balloons", cutting: "Cutting balloons", wire: "Guide wires",
+  guide: "Guide catheters", ge: "Guide extensions", mc: "Microcatheters", asp: "Aspiration catheters", rota: "Rota burrs", ivus: "IVUS",
+  oct: "OCT", imaging: "ELCA and other imaging", sheath: "Sheaths", contrast: "Contrast", other: "Other" };
+function invKindFolders_(f) {
+  var pr = PropertiesService.getScriptProperties(), saved = {};
+  try { saved = JSON.parse(pr.getProperty("INV_KIND_FOLDERS") || "{}") || {}; } catch (e) { saved = {}; }
+  var out = {}, changed = false;
+  var get = function (parent, name, id) {
+    if (id) { try { var fo = DriveApp.getFolderById(id); if (!fo.isTrashed()) return fo; } catch (e) {} }
+    var it = parent.getFoldersByName(name);
+    changed = true;
+    return it.hasNext() ? it.next() : parent.createFolder(name);
+  };
+  INV_KIND_ORDER.forEach(function (k) {
+    var s0 = saved[k] || {};
+    var inF = get(f.invIn, INV_KIND_FOLDER[k], s0.i), doneF = get(f.invDone, INV_KIND_FOLDER[k], s0.d);
+    out[k] = { inF: inF, doneF: doneF };
+    if (s0.i !== inF.getId() || s0.d !== doneF.getId()) { saved[k] = { i: inF.getId(), d: doneF.getId() }; changed = true; }
+  });
+  if (changed) pr.setProperty("INV_KIND_FOLDERS", JSON.stringify(saved));
+  return out;
+}
+/* which instrument a photo is mostly of: the most boxes read in the
+   foreground; a tie goes to stents if there are stents, else alphabetically */
+function invPhotoKind_(counts) {
+  var ks = Object.keys(counts).filter(function (k) { return counts[k] > 0; });
+  if (!ks.length) return "";
+  var top = Math.max.apply(null, ks.map(function (k) { return counts[k]; }));
+  var tied = ks.filter(function (k) { return counts[k] === top; });
+  if (tied.length === 1) return tied[0];
+  if (tied.indexOf("stent") >= 0) return "stent";
+  return tied.sort(function (a, b) { return INV_KIND_FOLDER[a].localeCompare(INV_KIND_FOLDER[b]); })[0];
+}
+
 /* ---- the prompts the app sent ---- */
 function batchSavePrompts_(req) {
   var p = req.prompts && typeof req.prompts === "object" ? req.prompts : null;
@@ -1329,7 +1385,7 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); fixing = invAutoFix50_(runId) || fixing; } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -3330,7 +3386,7 @@ function cathStr_(v, max) { var s = String(v == null ? "" : v).replace(/\s+/g, "
 /* ---------------- inventory ---------------- */
 var INV_TAB = "Inventory", INV_MOVES = "Inventory moves";
 var INV_HEAD = ["Item id", "Type", "Brand", "Size", "In stock", "Received", "Used", "Adjusted (+/−)", "Reused (not deducted)",
-  "Low at", "Tracked", "Notes", "Keys", "Last used", "Updated", "By"];
+  "Low at", "Tracked", "Notes", "Keys", "Last used", "Updated", "By", "Counts from"];
 var MOVE_HEAD = ["Move id", "Time", "Item id", "Kind", "Units", "Qty", "Case key", "PTCA No", "Patient", "Case date",
   "Written as", "Where", "By", "Note"];
 var INV_START_DEFAULT = "2026-11-17";     // the day 13.44 went out
@@ -3399,7 +3455,8 @@ function invItems_() {
     out.push({ id: cathStr_(cell(v[0]), 40) || invHandId_(kind, brand, size), kind: kind, type: INV_KIND_LABEL[kind], brand: brand || INV_KIND_LABEL[kind], size: size,
       low: low !== "" && isFinite(Number(low)) ? Number(low) : null, tracked: !(tracked === "no" || tracked === "false" || tracked === "0"),
       notes: cathStr_(cell(v[11]), 500), keys: cell(v[12]).split("\n").map(function (k) { return k.trim(); }).filter(Boolean),
-      updated: cell(v[14]), by: cell(v[15]) });
+      updated: cell(v[14]), by: cell(v[15]), from: /^\d{4}-\d{2}-\d{2}/.test(cell(v[16])) ? cell(v[16]).slice(0, 10) : "",
+      fromSetBy: cell(v[16]).trim() === "-" ? "hand" : "", fromAuto: /photo/.test(cell(v[16])) });
   });
   return out;
 }
@@ -3425,12 +3482,15 @@ function invStart_() {
   var s = String(PropertiesService.getScriptProperties().getProperty("INV_START") || "").trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : INV_START_DEFAULT;
 }
+/* 13.50: an item's own start ("Counts from"): a use (a PTCA's or a sticker's)
+   dated before it is not taken off — the stock was counted after it */
 function invTotals_(items, moves) {
-  var by = {};
-  items.forEach(function (it) { by[it.id] = { stock: 0, received: 0, used: 0, adjusted: 0, reused: 0, early: 0, lastUsed: "", cases: 0, onSheet: 0, counted: false }; });
+  var by = {}, from = {};
+  items.forEach(function (it) { by[it.id] = { stock: 0, received: 0, used: 0, adjusted: 0, reused: 0, early: 0, before: 0, lastUsed: "", cases: 0, onSheet: 0, counted: false }; from[it.id] = it.from || ""; });
   moves.forEach(function (m) {
     var t = by[m.item];
     if (!t) return;
+    if (m.kind === "used" && from[m.item] && m.caseDate && m.caseDate < from[m.item]) { t.before += m.units || -m.qty; return; }
     t.stock += m.qty;
     if (m.kind === "received") t.received += m.qty;
     else if (m.kind === "used") { t.used += -m.qty; t.cases++; if (m.caseDate > t.lastUsed) t.lastUsed = m.caseDate; }
@@ -3469,7 +3529,7 @@ function invWriteTab_(items, moves) {
   var rows = list.map(function (it) {
     var t = tot[it.id];
     return [it.id, it.type, it.brand, it.size, t.stock, t.received, t.used, t.adjusted, t.reused,
-      it.low == null ? "" : it.low, it.tracked ? "yes" : "no", it.notes, (it.keys || []).join("\n"), t.lastUsed, it.updated || "", it.by || ""];
+      it.low == null ? "" : it.low, it.tracked ? "yes" : "no", it.notes, (it.keys || []).join("\n"), t.lastUsed, it.updated || "", it.by || "", it.from ? it.from + (it.fromAuto ? " (first stock photo)" : "") : (it.fromSetBy === "hand" ? "-" : "")];
   });
   var last = sh.getLastRow();
   if (last > 1) sh.getRange(2, 1, last - 1, INV_HEAD.length).clearContent().setBackground(null).setFontColor(null).setFontWeight(null);
@@ -3806,7 +3866,7 @@ function invGet_(req) {
     var t = tot[it.id];
     return { id: it.id, kind: it.kind, type: it.type, brand: it.brand, size: it.size, low: it.low, tracked: it.tracked, notes: it.notes,
       stock: t.stock, received: t.received, used: t.used, adjusted: t.adjusted, reused: t.reused, early: t.early, lastUsed: t.lastUsed, cases: t.cases,
-      onSheet: t.onSheet, counted: t.counted };
+      onSheet: t.onSheet, counted: t.counted, from: it.from || "", fromAuto: !!it.fromAuto, before: t.before };
   });
   var stickers = [];
   try { stickers = stentRowsAll_(); } catch (e) {}
@@ -3815,6 +3875,7 @@ function invGet_(req) {
     kinds: INV_KIND_ORDER.map(function (k) { return { kind: k, label: INV_KIND_LABEL[k] }; }),
     review: chk.review, noSheet: chk.noSheet, needSync: invNeedSync_(moves, stickers) };
   try { o.boxFix = invAutoFixStatus_(); } catch (e) {}
+  try { o.stockPhotos = invPhotoList_(); } catch (e) {}
   try { var bl = boxList_(); o.boxes = bl.boxes; o.boxNoMatch = bl.noBox; } catch (e) { o.boxes = []; o.boxesError = String(e && e.message || e); }
   // one item's whole history, for the item open on the page
   if (req.item) { o.item = String(req.item); o.itemMoves = moves.filter(function (m) { return m.item === String(req.item); }).reverse().map(invMoveOut_); }
@@ -3909,6 +3970,18 @@ function invSave_(req) {
       invAppendMoves_([invMoveRow_({ item: it.id, kind: "received", units: nIn, qty: nIn, by: by, note: note })]);
       said = nIn + " × " + label(it) + " received.";
       break;
+    case "from": {
+      // 13.50: the day an item's uses start being taken off (one item, or several — a brand)
+      var ids = Array.isArray(op.ids) ? op.ids.map(String) : [String(op.id || "")];
+      var d0 = String(op.from || "").trim();
+      if (d0 && !/^\d{4}-\d{2}-\d{2}$/.test(d0)) throw new Error("the date must be yyyy-mm-dd");
+      var nF = 0;
+      // cleared by hand it reads "-" (the inventory start), so a stock photo never sets it again
+      ids.forEach(function (id) { var x = find(id); if (x) { x.from = d0; x.fromSetBy = "hand"; x.fromAuto = false; x.updated = cathNow_(); x.by = by; nF++; } });
+      if (!nF) throw new Error("that item is no longer on the list");
+      said = nF + " item" + (nF === 1 ? "" : "s") + (d0 ? ": uses taken off from " + d0 : ": uses taken off from the inventory start") + ".";
+      break;
+    }
     case "count":
       it = find(op.id); if (!it) throw new Error("that item is no longer on the list");
       var counted = whole(op.counted, 0, 100000, "The count");
@@ -3982,7 +4055,7 @@ var STENT_HEAD = ["Sticker id", "Upload id", "Patient", "PTCA / Cath No", "IP No
   "Diameter (mm)", "Length (mm)", "REF", "LOT", "Serial No", "Expiry", "Mfg date", "GTIN", "Barcode / QR text", "Other",
   "Unsure", "Photo", "Scanned at", "Read by", "Bill no", "Bill date", "Vendor", "Billed at", "Billed by", "Edited", "Notes", "File id", "Photo removed"];
 var STENT_UP_HEAD = ["Upload id", "Status", "File", "File id", "Uploaded", "Scanned at", "Stickers", "Patient", "Number",
-  "Errors", "Log", "Tries", "Read by", "Photo removed", "By", "Purpose"];
+  "Errors", "Log", "Tries", "Read by", "Photo removed", "By", "Purpose", "Folder", "Result"];
 /* the fields of a sticker row as the app knows them (index = column) */
 var STENT_KEYS = ["id", "up", "patient", "ptcaNo", "ipNo", "date", "device", "brand", "mfr", "size", "dia", "len", "ref", "lot", "serial",
   "expiry", "mfg", "gtin", "codes", "other", "unsure", "photo", "scannedAt", "readBy", "billNo", "billDate", "vendor", "billedAt", "billedBy",
@@ -4034,9 +4107,10 @@ var BILL_PROMPT = "You are reading a photograph of a bill, invoice, delivery cha
    sticker read) is known. */
 var BOX_TAB = "Stock boxes";
 var BOX_HEAD = ["Box id", "Upload id", "Photo", "File id", "Status", "Why", "Kind", "Brand", "Manufacturer", "Diameter (mm)", "Length (mm)",
-  "REF", "LOT", "Serial No", "Expiry", "GTIN", "Barcode text", "Place in photo", "Item id", "Same as", "Read at", "Read by", "Checked by", "Checked at"];
+  "REF", "LOT", "Serial No", "Expiry", "GTIN", "Barcode text", "Place in photo", "Item id", "Same as", "Read at", "Read by", "Checked by", "Checked at",
+  "Size", "Area in photo"];
 var BOX_KEYS = ["id", "up", "photo", "fileId", "status", "why", "kind", "brand", "mfr", "dia", "len", "ref", "lot", "serial", "expiry", "gtin",
-  "codes", "place", "item", "same", "readAt", "readBy", "checkedBy", "checkedAt"];
+  "codes", "place", "item", "same", "readAt", "readBy", "checkedBy", "checkedAt", "size", "area"];
 /* status: "in stock" (counted), "repeat" (the same box seen before — not
    counted), "check" (not read well enough — not counted until fixed),
    "discarded" (not a device / a mistake — never counted) */
@@ -4064,22 +4138,25 @@ function boxDeleteRows_(rowNums) {
   while (i < r.length) { var end = r[i], start = end; while (i + 1 < r.length && r[i + 1] === start - 1) { i++; start = r[i]; } sh.deleteRows(start, end - start + 1); i++; }
 }
 var STOCK_PROMPT = "You are reading a photograph taken in the cardiac catheterisation laboratory store of the Department of Cardiology, LTMG Hospital, Sion, Mumbai. " +
-  "It shows BOXES of coronary devices (mostly drug-eluting stents; sometimes balloons or other hardware) on a shelf: usually standing side by side with their narrow ends (spines) facing the camera, " +
-  "sometimes lying flat, sometimes a single box label. Every box's spine label prints the brand, the diameter and the length (for example \"2.75 mm\" above \"18 mm\"), the shaft length (\"145 cm\" — not the stent length), " +
-  "the expiry beside an hourglass, and a barcode with REF and LOT printed beside it and a line of numbers under it such as \"(01)08717648205538(17)290610(10)6061841(91)5073\".\n\n" +
-  "Give ONE entry per box you can see, left to right, then the next row or the boxes lying on top:\n" +
-  "- device: Stent, Balloon, DCB or Other. brand: the product name (for example Xience Alpine); manufacturer: the company (Abbott).\n" +
-  "- diameter and length: the stent's diameter and length in mm as plain numbers (never the 145 cm shaft length).\n" +
-  "- ref: the number after REF. lot: the number after LOT. expiry: beside the hourglass, as printed. gtin: the number after (01).\n" +
-  "- codes: the line of numbers under the barcode, copied exactly, with its brackets.\n" +
-  "- place: where the box is, for example \"row 1, box 7 from the left\" or \"lying on top\".\n" +
-  "- partial: true when the box is cut off by the edge of the photo, or its size or LOT is hidden or too small to read.\n\n" +
-  "Rules:\n" +
-  "- One entry per physical box. Two boxes of the same size are two entries; never list the same box twice.\n" +
-  "- Copy letters and digits exactly, never guess. Mark a character you cannot read with \"?\". Leave a field empty when you cannot see it.\n" +
-  "- The LOT and the number after (10) in the barcode line are the same number on a box; the expiry and the number after (17) (YYMMDD) are the same date. Read both where you can.\n\n" +
+  "It shows BOXES of coronary devices — drug-eluting stents, balloons (NC, semi-compliant, drug-coated, cutting/scoring), guide wires, guide catheters, guide extensions, microcatheters and other hardware — " +
+  "standing side by side with their narrow ends (spines) to the camera, or lying flat in a stack, or a single box label. A spine label prints the brand, the size (for a stent or balloon: the diameter " +
+  "and the length in mm, e.g. \"2.75\" beside \"12\"; the shaft length such as \"145 cm\" is not the length), the expiry beside an hourglass, and usually a barcode with REF and LOT beside it and a line " +
+  "of numbers under it such as \"(01)08717648205538(17)290610(10)6061841(91)5073\". Some brands print no LOT but a long number of the box's own under the barcode (e.g. \"133329072026H0337014\") — that is its serial.\n\n" +
+  "FOREGROUND ONLY: read the boxes the photo was taken of — the nearest stack or row, large, in focus and readable. Boxes behind them, on another shelf, out of focus or tiny are BACKGROUND: " +
+  "give each background box (or each background group of the same brand) one entry with background:true and only what you can see of it; do not read their numbers.\n\n" +
+  "For every foreground box, one entry (top to bottom for a stack, left to right for a row):\n" +
+  "- device: Stent, Balloon, DCB (drug-coated balloon), Cutting balloon, Guide wire, Guide catheter, Guide extension, Microcatheter, Aspiration catheter or Other. " +
+  "A product called a \"Dilatation Catheter\" or \"Balloon Catheter\" is a Balloon.\n" +
+  "- brand: the product name as printed (Xience Alpine, NC Trek, Mini Trek, Tanzor NC, NC Rockstar…); manufacturer: the company.\n" +
+  "- diameter and length (stents and balloons): plain numbers in mm. size (anything else): as printed, e.g. \"6F XB 3.5\", \"0.014 x 180 cm\".\n" +
+  "- ref, lot, serial (the box's own number when there is no LOT), expiry (as printed), gtin (after (01)), codes (the line under the barcode, exactly, with brackets).\n" +
+  "- place: where it is, e.g. \"stack, box 3 from the top\", \"row 1, box 7 from the left\", \"lying on top\".\n" +
+  "- box_2d: where the box's label is in the photo, as [ymin, xmin, ymax, xmax] scaled 0-1000.\n" +
+  "- partial: true when the box is cut off by the edge of the photo, or its size or LOT is hidden.\n\n" +
+  "Rules: one entry per physical box — two boxes of the same size are two entries, never the same box twice. Copy letters and digits exactly, never guess; mark an unreadable character \"?\"; " +
+  "leave a field empty when you cannot see it. The LOT and the number after (10) are the same; the expiry and the number after (17) (YYMMDD) are the same date.\n\n" +
   "Return ONLY minified JSON, no fences:\n" +
-  "{\"boxes\":[{\"device\":\"Stent\",\"brand\":\"\",\"manufacturer\":\"\",\"diameter\":\"\",\"length\":\"\",\"ref\":\"\",\"lot\":\"\",\"expiry\":\"\",\"gtin\":\"\",\"codes\":[\"\"],\"place\":\"\",\"partial\":false}]}";
+  "{\"boxes\":[{\"device\":\"\",\"brand\":\"\",\"manufacturer\":\"\",\"diameter\":\"\",\"length\":\"\",\"size\":\"\",\"ref\":\"\",\"lot\":\"\",\"serial\":\"\",\"expiry\":\"\",\"gtin\":\"\",\"codes\":[\"\"],\"place\":\"\",\"box_2d\":[0,0,0,0],\"partial\":false,\"background\":false}]}";
 
 /* GS1 — the numbers under a medical device's barcode: "(01)…(17)…(10)…(21)…"
    as printed, or the raw data a scanner gives ("]d2" + digits, fields of
@@ -4198,7 +4275,8 @@ function stentUpRows_() {
       var errs = []; try { errs = JSON.parse(cell(v[9]) || "[]") || []; } catch (e) { errs = cell(v[9]) ? [cell(v[9])] : []; }
       rows.push({ row: i + 2, id: cell(v[0]), status: cell(v[1]), file: cell(v[2]), fileId: cell(v[3]), uploaded: cell(v[4]), scannedAt: cell(v[5]),
         stickers: Number(v[6]) || 0, patient: cell(v[7]), number: cell(v[8]), errors: errs, log: cell(v[10]), tries: Number(v[11]) || 0,
-        readBy: cell(v[12]), photoGone: cell(v[13]), by: cell(v[14]), purpose: cell(v[15]) === "stock" ? "stock" : "used" });
+        readBy: cell(v[12]), photoGone: cell(v[13]), by: cell(v[14]), purpose: cell(v[15]) === "stock" ? "stock" : "used",
+        folder: cell(v[16]), result: (function () { try { return JSON.parse(cell(v[17]) || "null"); } catch (e) { return null; } })() });
     });
   }
   var byId = {}, byFile = {};
@@ -4208,7 +4286,8 @@ function stentUpRows_() {
 function stentUpWrite_(r) {
   var sh = stentUpTab_();
   var vals = [r.id, r.status, r.file || "", r.fileId || "", r.uploaded || "", r.scannedAt || "", r.stickers || 0, r.patient || "", r.number || "",
-    JSON.stringify(r.errors || []).slice(0, 20000), String(r.log || "").slice(-20000), r.tries || 0, r.readBy || "", r.photoGone || "", r.by || "", r.purpose === "stock" ? "stock" : "used"];
+    JSON.stringify(r.errors || []).slice(0, 20000), String(r.log || "").slice(-20000), r.tries || 0, r.readBy || "", r.photoGone || "", r.by || "", r.purpose === "stock" ? "stock" : "used",
+    r.folder || "", r.result ? JSON.stringify(r.result).slice(0, 5000) : ""];
   // formatted as text before the values go in, so a time is never turned into a date
   if (!r.row) r.row = sh.getLastRow() + 1;
   var rg = sh.getRange(r.row, 1, 1, STENT_UP_HEAD.length);
@@ -4227,22 +4306,28 @@ function stentTakeNew_(f, tab, manual, purpose) {
   var stock = purpose === "stock";
   var minAge = manual ? 20 * 1000 : BATCH_MIN_AGE_MS;
   var now = Date.now(), fresh = [];
-  var it = (stock ? f.invIn : f.stentsIn).getFiles();
-  while (it.hasNext()) {
-    var file = it.next();
-    var mime = String(file.getMimeType() || "").toLowerCase();
-    var ok = mime === "application/pdf" || /^image\/(jpeg|jpg|png|webp|heic|heif)$/.test(mime);
-    if (!ok || tab.byFile[file.getId()]) continue;
-    if (now - file.getLastUpdated().getTime() < minAge) continue;
-    fresh.push({ file: file, t: file.getDateCreated().getTime() });
-  }
+  // 13.50: a stock photo may sit in Inventory uploads itself or in one of its
+  // instrument folders (Stents, Balloons, …); the folder is kept with it
+  var sources = [{ folder: stock ? f.invIn : f.stentsIn, kind: "" }];
+  if (stock) { var kf = invKindFolders_(f); INV_KIND_ORDER.forEach(function (k) { if (kf[k]) sources.push({ folder: kf[k].inF, kind: k }); }); }
+  sources.forEach(function (src) {
+    var it = src.folder.getFiles();
+    while (it.hasNext()) {
+      var file = it.next();
+      var mime = String(file.getMimeType() || "").toLowerCase();
+      var ok = mime === "application/pdf" || /^image\/(jpeg|jpg|png|webp|heic|heif)$/.test(mime);
+      if (!ok || tab.byFile[file.getId()]) continue;
+      if (now - file.getLastUpdated().getTime() < minAge) continue;
+      fresh.push({ file: file, t: file.getDateCreated().getTime(), kind: src.kind });
+    }
+  });
   fresh.sort(function (a, b) { return a.t - b.t; });
   return fresh.map(function (x) {
     var stem = String(x.file.getName()).replace(/\.[A-Za-z0-9]+$/, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
     var id = (stock ? "IN" : "ST") + Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + (stem ? "-" + stem : "");
     var n = 2; while (tab.byId[id]) id = id.replace(/~\d+$/, "") + "~" + (n++);
     var r = { id: id, status: "queued", file: x.file.getName(), fileId: x.file.getId(),
-      uploaded: Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm"), errors: [], log: "", tries: 0, row: 0, purpose: stock ? "stock" : "used" };
+      uploaded: Utilities.formatDate(new Date(x.t), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm"), errors: [], log: "", tries: 0, row: 0, purpose: stock ? "stock" : "used", folder: x.kind || "" };
     stentUpWrite_(r);
     tab.rows.push(r); tab.byId[id] = r; tab.byFile[r.fileId] = r;
     return r;
@@ -4477,7 +4562,8 @@ function stentUpload_(req) {
   var who = cathStr_(req.label, 40).replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
   var name = "stent_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + (who ? "_" + who : "") + ext;
   // 13.48: a stock photo (purpose "stock") goes to Inventory uploads
-  var file = (String(req.purpose || "") === "stock" ? f.invIn : f.stentsIn).createFile(Utilities.newBlob(bytes, mime, String(req.purpose || "") === "stock" ? name.replace(/^stent_/, "stock_") : name));
+  var kindDir = String(req.purpose || "") === "stock" && req.kind && INV_KIND_FOLDER[String(req.kind)] ? invKindFolders_(f)[String(req.kind)].inF : null;
+  var file = (kindDir || (String(req.purpose || "") === "stock" ? f.invIn : f.stentsIn)).createFile(Utilities.newBlob(bytes, mime, String(req.purpose || "") === "stock" ? name.replace(/^stent_/, "stock_") : name));
   if (req.by) { try { file.setDescription("uploaded from the app by " + cathStr_(req.by, 60)); } catch (e) {} }
   return { fileId: file.getId(), name: name };
 }
@@ -4509,13 +4595,19 @@ function stentReadBill_(req) {
    agreeing with the barcode line — and it is not a repeat: photos of one
    shelf overlap, so for each kind of box (brand, size and LOT) a photo adds only the boxes beyond those already in stock. A box
    that falls short is kept "to check" for the technicians, not counted. */
-/* a kind of box: brand, size and LOT — what every counted box has (a GTIN
-   or REF read on one photo and missed on another must not split one box in two) */
+/* 13.50: the kinds measured by diameter × length */
+var BOX_SIZED = { stent: 1, balloon: 1, dcb: 1, cutting: 1 };
+function boxSizeText_(b) { return BOX_SIZED[b.kind] ? (Number(b.dia) && Number(b.len) ? stentNum_(b.dia) + "×" + stentNum_(b.len) : "") : String(b.size || ""); }
+/* a kind of box: device, brand, size and its LOT — or, for a brand that prints
+   no LOT, its own serial number (what every counted box has; a GTIN or REF
+   read on one photo and missed on another must not split one box in two) */
 function boxKey_(b) {
-  return invNorm_(b.brand) + "|" + stentNum_(b.dia) + "x" + stentNum_(b.len) + "|" + invNorm_(b.lot);
+  var id = invNorm_(b.lot) ? invNorm_(b.lot) : invNorm_(b.serial) ? "s" + invNorm_(b.serial) : "";
+  return (b.kind || "stent") + "|" + invNorm_(b.brand) + "|" + invSizeKey_(boxSizeText_(b)) + "|" + id;
 }
 /* the same kind of stent for a sticker of a USED stent (it may carry only some of the numbers) */
 function boxStickerFits_(b, st) {
+  if ((b.kind || "stent") !== "stent") return false;
   if (!invNorm_(b.lot) || invNorm_(b.lot) !== invNorm_(st.lot)) return false;
   if (invDigits_(b.gtin) && invDigits_(st.gtin)) return invDigits_(b.gtin) === invDigits_(st.gtin);
   if (invNorm_(b.ref) && invNorm_(st.ref)) return invNorm_(b.ref) === invNorm_(st.ref);
@@ -4523,37 +4615,46 @@ function boxStickerFits_(b, st) {
 }
 function boxSizeOk_(kind, dia, len) {
   var d = Number(dia), l = Number(len);
-  if (kind !== "stent") return d > 0;
-  return d >= 1.5 && d <= 6 && l >= 6 && l <= 60;
+  if (kind === "stent") return d >= 1.5 && d <= 6 && l >= 6 && l <= 60;
+  if (BOX_SIZED[kind]) return d >= 0.8 && d <= 6 && l >= 4 && l <= 40;
+  return true;
 }
 /* what is missing or wrong on a box as read; "" when it can be counted */
 function boxWhy_(b, raw) {
   var miss = [];
   if (raw && raw.partial === true) return "cut off at the edge of the photo, or its size or LOT hidden";
   if (!b.brand) miss.push("brand");
-  if (!Number(b.dia)) miss.push("diameter");
-  if (b.kind === "stent" && !Number(b.len)) miss.push("length");
-  if (!invNorm_(b.lot)) miss.push("LOT");
+  if (BOX_SIZED[b.kind]) { if (!Number(b.dia)) miss.push("diameter"); if (!Number(b.len)) miss.push("length"); }
+  if (!invNorm_(b.lot) && !invNorm_(b.serial)) miss.push("LOT");
   if (miss.length) return miss.join(", ") + " not read";
-  if (String(b.lot).indexOf("?") >= 0) return "LOT not read clearly (" + b.lot + ")";
-  if (!boxSizeOk_(b.kind, b.dia, b.len)) return "size " + b.dia + " × " + b.len + " is not a stent size";
+  if (String(b.lot).indexOf("?") >= 0 || String(b.serial).indexOf("?") >= 0) return "LOT not read clearly (" + (b.lot || b.serial) + ")";
+  if (BOX_SIZED[b.kind] && !boxSizeOk_(b.kind, b.dia, b.len)) return "size " + b.dia + " × " + b.len + " is not a " + INV_KIND_LABEL[b.kind].toLowerCase() + " size";
   return "";
+}
+function boxArea_(raw) {
+  var a = raw && (raw.box_2d || raw.box2d || raw.bbox);
+  if (!Array.isArray(a) || a.length !== 4) return "";
+  var n = a.map(function (x) { return Math.max(0, Math.min(1000, Math.round(Number(x) || 0))); });
+  if (n[2] <= n[0] || n[3] <= n[1]) return "";
+  return n.join(",");
 }
 function boxFromRead_(raw, up, by, readBy) {
   var s = stentNormItem_(raw);
   var g = {};
   s.codes.forEach(function (c) { var x = gs1Parse_(c); if (x) Object.keys(x).forEach(function (k) { if (g[k] == null) g[k] = x[k]; }); });
   var printedLot = cathStr_(raw && raw.lot, 60);
-  var b = { id: cathId_("X"), up: up.id, photo: up.file, fileId: up.fileId, status: "", why: "", kind: invKindOf_(s.device || "stent"),
-    brand: s.brand, mfr: s.mfr, dia: s.dia, len: s.len, ref: s.ref, lot: s.lot, serial: s.serial, expiry: s.expiry, gtin: s.gtin,
-    codes: s.codes.join("\n"), place: cathStr_(raw && raw.place, 80), item: "", same: "", readAt: cathNow_(), readBy: readBy || "", checkedBy: "", checkedAt: "" };
+  var kind = invKindOf_(raw && (raw.device || raw.type) || s.device || "stent");
+  if (kind === "other" && /dilat|balloon/i.test(String(raw && raw.brand || "") + " " + String(raw && raw.device || ""))) kind = "balloon";
+  var b = { id: cathId_("X"), up: up.id, photo: up.file, fileId: up.fileId, status: "", why: "", kind: kind,
+    brand: s.brand, mfr: s.mfr, dia: s.dia, len: s.len, ref: s.ref, lot: s.lot, serial: s.serial || cathStr_(raw && raw.serial, 60), expiry: s.expiry, gtin: s.gtin,
+    codes: s.codes.join("\n"), place: cathStr_(raw && raw.place, 80), item: "", same: "", readAt: cathNow_(), readBy: readBy || "", checkedBy: "", checkedAt: "",
+    size: BOX_SIZED[kind] ? "" : cathStr_(raw && raw.size, 60), area: boxArea_(raw) };
+  if (raw && raw.background === true) { b.status = "background"; b.why = "in the background of the photo — not counted"; return b; }
   b.why = boxWhy_(b, raw);
   if (!b.why && printedLot && g["10"] && invNorm_(printedLot) !== invNorm_(g["10"]))
     b.why = "LOT read as " + printedLot + " beside the barcode but " + g["10"] + " in the barcode line";
   return b;
 }
-/* in stock now of one kind of box: those counted, less the stents of that
-   LOT used (their stickers) since the first of them came in */
 function boxHaveOf_(key, boxes, stickers, exceptUp) {
   var mine = boxes.filter(function (x) { return x.status === "in stock" && boxKey_(x) === key && x.up !== exceptUp; });
   if (!mine.length) return { n: 0, list: mine };
@@ -4572,15 +4673,21 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
   var mine = list.map(function (raw) { return boxFromRead_(raw, up, by, readBy); });
   var counts = { added: 0, repeat: 0, check: 0 };
   var groups = {};
-  mine.forEach(function (b) { if (b.why) { b.status = "check"; counts.check++; } else (groups[boxKey_(b)] = groups[boxKey_(b)] || []).push(b); });
+  counts.background = 0; counts.kinds = {};
+  mine.forEach(function (b) {
+    if (b.status === "background") { counts.background++; return; }
+    counts.kinds[b.kind] = (counts.kinds[b.kind] || 0) + 1;
+    if (b.why) { b.status = "check"; counts.check++; } else (groups[boxKey_(b)] = groups[boxKey_(b)] || []).push(b);
+  });
   // 13.49: a LOT read one character differently from a box already in stock
   // of the same size and expiry is most likely that box (a misread), not a
   // new one: it is taken as a repeat, and says so, so it can be counted if not
   var nearUsed = {};
   var nearOf = function (b) {
     var hits = boxes.filter(function (x) {
-      return x.status === "in stock" && x.up !== up.id && invNorm_(x.brand) === invNorm_(b.brand) && Number(x.dia) === Number(b.dia) && Number(x.len) === Number(b.len) &&
-        invNorm_(x.lot) !== invNorm_(b.lot) && boxEdit1_(invNorm_(x.lot), invNorm_(b.lot)) && (!b.expiry || !x.expiry || boxYmd_(b.expiry) === boxYmd_(x.expiry)) &&
+      var xi = invNorm_(x.lot) || invNorm_(x.serial), bi = invNorm_(b.lot) || invNorm_(b.serial);
+      return x.status === "in stock" && x.up !== up.id && (x.kind || "stent") === (b.kind || "stent") && invNorm_(x.brand) === invNorm_(b.brand) && invSizeKey_(boxSizeText_(x)) === invSizeKey_(boxSizeText_(b)) &&
+        xi !== bi && boxEdit1_(xi, bi) && (!b.expiry || !x.expiry || boxYmd_(b.expiry) === boxYmd_(x.expiry)) &&
         // the box's own number after (91), where both were read, must agree (to one character)
         (!boxUnit_(b) || !boxUnit_(x) || (boxUnit_(b).length === boxUnit_(x).length && boxDiff_(boxUnit_(b), boxUnit_(x)) <= 1));
     });
@@ -4597,11 +4704,11 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
       var near = i < have.n ? null : nearOf(b);
       if (near) {
         b.status = "repeat"; b.same = near.id;
-        b.why = "LOT read as " + b.lot + " here but " + near.lot + " on " + (near.photo || "another photo") + " (same size and expiry) — taken as the same box; check the LOT";
+        b.why = "LOT read as " + (b.lot || b.serial) + " here but " + (near.lot || near.serial) + " on " + (near.photo || "another photo") + " (same size and expiry) — taken as the same box; check the LOT";
         counts.repeat++;
       } else if (i < have.n) {
         b.status = "repeat"; b.same = have.list[i] ? have.list[i].id : "";
-        b.why = "LOT " + b.lot + " " + b.dia + " × " + b.len + ": " + have.n + " already in stock from " +
+        b.why = (b.lot ? "LOT " + b.lot : "No. " + b.serial) + " " + (boxSizeText_(b) || b.brand) + ": " + have.n + " already in stock from " +
           uniq_(have.list.map(function (x) { return x.photo; })).join(", ") + " — taken as the same box" + (have.n === 1 ? "" : "es");
         counts.repeat++;
       } else { b.status = "in stock"; counts.added++; }
@@ -4611,6 +4718,8 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
   mine.forEach(function (b) { boxes.push(b); });
   return counts;
 }
+var BOX_FROM_SINCE = "2026-11-20";     // 13.50: stock photographed from this day sets each new item's start
+function boxNextDay_(d) { var t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); }
 function boxEdit1_(a, b) {
   if (!a || !b || Math.abs(a.length - b.length) > 1 || a.length < 5) return false;
   var i = 0, j = 0, d = 0;
@@ -4635,7 +4744,8 @@ function uniq_(a) { var o = []; a.forEach(function (x) { if (x && o.indexOf(x) <
    of 13.48's photo reading ("STOCK <upload>-n") give way to them */
 function boxSyncMoves_(by) {
   var items = invItems_(), moves = invMovesAll_(), boxes = boxRowsAll_();
-  var haveMv = {}, del = [], add = [], seen = {};
+  var haveMv = {}, del = [], add = [], seen = {}, fromSet = {}, upDay = {}, firstDay = {};
+  try { stentUpRows_().rows.forEach(function (r) { upDay[r.id] = r.uploaded; }); } catch (e) {}
   var stockUps = {};
   boxes.forEach(function (b) { stockUps[b.up] = 1; });
   moves.forEach(function (m) {
@@ -4646,16 +4756,28 @@ function boxSyncMoves_(by) {
   boxes.forEach(function (b) {
     if (b.status !== "in stock") return;
     seen[b.id] = 1;
-    var it = invEnsure_(items, b.kind || "stent", b.brand || "Stent", b.dia && b.len ? b.dia + "×" + b.len : String(b.dia || ""), by);
+    var it = invEnsure_(items, b.kind || "stent", b.brand || INV_KIND_LABEL[b.kind || "stent"], boxSizeText_(b), by);
     if (b.item !== it.id) { b.item = it.id; if (b.row) boxWrite_(b); }
+    var day = String(upDay[b.up] || b.readAt || "").slice(0, 10);
+    if (day && (!firstDay[it.id] || day < firstDay[it.id])) firstDay[it.id] = day;
     var m = haveMv[b.id];
     if (m && m.item === it.id) return;
     if (m) del.push(m);
     add.push(invMoveRow_({ item: it.id, kind: "received", units: 1, qty: 1, caseKey: "BOX " + b.id,
-      raw: [b.brand, b.dia && b.len ? b.dia + "×" + b.len : "", b.lot ? "LOT " + b.lot : "", b.ref ? "REF " + b.ref : "", b.expiry ? "EXP " + b.expiry : ""].filter(Boolean).join(" "),
+      raw: [b.brand, boxSizeText_(b), b.lot ? "LOT " + b.lot : b.serial ? "No. " + b.serial : "", b.ref ? "REF " + b.ref : "", b.expiry ? "EXP " + b.expiry : ""].filter(Boolean).join(" "),
       where: "stock photo", by: by || "", note: "box on " + (b.photo || b.up) + (b.place ? " (" + b.place + ")" : "") }));
   });
   Object.keys(haveMv).forEach(function (id) { if (!seen[id]) del.push(haveMv[id]); });
+  // 13.50: an item whose stock was first counted from a photo taken on or
+  // after BOX_FROM_SINCE takes off uses from the day after that photo (the
+  // shelf was counted then); set by hand, or first counted earlier, it stays
+  items.forEach(function (it) {
+    var d = firstDay[it.id];
+    if (!d || d < BOX_FROM_SINCE || it.fromSetBy === "hand") return;
+    if (it.from && !it.fromAuto) return;
+    var want = boxNextDay_(d);
+    if (it.from !== want) { it.from = want; it.fromAuto = true; it.updated = cathNow_(); fromSet[it.id] = 1; }
+  });
   if (del.length) invDeleteRows_(uniq_(del.map(function (m) { return m.row; })));
   if (add.length) invAppendMoves_(add);
   // an item made only by a size read wrong ("3.0" with no length) and now empty goes
@@ -4666,7 +4788,7 @@ function boxSyncMoves_(by) {
     if (it.kind === "stent" && !used[it.id] && it.size && !/\d\s*×\s*\d/.test(it.size.replace(/x/i, "×")) && it.low == null && !it.notes) { items.splice(i, 1); it.gone = true; }
   }
   invWriteTab_(items, after);
-  return { added: add.length, removed: del.length };
+  return { added: add.length, removed: del.length, fromSet: Object.keys(fromSet).length };
 }
 function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
   var out = { scanned: 0, failed: 0, units: 0, repeats: 0, check: 0, pending: 0, stopped: false, why: "" };
@@ -4680,7 +4802,14 @@ function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
     if (timeLeft() < 100000) { out.pending = work.length - i; out.why = "time budget used; the other inventory photos continue next run"; break; }
     var r = work[i], file = null;
     try { file = DriveApp.getFileById(r.fileId); if (file.isTrashed()) file = null; } catch (e) { file = null; }
-    var done = function () { try { if (file) file.moveTo(f.invDone); } catch (e) { stentNote_(r, runId, "move", "failed", String(e && e.message || e)); } };
+    // 13.50: the photo goes to the processed folder of the instrument it mostly shows
+    var done = function (kind) {
+      try {
+        if (!file) return;
+        var kf = kind ? invKindFolders_(f)[kind] : null;
+        file.moveTo(kf ? kf.doneF : f.invDone);
+      } catch (e) { stentNote_(r, runId, "move", "failed", String(e && e.message || e)); }
+    };
     if (!file) { r.status = "failed"; r.errors = [{ step: "file", reason: "the photo is no longer in Drive" }]; stentUpWrite_(r); out.failed++; continue; }
     var mime = String(file.getMimeType() || "").toLowerCase();
     var item = { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" };
@@ -4698,11 +4827,19 @@ function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
     }
     var c = boxTakePhoto_(r, list, "inventory photo", res.model || "", boxes, stickers);
     changed = true;
+    var mostly = invPhotoKind_(c.kinds || {});
+    var kindsSaid = Object.keys(c.kinds || {}).map(function (k) { return c.kinds[k] + " " + INV_KIND_LABEL[k].toLowerCase() + (c.kinds[k] === 1 ? "" : "s"); }).join(", ");
+    var wrongFolder = r.folder && mostly && r.folder !== mostly;
     r.status = "scanned"; r.stickers = c.added; r.errors = []; r.readBy = res.model || "";
     r.scannedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
-    stentNote_(r, runId, "reading", "ok", list.length + " box(es) read: " + c.added + " added to the stock, " + c.repeat + " already counted from another photo, " + c.check + " to check");
-    done(); stentUpWrite_(r);
+    r.result = { kinds: c.kinds || {}, mostly: mostly, added: c.added, repeat: c.repeat, check: c.check, background: c.background || 0,
+      movedTo: mostly ? "Inventory processed / " + INV_KIND_FOLDER[mostly] : "Inventory processed",
+      note: wrongFolder ? "uploaded to the " + INV_KIND_FOLDER[r.folder] + " folder but shows " + kindsSaid + " — read as what it shows and filed under " + INV_KIND_FOLDER[mostly] : "" };
+    stentNote_(r, runId, "reading", "ok", list.length + " box(es) read (" + (kindsSaid || "none in the foreground") + "): " + c.added + " added to the stock, " + c.repeat + " already counted from another photo, " +
+      c.check + " to check, " + (c.background || 0) + " in the background not counted" + (r.result.note ? "; " + r.result.note : ""));
+    done(mostly); stentUpWrite_(r);
     out.scanned++; out.units += c.added; out.repeats += c.repeat; out.check += c.check;
+    if (wrongFolder) out.wrongFolder = (out.wrongFolder || []).concat([r.file + ": " + r.result.note]);
     pause();
   }
   if (changed) boxSyncMoves_("inventory photo");
@@ -4805,6 +4942,33 @@ function invAutoFix_(runId) {
     (rec.moved.length ? "; " + rec.moved.length + " photo(s) of stock found among the used-stent photos (" + rec.moved.join(", ") + ") moved to the inventory" : ""));
   return rec.ids.length > 0;
 }
+/* 13.50 — once, after 13.50 goes in: the stock photos uploaded from 20 Nov
+   2026 (read by 13.49's stent reader, without the boxes' places in the photo
+   or the foreground/background split) are read again by the new reader and
+   filed in their instrument's processed folder */
+function invAutoFix50_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  var d = null; try { d = JSON.parse(pr.getProperty("INV_BOXFIX50") || "null"); } catch (e) {}
+  var tab = stentUpRows_();
+  if (d) {
+    if (d.finished) return false;
+    var want = {}; (d.ids || []).forEach(function (id) { want[id] = 1; });
+    var left = tab.rows.filter(function (r) { return want[r.id] && r.status === "queued"; }).length;
+    if (!left) { d.finished = cathNow_(); pr.setProperty("INV_BOXFIX50", JSON.stringify(d)); batchLogRow_(runId, "", "", "stock re-read (13.50)", "finished", (d.ids || []).length + " photo(s)"); }
+    return left > 0;
+  }
+  var list = tab.rows.filter(function (r) { return r.purpose === "stock" && String(r.uploaded || "").slice(0, 10) >= BOX_FROM_SINCE && (r.status === "scanned" || r.status === "failed"); });
+  var rec = { at: cathNow_(), ids: list.map(function (r) { return r.id; }), files: list.map(function (r) { return r.file; }) };
+  if (list.length) {
+    var want2 = {}; list.forEach(function (r) { want2[r.id] = 1; });
+    boxDeleteRows_(boxRowsAll_().filter(function (b) { return want2[b.up]; }).map(function (b) { return b.row; }));
+    list.forEach(function (r) { r.status = "queued"; r.tries = 0; r.stickers = 0; r.errors = []; r.log = (r.log ? r.log + "\n" : "") + cathNow_() + " 13.50: read again with the new reader (every instrument, foreground only, each box's place)"; stentUpWrite_(r); });
+    boxSyncMoves_("13.50 re-read");
+    batchLogRow_(runId, "", "", "stock re-read (13.50)", "started", list.length + " photo(s) from " + BOX_FROM_SINCE + " read again");
+  } else rec.finished = rec.at;
+  pr.setProperty("INV_BOXFIX50", JSON.stringify(rec));
+  return list.length > 0;
+}
 function invAutoFixStatus_() {
   var d = null; try { d = JSON.parse(PropertiesService.getScriptProperties().getProperty("INV_BOXFIX") || "null"); } catch (e) {}
   return d ? { at: d.at, finished: d.finished || "", reread: d.reread || [], moved: d.moved || [], result: d.result || null } : null;
@@ -4817,7 +4981,8 @@ function boxSave_(req) {
   for (var i = 0; i < boxes.length; i++) if (boxes[i].id === String(req.id || "")) b = boxes[i];
   if (!b) throw new Error("that box is no longer on the list");
   var f = req.fields && typeof req.fields === "object" ? req.fields : {};
-  ["brand", "dia", "len", "ref", "lot", "expiry", "gtin"].forEach(function (k) { if (f[k] != null) b[k] = k === "dia" || k === "len" ? stentNum_(f[k]) : cathStr_(f[k], 60); });
+  ["brand", "dia", "len", "ref", "lot", "serial", "expiry", "gtin", "size"].forEach(function (k) { if (f[k] != null) b[k] = k === "dia" || k === "len" ? stentNum_(f[k]) : cathStr_(f[k], 60); });
+  if (f.kind) b.kind = invKindOf_(f.kind);
   var to = String(req.status || "");
   if (to === "in stock") {
     var why = boxWhy_(b, null);
@@ -4843,7 +5008,7 @@ function boxSave_(req) {
   b.checkedBy = by; b.checkedAt = cathNow_();
   boxWrite_(b);
   boxSyncMoves_(by);
-  return { said: (b.brand + " " + b.dia + " × " + b.len + " LOT " + b.lot).trim() + ": " + (b.status === "in stock" ? "added to the stock" : b.status === "discarded" ? "discarded" : to === "same" ? "confirmed as the same box, not counted again" : "back to check") + "." };
+  return { said: (b.brand + " " + boxSizeText_(b) + (b.lot ? " LOT " + b.lot : b.serial ? " No. " + b.serial : "")).trim() + ": " + (b.status === "in stock" ? "added to the stock" : b.status === "discarded" ? "discarded" : to === "same" ? "confirmed as the same box, not counted again" : "back to check") + "." };
 }
 /* a used stent with no matching box, accepted as it is (its box came before
    the stock photos, or was never photographed) */
@@ -4855,6 +5020,23 @@ function boxNoMatchOk_(req) {
   if (list.indexOf(id) < 0) list.push(id);
   pr.setProperty("BOX_NOMATCH_OK", JSON.stringify(list.slice(-2000)));
   return { said: "Noted — that used stent is no longer listed." };
+}
+/* 13.50: a box's photo, for the page to draw the box on it */
+function boxPhoto_(req) {
+  var id = String(req.id || ""), b = null, list = boxRowsAll_();
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) b = list[i];
+  if (!b) throw new Error("that box is no longer on the list");
+  var file = DriveApp.getFileById(b.fileId);
+  if (file.getSize() > 15 * 1024 * 1024) throw new Error("the photo is larger than 15 MB — open it in Drive");
+  var blob = file.getBlob();
+  return { id: b.id, area: b.area, place: b.place, photo: b.photo, mime: blob.getContentType(), b64: Utilities.base64Encode(blob.getBytes()) };
+}
+/* the stock photos read lately, with what each showed and where it was filed */
+function invPhotoList_() {
+  return stentUpRows_().rows.filter(function (r) { return r.purpose === "stock"; }).slice(-30).reverse().map(function (r) {
+    return { id: r.id, file: r.file, url: stentPhotoUrl_(r.fileId), status: r.status, uploaded: r.uploaded, scannedAt: r.scannedAt,
+      folder: r.folder ? INV_KIND_FOLDER[r.folder] || r.folder : "", result: r.result || null, error: (r.errors || [])[0] ? (r.errors[0].reason || String(r.errors[0])) : "" };
+  });
 }
 /* the boxes for the technicians' page; a box in stock that a used stent's
    sticker fits (same LOT and kind) shows that PTCA */

@@ -525,6 +525,13 @@ body.hasnav #appnav{display:flex}
 .bxmain .why{color:#8a4b00}
 .bxmain .bxused{color:#1f5fc2}
 .bxbill{border-left:3px solid #1f5fc2;padding-left:8px;margin:6px 0}
+.linkbtn{background:none;border:0;padding:0;color:#1f5fc2;text-decoration:underline;cursor:pointer;font:inherit}
+.boxshow{position:fixed;inset:0;background:rgba(10,14,20,.55);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
+.boxshowin{background:#fff;border-radius:12px;padding:12px 14px;max-width:1140px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.boxshowpics{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.boxshowpics canvas{max-width:100%;height:auto;border-radius:6px}
+.boxshowpics canvas.hide{display:none}
+#bxZoom{border:3px solid #e11d48;align-self:flex-start}
 .invbrand.co{display:flex;align-items:baseline;gap:8px;border-top:2px solid var(--bc);margin-top:10px;padding-top:6px}
 .invbrand.co .coname{font-size:11.5px;font-weight:500;opacity:.8}
 .cogroup{border-left:4px solid var(--bc);padding-left:6px;margin:0 0 6px}
@@ -11027,7 +11034,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.49", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.50", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -13059,6 +13066,7 @@ function viewTech() {
   if (T.tab === "inv" || T.tab === "stents") h += techInvHtml();
   else if (T.tab === "bill") h += techBillHtml();
   else h += techPhotosHtml();
+  h += techBoxShowHtml();
   return h;
 }
 
@@ -13066,7 +13074,7 @@ function viewTech() {
 function techInvTake(j) {
   const T = S.tech;
   T.inv = { items: j.items || [], start: j.start || "", moves: j.moves || [], moveCount: j.moveCount || 0, pending: j.pending || [],
-    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null };
+    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null, stockPhotos: j.stockPhotos || [] };
   T.invAt = Date.now();
   // 13.45: new stent stickers (or the first opening) — the sheet brings the inventory in line
   if (j.needSync && !T.saving && (!T.syncAt || Date.now() - T.syncAt > 60000)) {
@@ -13140,9 +13148,11 @@ function techInvPhotosHtml() {
   const rep = bx.filter(function (b) { return b.status === "repeat" && !techBoxToConfirm(b); });
   const conf = bx.filter(techBoxToConfirm);
   const used = inStock.filter(function (b) { return b.usedBy; }).length;
+  const bgs = bx.filter(function (b) { return b.status === "background"; });
   let h = `<div class="invphotos"><div><b>Stock received, from photos</b>
       <p class="hint">Photograph the boxes on the shelf (spines to the camera, the size and the LOT readable). Every box is kept with its LOT, REF and expiry; a box seen on two photos is counted once. ${esc2([(st.invWaiting || 0) + " photo" + (st.invWaiting === 1 ? "" : "s") + " waiting", (st.invFailed || 0) + " failed", (st.invScanned || 0) + " read"].join(" · "))}</p>
       ${bx.length ? `<p class="hint"><b>${inStock.length}</b> box${inStock.length === 1 ? "" : "es"} counted${used ? " (" + used + " since used)" : ""} · <b class="${rep.length ? "a" : ""}">${rep.length}</b> repeat${rep.length === 1 ? "" : "s"} not counted · <b class="${chk.length ? "r" : ""}">${chk.length}</b> to check</p>` : ""}</div>
+    <label class="fld" style="flex:0 1 190px;margin:0"><span>What the photo is of</span><select id="invUpKind" onchange="S.tech.upKind=this.value"><option value="">Let the app decide</option>${INV_KINDS.map(function (k) { return `<option value="${k.kind}"${S.tech.upKind === k.kind ? " selected" : ""}>${esc2(k.label)}</option>`; }).join("")}</select></label>
     <input type="file" accept="image/*" capture="environment" id="invcam" hidden onchange="techUpload(this,'stock')">
     <input type="file" accept="image/*,application/pdf,.pdf" multiple id="invfile" hidden onchange="techUpload(this,'stock')">
     <div class="btns" style="margin:0"><button class="b" onclick="document.getElementById('invcam').click()" ${T.uploading ? "disabled" : ""}>Take a photo</button>
@@ -13167,18 +13177,24 @@ function techInvPhotosHtml() {
   if (rep.length) h += `<details class="boxlist rep"${T.repOpen ? " open" : ""} ontoggle="S.tech.repOpen=this.open"><summary><b>Repeats, not counted (${rep.length})</b> <span class="hint">the same LOT and size already in stock from another photo</span></summary>
       <p class="hint">Photos of one shelf overlap, so a box seen again is counted once. If it really is another box (more of that LOT came in), press <b>Another box — count it</b>.</p>
       ${rep.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','in stock')" ${T.saving ? "disabled" : ""}>Another box — count it</button>`); }).join("")}</details>`;
+  if (bgs.length) h += `<details class="boxlist"><summary><b>In the background, not counted (${bgs.length})</b> <span class="hint">boxes behind the ones photographed — photograph them on their own to count them</span></summary>
+      ${bgs.map(function (b) { return techBoxRowHtml(b, ""); }).join("")}</details>`;
+  h += techStockPhotosHtml();
   if (bx.length || (st.invScanned || 0)) h += `<details class="boxlist"><summary class="hint">Read every stock photo again</summary>
       <p class="hint">Clears the boxes read so far (and the stock they added) and reads every stock photo again, box by box, with repeats removed. Use it once for the photos read before this version.</p>
       <button class="b danger" onclick="techInvReread()" ${T.saving ? "disabled" : ""}>Read all stock photos again</button></details>`;
   return h + `</div>`;
 }
 function techBoxUnit(b) { const m = /\(91\)\s*([0-9A-Za-z]+)/.exec(String(b.codes || "")); return m ? m[1] : ""; }
-function techBoxSize(b) { return b.dia && b.len ? stentNum(b.dia) + " × " + stentNum(b.len) : b.dia ? stentNum(b.dia) + " × ?" : "size ?"; }
+function techBoxSize(b) {
+  if (b.kind && !INV_SIZED[b.kind]) return b.size || "";
+  return b.dia && b.len ? stentNum(b.dia) + " × " + stentNum(b.len) : b.dia ? stentNum(b.dia) + " × ?" : "size ?";
+}
 function techBoxRowHtml(b, btns) {
   const used = b.usedBy ? `<span class="bxused">used · ${esc2([b.usedBy.ptcaNo ? "PTCA " + b.usedBy.ptcaNo : "", b.usedBy.patient, b.usedBy.date ? techDate(b.usedBy.date) : ""].filter(Boolean).join(" · "))}</span>` : "";
-  return `<div class="bxrow"><div class="bxmain"><b>${esc2((b.brand || "?") + " " + techBoxSize(b))}</b>
-      <span>${esc2(["LOT " + (b.lot || "?"), b.ref ? "REF " + b.ref : "", b.expiry ? "exp " + b.expiry : "", techBoxUnit(b) ? "(91) " + techBoxUnit(b) : ""].filter(Boolean).join(" · "))}</span>
-      <span class="m">${b.url ? `<a href="${esc2(b.url)}" target="_blank" rel="noopener">${esc2(b.photo || "photo")}</a>` : esc2(b.photo || "")}${b.place ? " · " + esc2(b.place) : ""}</span>
+  return `<div class="bxrow"><div class="bxmain"><b>${esc2(b.status === "background" ? (b.brand || "?") : (b.brand || "?") + " " + techBoxSize(b))}</b>
+      <span>${b.status === "background" ? esc2(techKindOne(b.kind || "stent")) : esc2([b.kind && b.kind !== "stent" ? techKindOne(b.kind) : "", b.lot ? "LOT " + b.lot : b.serial ? "No. " + b.serial : "LOT ?", b.ref ? "REF " + b.ref : "", b.expiry ? "exp " + b.expiry : "", techBoxUnit(b) ? "(91) " + techBoxUnit(b) : ""].filter(Boolean).join(" · "))}</span>
+      <span class="m">${b.id && b.fileId ? `<button type="button" class="linkbtn" onclick="techBoxShow('${esc2(b.id)}')">Show in photo</button> · ` : ""}${b.url ? `<a href="${esc2(b.url)}" target="_blank" rel="noopener">${esc2(b.photo || "photo")}</a>` : esc2(b.photo || "")}${b.place ? " · " + esc2(b.place) : ""}</span>
       ${b.why ? `<span class="why">${esc2(b.why)}</span>` : ""}${used}</div>${btns ? `<div class="btns" style="margin:0">${btns}</div>` : ""}</div>`;
 }
 function techBoxCheckHtml(b) {
@@ -13186,8 +13202,11 @@ function techBoxCheckHtml(b) {
   if (T.boxEdit !== b.id) return techBoxRowHtml(b, `<button class="b primary" onclick="S.tech.boxEdit='${esc2(b.id)}';render()">Fix &amp; add…</button>
     <button class="b" onclick="techBoxSave('${esc2(b.id)}','discarded')" ${T.saving ? "disabled" : ""}>Discard</button>`);
   const f = function (k, label, w) { return `<label class="fld" style="flex:${w}"><span>${label}</span><input id="bx_${k}" value="${esc2(b[k] || "")}"></label>`; };
+  const sized = !b.kind || INV_SIZED[b.kind];
   return `<div class="bxrow open">${techBoxRowHtml(b, "")}
-    <div class="row alignend">${f("brand", "Brand", "2 1 150px")}${f("dia", "Diameter (mm)", "1 1 80px")}${f("len", "Length (mm)", "1 1 80px")}${f("lot", "LOT", "1 1 110px")}${f("ref", "REF", "1 1 110px")}${f("expiry", "Expiry", "1 1 100px")}</div>
+    <div class="row alignend"><label class="fld" style="flex:1 1 140px"><span>Type</span><select id="bx_kind">${invKindOptions(b.kind || "stent")}</select></label>${f("brand", "Brand", "2 1 150px")}
+      ${sized ? f("dia", "Diameter (mm)", "1 1 80px") + f("len", "Length (mm)", "1 1 80px") : f("size", "Size", "1 1 120px")}
+      ${f("lot", "LOT", "1 1 110px")}${f("serial", "or its own No. (no LOT)", "1 1 150px")}${f("ref", "REF", "1 1 110px")}${f("expiry", "Expiry", "1 1 100px")}</div>
     <div class="btns"><button class="b live" onclick="techBoxSave('${esc2(b.id)}','in stock',true)" ${T.saving ? "disabled" : ""}>Add to stock</button>
       <button class="b" onclick="S.tech.boxEdit='';render()">Cancel</button>
       <button class="b danger" onclick="techBoxSave('${esc2(b.id)}','discarded')" ${T.saving ? "disabled" : ""}>Not a box — discard</button></div></div>`;
@@ -13195,7 +13214,7 @@ function techBoxCheckHtml(b) {
 async function techBoxSave(id, status, withFields) {
   const T = S.tech;
   const fields = {};
-  if (withFields) ["brand", "dia", "len", "lot", "ref", "expiry"].forEach(function (k) { const el = document.getElementById("bx_" + k); if (el) fields[k] = el.value.trim(); });
+  if (withFields) ["kind", "brand", "dia", "len", "size", "lot", "serial", "ref", "expiry"].forEach(function (k) { const el = document.getElementById("bx_" + k); if (el) fields[k] = el.value.trim(); });
   if (status === "discarded" && !confirm("Discard this box? It will not be counted.")) return;
   T.saving = true; render();
   try { const r = await sheetApi("boxSave", { id: id, status: status, fields: fields, by: S.cfg.userName || "" }, 60000); T.invSaid = r.said || "Saved."; T.boxEdit = ""; }
@@ -13265,10 +13284,112 @@ async function techInvReread() {
   T.saving = false;
   await techInvScanNow();
 }
+function techKindOne(k) { const x = INV_KINDS.filter(function (y) { return y.kind === k; })[0]; return x ? x.one : k; }
+/* 13.50: the stock photos read lately — what each showed, where it was filed,
+   and a photo put in the wrong instrument's folder said so */
+function techStockPhotosHtml() {
+  const ph = (S.tech.inv && S.tech.inv.stockPhotos) || [];
+  if (!ph.length) return "";
+  const wrong = ph.filter(function (p) { return p.result && p.result.note; });
+  return `<details class="boxlist"${wrong.length ? " open" : ""}><summary><b>Stock photos read (${ph.length})</b>${wrong.length ? ` <span class="hint" style="color:#8a4b00">${wrong.length} in the wrong folder — read as what they show</span>` : ""}</summary>
+    ${ph.map(function (p) {
+      const r = p.result || {};
+      const kinds = Object.keys(r.kinds || {}).map(function (k) { return r.kinds[k] + " " + techKindOne(k).toLowerCase() + (r.kinds[k] === 1 ? "" : "s"); }).join(", ");
+      return `<div class="bxrow"><div class="bxmain"><b>${p.url ? `<a href="${esc2(p.url)}" target="_blank" rel="noopener">${esc2(p.file)}</a>` : esc2(p.file)}</b>
+        <span>${esc2([p.status === "scanned" ? (kinds || "nothing read in the foreground") : p.status === "failed" ? "could not be read: " + (p.error || "") : "waiting to be read",
+          p.status === "scanned" ? (r.added || 0) + " added, " + (r.repeat || 0) + " repeats, " + (r.check || 0) + " to check" + (r.background ? ", " + r.background + " in the background" : "") : ""].filter(Boolean).join(" · "))}</span>
+        <span class="m">${esc2(["uploaded " + techDate(String(p.uploaded || "").slice(0, 10)), p.folder ? "to " + p.folder : "", r.movedTo ? "filed in " + r.movedTo : ""].filter(Boolean).join(" · "))}</span>
+        ${r.note ? `<span class="why">${esc2(r.note)}</span>` : ""}</div></div>`;
+    }).join("")}</details>`;
+}
+/* 13.50: a box shown on its photo — the photo with the box ringed in red,
+   and the box itself enlarged beside it */
+const BOX_PHOTO_CACHE = {};
+async function techBoxShow(id) {
+  const T = S.tech;
+  T.boxShow = { id: id, loading: true }; render();
+  try {
+    const b = ((T.inv && T.inv.boxes) || []).filter(function (x) { return x.id === id; })[0] || {};
+    let ph = BOX_PHOTO_CACHE[b.fileId];
+    if (!ph) { ph = await sheetApi("boxPhoto", { id: id }, 90000); BOX_PHOTO_CACHE[b.fileId] = ph; }
+    if (!T.boxShow || T.boxShow.id !== id) return;
+    T.boxShow = { id: id, box: b, src: "data:" + (ph.mime || "image/jpeg") + ";base64," + ph.b64 };
+  } catch (e) { T.boxShow = { id: id, err: e.message || String(e) }; }
+  render();
+  setTimeout(techBoxDraw, 30);
+}
+function techBoxShowHtml() {
+  const v = S.tech.boxShow;
+  if (!v) return "";
+  const b = v.box || {};
+  if (v.src) setTimeout(techBoxDraw, 0);     // a redraw of the page empties the canvases
+  return `<div class="boxshow" onclick="if(event.target===this){S.tech.boxShow=null;render()}"><div class="boxshowin">
+    <div class="row" style="justify-content:space-between;align-items:center"><b>${esc2(((b.brand || "?") + " " + techBoxSize(b)).trim())}${b.lot || b.serial ? " · " + esc2(b.lot ? "LOT " + b.lot : "No. " + b.serial) : ""}</b>
+      <button class="b" onclick="S.tech.boxShow=null;render()">Close</button></div>
+    ${b.why ? `<p class="hint" style="color:#8a4b00;margin:2px 0">${esc2(b.why)}</p>` : ""}
+    ${v.loading ? `<p class="hint">Fetching the photo…</p>` : v.err ? `<p class="hint" style="color:#b42318">Could not fetch the photo: ${esc2(v.err)}</p>` : `
+    ${b.area ? "" : `<p class="hint">This box was read before 13.50, so its exact spot is not known — it is ${esc2(b.place || "on the photo")}.</p>`}
+    <div class="boxshowpics"><canvas id="bxZoom" class="${b.area ? "" : "hide"}"></canvas><canvas id="bxFull"></canvas></div>`}
+  </div></div>`;
+}
+function techBoxDraw() {
+  const v = S.tech.boxShow; if (!v || !v.src) return;
+  const full = document.getElementById("bxFull"), zoom = document.getElementById("bxZoom");
+  if (!full) return;
+  const img = new Image();
+  img.onload = function () {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    const maxW = Math.min(1100, (full.parentElement.clientWidth || 900));
+    const k = Math.min(1, maxW / W);
+    full.width = Math.round(W * k); full.height = Math.round(H * k);
+    const g = full.getContext("2d"); g.drawImage(img, 0, 0, full.width, full.height);
+    const a = String((v.box || {}).area || "").split(",").map(Number);
+    if (a.length === 4 && a[2] > a[0]) {
+      const x0 = a[1] / 1000 * full.width, y0 = a[0] / 1000 * full.height, x1 = a[3] / 1000 * full.width, y1 = a[2] / 1000 * full.height;
+      g.fillStyle = "rgba(0,0,0,.35)";
+      g.fillRect(0, 0, full.width, y0); g.fillRect(0, y1, full.width, full.height - y1); g.fillRect(0, y0, x0, y1 - y0); g.fillRect(x1, y0, full.width - x1, y1 - y0);
+      g.strokeStyle = "#e11d48"; g.lineWidth = Math.max(3, full.width / 250); g.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      if (zoom) {
+        // the box enlarged, with a little of its neighbours
+        const px = (a[3] - a[1]) * 0.08, py = (a[2] - a[0]) * 0.35;
+        const sx = Math.max(0, (a[1] - px) / 1000 * W), sy = Math.max(0, (a[0] - py) / 1000 * H);
+        const sw = Math.min(W - sx, (a[3] - a[1] + 2 * px) / 1000 * W), sh = Math.min(H - sy, (a[2] - a[0] + 2 * py) / 1000 * H);
+        const zk = Math.min(maxW / sw, 360 / sh, 3);
+        zoom.width = Math.round(sw * zk); zoom.height = Math.round(sh * zk);
+        zoom.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, zoom.width, zoom.height);
+      }
+    }
+  };
+  img.src = v.src;
+}
+/* 13.50: the day an item's uses start being taken off */
+function techFromHtml(x) {
+  const T = S.tech;
+  const said = x.from ? "Uses taken off from " + techDate(x.from) + (x.fromAuto ? " (the day after its first stock photo)" : "") : "Uses taken off from the inventory start (" + techDate((T.inv && T.inv.start) || "") + ")";
+  return `<div class="row alignend"><label class="fld" style="flex:0 1 170px"><span>Count uses from</span><input type="date" id="invFrom_${x.id}" value="${esc2(x.from || "")}"></label>
+    <button class="b" onclick="techInvFrom(['${x.id}'],'invFrom_${x.id}')" ${T.saving ? "disabled" : ""}>Set</button>
+    <button class="b" onclick="techInvFromBrand('${x.id}')" ${T.saving ? "disabled" : ""}>Set for all ${esc2(x.brand)}</button></div>
+    <p class="hint">${esc2(said)}${x.before ? " · " + x.before + " used before that, not taken off" : ""}. Clear the date to go back to the inventory start.</p>`;
+}
+async function techInvFrom(ids, inputId) {
+  const el = document.getElementById(inputId), d = el ? el.value : "";
+  const T = S.tech; T.saving = true; render();
+  try { const j = await sheetApi("invSave", { op: { op: "from", ids: ids, from: d }, by: S.cfg.userName || "" }, 60000); techInvTake(j); T.invSaid = j.said || "Saved."; }
+  catch (e) { T.invSaid = "Not saved: " + (e.message || e); }
+  T.saving = false; render();
+}
+function techInvFromBrand(id) {
+  const items = (S.tech.inv && S.tech.inv.items) || [], x = items.filter(function (y) { return y.id === id; })[0];
+  if (!x) return;
+  const ids = items.filter(function (y) { return y.kind === x.kind && hwNorm(y.brand) === hwNorm(x.brand); }).map(function (y) { return y.id; });
+  const el = document.getElementById("invFrom_" + id);
+  if (!confirm("Count uses of every " + x.brand + " size (" + ids.length + ") from " + (el && el.value ? el.value : "the inventory start") + "?")) return;
+  techInvFrom(ids, "invFrom_" + id);
+}
 /* the boxes of one size (stock photos), with their LOT and what became of them */
 function techSizeBoxesHtml(x) {
   const bx = ((S.tech.inv && S.tech.inv.boxes) || []).filter(function (b) {
-    if (b.status !== "in stock" || hwNorm(b.brand) !== hwNorm(x.brand)) return false;
+    if (b.status !== "in stock" || hwNorm(b.brand) !== hwNorm(x.brand) || (b.kind || "stent") !== x.kind) return false;
     const dl = stentDiaLen(x.size);
     return dl && Math.abs(Number(b.dia) - dl.d) < 0.01 && Math.abs(Number(b.len) - dl.l) < 0.01;
   });
@@ -13284,7 +13405,7 @@ async function techInvScanNow() {
     const r = await sheetApi("invScanNow", {}, 330000);
     const v = r.inventory || {};
     T.invSaid = !r.ran ? "The scanner did not run: " + (r.why || "unknown reason") + "."
-      : (v.scanned || v.failed ? v.scanned + " photo" + (v.scanned === 1 ? "" : "s") + " read: " + (v.units || 0) + " box" + (v.units === 1 ? "" : "es") + " added to the stock, " + (v.repeats || 0) + " repeat" + (v.repeats === 1 ? "" : "s") + " not counted, " + (v.check || 0) + " to check" + (v.failed ? ", " + v.failed + " photo" + (v.failed === 1 ? "" : "s") + " failed" : "") + "." : "Nothing new in Inventory uploads (a photo is taken once it is 20 seconds old).") +
+      : (v.scanned || v.failed ? v.scanned + " photo" + (v.scanned === 1 ? "" : "s") + " read: " + (v.units || 0) + " box" + (v.units === 1 ? "" : "es") + " added to the stock, " + (v.repeats || 0) + " repeat" + (v.repeats === 1 ? "" : "s") + " not counted, " + (v.check || 0) + " to check" + (v.failed ? ", " + v.failed + " photo" + (v.failed === 1 ? "" : "s") + " failed" : "") + "." + (v.wrongFolder && v.wrongFolder.length ? " In the wrong folder: " + v.wrongFolder.join("; ") + "." : "") : "Nothing new in Inventory uploads (a photo is taken once it is 20 seconds old).") +
         (v.pending ? " " + v.pending + " still waiting — press again." : "") + (v.stopped ? " Stopped: " + v.why + "." : "");
   } catch (e) { T.invSaid = "Could not read the photos: " + (e.message || e); }
   T.invScanning = false; T.statusAt = 0; T.invAt = 0;
@@ -13401,7 +13522,7 @@ function techInvListHtml() {
     let h = `<div class="invtype" style="border-left-color:${k.color}">
       <div class="invth" style="background:${k.tint}" onclick="techInvFold('${k.kind}')"><b style="color:${k.color}">${esc2(k.label)}</b>
         <span class="n">${mine.length} item${mine.length === 1 ? "" : "s"}</span><span class="stk ${total < 0 ? "neg" : total === 0 ? "zero" : "ok"}" title="in stock, all sizes">${total}</span><span class="fold">${closed ? "▸" : "▾"}</span></div>`;
-    if (!closed && k.kind === "stent") h += techStentGroupsHtml(mine, words);
+    if (!closed && INV_SIZED[k.kind]) h += techStentGroupsHtml(mine, words);
     else if (!closed) {
       const brands = [];
       mine.forEach(function (x) { if (brands.indexOf(x.brand) < 0) brands.push(x.brand); });
@@ -13435,6 +13556,8 @@ function techDiaOpen(key) {
   return key in o ? o[key] : rvWide();
 }
 function techDiaFold(key) { const T = S.tech, o = T.diaOpen = T.diaOpen || {}; o[key] = !techDiaOpen(key); renderList("invList", techInvListHtml()); }
+/* 13.50: the kinds measured by diameter × length are all shown company → diameter → length */
+const INV_SIZED = { stent: 1, balloon: 1, dcb: 1, cutting: 1 };
 function techStentGroupsHtml(mine, words) {
   const T = S.tech, brands = [];
   mine.forEach(function (x) { if (brands.indexOf(x.brand) < 0) brands.push(x.brand); });
@@ -13496,7 +13619,11 @@ const STENT_COMPANIES = [[/xience|alpine|absorb/i, "Abbott", "#1f5fc2"], [/syner
   [/resolute|onyx|endeavor|frontier/i, "Medtronic", "#6d28d9"], [/ultimaster|tansei|nobori/i, "Terumo", "#15803d"],
   [/biomime|mozec|myval/i, "Meril", "#be185d"], [/yukon/i, "Translumina", "#c2410c"], [/orsiro|pro-?kinetic/i, "Biotronik", "#4d7c0f"],
   [/supraflex|tetriflex/i, "SMT", "#b45309"], [/firehawk|firebird/i, "MicroPort", "#9f1239"], [/everflex|eucatech/i, "Eucatech", "#0f766e"],
-  [/indolimus|coroflex/i, "B. Braun / Sahajanand", "#7c2d12"]];
+  [/indolimus|coroflex/i, "B. Braun / Sahajanand", "#7c2d12"],
+  // 13.50: balloon brands (grouped the same way)
+  [/\btrek\b|nc trek|mini trek/i, "Abbott", "#1f5fc2"], [/tanzor/i, "Veiva Scientific", "#c2410c"], [/rockstar/i, "Sanavascular", "#1e3a8a"],
+  [/lineage/i, "Meril", "#be185d"], [/quantum|emerge|apex/i, "Boston Scientific", "#0e7490"], [/apollo|aperi|brosmed/i, "Brosmed", "#15803d"],
+  [/sapphire/i, "OrbusNeich", "#7c3aed"], [/seguro/i, "Sahajanand", "#7c2d12"], [/euphora/i, "Medtronic", "#6d28d9"]];
 const STENT_SPARE = ["#1d4ed8", "#a21caf", "#047857", "#b91c1c", "#a16207", "#4338ca", "#0369a1", "#9d174d"];
 function stentCompanyOf(b) { const t = String(b || ""); for (let i = 0; i < STENT_COMPANIES.length; i++) if (STENT_COMPANIES[i][0].test(t)) return STENT_COMPANIES[i]; return null; }
 function stentCompany(b) { const c = stentCompanyOf(b); return c ? c[1] : (String(b || "").trim().split(/\s+/)[0] || "Other"); }
@@ -13522,6 +13649,7 @@ function techInvPanelHtml(x) {
     (x.adjusted ? (x.adjusted > 0 ? " + " : " − ") + Math.abs(x.adjusted) + " counted / corrected" : "") + "." +
     (x.reused ? " " + x.reused + " reused (ox), not taken off." : "") +
     (x.early ? " " + x.early + " in PTCAs before the start date, not taken off." : "") +
+    (x.before ? " " + x.before + " used before " + techDate(x.from) + " (this item's start), not taken off." : "") +
     (x.onSheet ? " " + x.onSheet + " written on utilization sheets (stents are taken off from their stickers)." : "") +
     (x.low != null ? " Low at " + x.low + "." : "") + (x.notes ? " " + x.notes : "");
   const useRow = `<div class="row alignend">
@@ -13542,6 +13670,7 @@ function techInvPanelHtml(x) {
       <button class="b" onclick="techInvDo('correct','${x.id}')" ${T.saving ? "disabled" : ""}>Correct</button></div>
     ${x.kind === "contrast" ? "" : useRow}
     <p class="hint">${esc2(sum)}</p>
+    ${techFromHtml(x)}
     <div class="btns"><button class="b" onclick="techInvHist('${x.id}')">${T.hist && T.hist.item === x.id ? "Hide history" : "History"}</button>
       <button class="b" onclick="techInvEdit('${x.id}')">${T.invEdit === x.id ? "Close edit" : "Edit"}</button></div>
     ${T.invEdit === x.id ? techInvEditHtml(x) : ""}
@@ -14337,7 +14466,7 @@ async function techUpload(input, purpose) {
     T.upSaid = "Uploading " + (i + 1) + " of " + files.length + "…"; render();
     try {
       const im = await techImageFrom(files[i], 2400);
-      await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "", purpose: purpose || "" }, 120000);
+      await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "", purpose: purpose || "", kind: purpose === "stock" ? (S.tech.upKind || "") : "" }, 120000);
       ok++;
     } catch (e) { bad = e.message || String(e); break; }
   }
