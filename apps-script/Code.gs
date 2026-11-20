@@ -3803,7 +3803,7 @@ function invGet_(req) {
   var o = { items: list, start: invStart_(), moves: moves.slice(-400).reverse().map(invMoveOut_), moveCount: moves.length, pending: invPending_(),
     kinds: INV_KIND_ORDER.map(function (k) { return { kind: k, label: INV_KIND_LABEL[k] }; }),
     review: chk.review, noSheet: chk.noSheet, needSync: invNeedSync_(moves, stickers) };
-  try { o.boxes = boxList_(); } catch (e) { o.boxes = []; o.boxesError = String(e && e.message || e); }
+  try { var bl = boxList_(); o.boxes = bl.boxes; o.boxNoMatch = bl.noBox; } catch (e) { o.boxes = []; o.boxesError = String(e && e.message || e); }
   // one item's whole history, for the item open on the page
   if (req.item) { o.item = String(req.item); o.itemMoves = moves.filter(function (m) { return m.item === String(req.item); }).reverse().map(invMoveOut_); }
   return o;
@@ -4561,10 +4561,33 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
   var counts = { added: 0, repeat: 0, check: 0 };
   var groups = {};
   mine.forEach(function (b) { if (b.why) { b.status = "check"; counts.check++; } else (groups[boxKey_(b)] = groups[boxKey_(b)] || []).push(b); });
+  // 13.49: a LOT read one character differently from a box already in stock
+  // of the same size and expiry is most likely that box (a misread), not a
+  // new one: it is taken as a repeat, and says so, so it can be counted if not
+  var nearUsed = {};
+  var nearOf = function (b) {
+    var hits = boxes.filter(function (x) {
+      return x.status === "in stock" && x.up !== up.id && invNorm_(x.brand) === invNorm_(b.brand) && Number(x.dia) === Number(b.dia) && Number(x.len) === Number(b.len) &&
+        invNorm_(x.lot) !== invNorm_(b.lot) && boxEdit1_(invNorm_(x.lot), invNorm_(b.lot)) && (!b.expiry || !x.expiry || boxYmd_(b.expiry) === boxYmd_(x.expiry)) &&
+        // the box's own number after (91), where both were read, must agree (to one character)
+        (!boxUnit_(b) || !boxUnit_(x) || (boxUnit_(b).length === boxUnit_(x).length && boxDiff_(boxUnit_(b), boxUnit_(x)) <= 1));
+    });
+    for (var i = 0; i < hits.length; i++) {
+      var k2 = boxKey_(hits[i]);
+      var free = boxHaveOf_(k2, boxes, stickers, up.id).n - (groups[k2] ? groups[k2].length : 0) - (nearUsed[k2] || 0);
+      if (free > 0) { nearUsed[k2] = (nearUsed[k2] || 0) + 1; return hits[i]; }
+    }
+    return null;
+  };
   Object.keys(groups).forEach(function (k) {
     var g = groups[k], have = boxHaveOf_(k, boxes, stickers, up.id);
     g.forEach(function (b, i) {
-      if (i < have.n) {
+      var near = i < have.n ? null : nearOf(b);
+      if (near) {
+        b.status = "repeat"; b.same = near.id;
+        b.why = "LOT read as " + b.lot + " here but " + near.lot + " on " + (near.photo || "another photo") + " (same size and expiry) — taken as the same box; check the LOT";
+        counts.repeat++;
+      } else if (i < have.n) {
         b.status = "repeat"; b.same = have.list[i] ? have.list[i].id : "";
         b.why = "LOT " + b.lot + " " + b.dia + " × " + b.len + ": " + have.n + " already in stock from " +
           uniq_(have.list.map(function (x) { return x.photo; })).join(", ") + " — taken as the same box" + (have.n === 1 ? "" : "es");
@@ -4576,6 +4599,25 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
   mine.forEach(function (b) { boxes.push(b); });
   return counts;
 }
+function boxEdit1_(a, b) {
+  if (!a || !b || Math.abs(a.length - b.length) > 1 || a.length < 5) return false;
+  var i = 0, j = 0, d = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++d > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return d + (a.length - i) + (b.length - j) <= 1;
+}
+/* Abbott prints a number of the box's own after (91) in the barcode line —
+   two boxes of one LOT carry different ones */
+function boxUnit_(b) {
+  var out = "";
+  String(b.codes || "").split("\n").forEach(function (c) { var g = gs1Parse_(c); if (g && g["91"] && !out) out = invNorm_(g["91"]); });
+  return out;
+}
+function boxDiff_(a, b) { var d = 0; for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) d++; return d; }
+function boxYmd_(v) { var m = /(20\d\d)\D?(\d\d)\D?(\d\d)?/.exec(String(v || "")); return m ? m[1] + m[2] + (m[3] || "") : String(v || ""); }
 function uniq_(a) { var o = []; a.forEach(function (x) { if (x && o.indexOf(x) < 0) o.push(x); }); return o; }
 /* the ledger follows the boxes: one "received" per box in stock; the moves
    of 13.48's photo reading ("STOCK <upload>-n") give way to them */
@@ -4726,7 +4768,7 @@ function boxList_() {
   var boxes = boxRowsAll_(), stickers = [];
   try { stickers = stentRowsAll_().filter(invIsStentSticker_); } catch (e) {}
   var taken = {};
-  return boxes.map(function (b) {
+  var list = boxes.map(function (b) {
     var o = {};
     BOX_KEYS.forEach(function (k) { o[k] = b[k]; });
     o.url = stentPhotoUrl_(b.fileId);
@@ -4741,6 +4783,18 @@ function boxList_() {
     }
     return o;
   });
+  // a used stent (sticker read since the first stock photo) that fits no box in
+  // stock: its LOT may be misread on the sticker or the box, or that box was
+  // never photographed; the nearest box (LOT one character apart) is named
+  var since = boxes.map(function (b) { return String(b.readAt).slice(0, 10); }).filter(Boolean).sort()[0] || "";
+  var noBox = !since ? [] : stickers.filter(function (st) { return !taken[st.id] && invStickerDate_(st) >= since; }).map(function (st) {
+    var near = boxes.filter(function (b) {
+      return b.status === "in stock" && Number(b.dia) === Number(st.dia) && Number(b.len) === Number(st.len) && boxEdit1_(invNorm_(b.lot), invNorm_(st.lot));
+    })[0];
+    return { sticker: st.id, brand: st.brand, dia: st.dia, len: st.len, lot: st.lot, ptcaNo: st.ptcaNo, patient: st.patient, date: invStickerDate_(st),
+      near: near ? { id: near.id, lot: near.lot, photo: near.photo } : null };
+  });
+  return { boxes: list, noBox: noBox };
 }
 /* "Read inventory photos now" on the technicians' page */
 function invScanNow_() {
