@@ -98,8 +98,9 @@
  *     equipment. A photo is filed in the processed folder of what it mostly
  *     shows (a tie: stents if any, else alphabetically); a photo in the wrong
  *     folder is read as what it shows, and said so.
- *   - Once after deploying: the stock photos uploaded from 20 Nov are read
- *     again with the new reader.
+ *   - Once after deploying: the balloon boxes of the 20 Nov photos (read by
+ *     Claude, no Gemini) are written into Stock boxes; balloon uses are taken
+ *     off from 21 Nov; expired boxes are put to check.
  *
  * What changed in 13.49 — inbox cases open faster, CAG number from the diagram,
  *   stock photos read box by box
@@ -1385,7 +1386,7 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); fixing = invAutoFix50_(runId) || fixing; } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -4942,7 +4943,160 @@ function invAutoFix_(runId) {
     (rec.moved.length ? "; " + rec.moved.length + " photo(s) of stock found among the used-stent photos (" + rec.moved.join(", ") + ") moved to the inventory" : ""));
   return rec.ids.length > 0;
 }
-/* 13.50 — once, after 13.50 goes in: the stock photos uploaded from 20 Nov
+
+/* 13.50 — the balloon boxes of 20 Nov 2026, read by Claude from the
+   technicians' photos sent in chat (not through Gemini), written once into
+   "Stock boxes" on the first run after 13.50 goes in. Uses of these balloons
+   are taken off from 21 Nov (the day after the photos). A box past its expiry
+   is put "to check", not counted.
+   Each: [photo, brand, diameter, length, LOT, own No., REF, expiry, barcode line, place] */
+var IMPORT_20NOV = [
+  // Tanzor NC (Veiva Scientific)
+  ["Tanzor NC stack 1", "Tanzor NC", 2, 12, "E1226AQ", "", "VSTZN20012", "06-2028", "", "stack, box 1 from the top"],
+  ["Tanzor NC stack 1", "Tanzor NC", 2, 12, "E1226AQ", "", "VSTZN20012", "06-2028", "", "stack, box 2"],
+  ["Tanzor NC stack 1", "Tanzor NC", 2, 12, "E1226AJ", "", "VSTZN20012", "04-2028", "", "stack, box 3"],
+  ["Tanzor NC stack 1", "Tanzor NC", 2.5, 12, "G1226AQ", "", "VSTZN25012", "06-2028", "", "stack, box 4"],
+  ["Tanzor NC stack 1", "Tanzor NC", 2.5, 12, "G1226AJ", "", "VSTZN25012", "04-2028", "", "stack, box 5"],
+  ["Tanzor NC stack 1", "Tanzor NC", 2.5, 12, "G1226AN", "", "VSTZN25012", "05-2028", "", "stack, box 6"],
+  ["Tanzor NC stack 1", "Tanzor NC", 2.5, 12, "G1226AN", "", "VSTZN25012", "05-2028", "", "stack, box 7"],
+  ["Tanzor NC stack 2", "Tanzor NC", 2.25, 12, "F1226AW", "", "VSTZN22512", "06-2028", "", "stack, box 1 from the top"],
+  ["Tanzor NC stack 2", "Tanzor NC", 2.75, 12, "H1226AG", "", "VSTZN27512", "04-2028", "", "stack, box 2"],
+  ["Tanzor NC stack 2", "Tanzor NC", 3, 10, "I1026AN", "", "VSTZN30010", "05-2028", "", "stack, box 3"],
+  ["Tanzor NC stack 2", "Tanzor NC", 3.5, 12, "K1226AS", "", "VSTZN35012", "06-2028", "", "stack, box 4"],
+  ["Tanzor NC stack 2", "Tanzor NC", 3.75, 10, "L1026AX", "", "VSTZN37510", "06-2028", "", "stack, box 5"],
+  ["Tanzor NC stack 2", "Tanzor NC", 3.75, 12, "L1226AX", "", "VSTZN37512", "06-2028", "", "stack, box 6"],
+  // NC Trek (Abbott)
+  ["NC Trek 2.00–2.75 stack", "NC Trek", 2.75, 12, "51217G1", "", "1012448-12", "2028-11-30", "(01)08717648151811(17)281130(10)51217G1(91)6736", "stack, box 1 from the top"],
+  ["NC Trek 2.00–2.75 stack", "NC Trek", 2.75, 12, "51120G2", "", "1012448-12", "2028-10-31", "(01)08717648151811(17)281031(10)51120G2(91)7488", "stack, box 2"],
+  ["NC Trek 2.00–2.75 stack", "NC Trek", 2.5, 12, "60414G1", "", "1012447-12", "2029-03-31", "(01)08717648151750(17)290331(10)60414G1(91)6015", "stack, box 3"],
+  ["NC Trek 2.00–2.75 stack", "NC Trek", 2.5, 8, "51204G1", "", "1012447-08", "2028-11-30", "(01)08717648151743(17)281130(10)51204G1(91)6678", "stack, box 4"],
+  ["NC Trek 2.00–2.75 stack", "NC Trek", 2.5, 8, "60625G2", "", "1012447-08", "2029-05-31", "(01)08717648151743(17)290531(10)60625G2(91)6716", "stack, box 5"],
+  ["NC Trek 2.00–2.75 stack", "NC Trek", 2, 12, "41107G1", "", "1012445-12", "2027-10-31", "(01)08717648151644(17)271031(10)41107G1(91)6171", "stack, box 6"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 6, "40828G1", "", "1012451-06", "2027-07-31", "(01)08717648151958(17)270731(10)40828G1(91)6265", "stack, box 1 from the top"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 6, "20331G1", "", "1012451-06", "2025-02-28", "(01)08717648151958(17)250228(10)20331G1(91)4790", "stack, box 2 — \"Billed\" written on it"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 8, "50721G1", "", "1012451-08", "2028-06-30", "(01)08717648151965(17)280630(10)50721G1(91)6136", "stack, box 3"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 8, "50513G1", "", "1012451-08", "2028-04-30", "(01)08717648151965(17)280430(10)50513G1(91)6957", "stack, box 4"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 8, "50513G1", "", "1012451-08", "2028-04-30", "(01)08717648151965(17)280430(10)50513G1(91)6928", "stack, box 5"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 12, "50505G1", "", "1012451-12", "2028-04-30", "(01)08717648151972(17)280430(10)50505G1(91)6722", "stack, box 6"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 12, "50902G1", "", "1012451-12", "2028-08-31", "", "stack, box 7"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 12, "50821G2", "", "1012451-12", "2028-07-31", "(01)08717648151972(17)280731(10)50821G2(91)7023", "stack, box 8"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 12, "50505G1", "", "1012451-12", "2028-04-30", "", "stack, box 9"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 15, "20822G1", "", "1012451-15", "2025-07-31", "", "stack, box 10 — marked in pen"],
+  ["NC Trek 3.50 stack", "NC Trek", 3.5, 15, "50918G2", "", "1012451-15", "2028-08-31", "(01)08717648151989(17)280831(10)50918G2(91)6314", "stack, box 11"],
+  ["NC Trek 3.25 stack", "NC Trek", 3.25, 8, "41104G1", "", "1012450-08", "2027-10-31", "(01)08717648151910(17)271031(10)41104G1(91)6203", "stack, box 1 from the top"],
+  ["NC Trek 3.25 stack", "NC Trek", 3.25, 8, "50401G1", "", "1012450-08", "2028-03-31", "(01)08717648151910(17)280331(10)50401G1(91)6471", "stack, box 2"],
+  ["NC Trek 3.25 stack", "NC Trek", 3.25, 8, "50401G1", "", "1012450-08", "2028-03-31", "(01)08717648151910(17)280331(10)50401G1(91)6693", "stack, box 3"],
+  ["NC Trek 3.25 stack", "NC Trek", 3.25, 8, "31128G1", "", "1012450-08", "2026-10-31", "", "stack, box 4"],
+  ["NC Trek 3.25 stack", "NC Trek", 3.25, 12, "50404G1", "", "1012450-12", "2028-03-31", "(01)08717648151927(17)280331(10)50404G1(91)6900", "stack, box 5"],
+  ["NC Trek 3.25 stack", "NC Trek", 3.25, 12, "40810G1", "", "1012450-12", "2027-07-31", "", "stack, box 6"],
+  ["NC Trek 3.25 stack", "NC Trek", 3.25, 12, "40605G1", "", "1012450-12", "2027-05-31", "(01)08717648151927(17)270531(10)40605G1(91)6573", "stack, box 7 — marked in pen"],
+  ["NC Trek 3.25 stack", "NC Trek", 3.25, 15, "21101G1", "", "1012450-15", "2025-10-31", "", "stack, box 8 — \"Billed\" written on it"],
+  ["NC Trek 3.00 stack", "NC Trek", 3, 12, "60205G1", "", "1012449-12", "2029-01-31", "(01)08717648151866(17)290131(10)60205G1(91)6263", "stack, box 1 from the top"],
+  ["NC Trek 3.00 stack", "NC Trek", 3, 12, "50917G1", "", "1012449-12", "2028-08-31", "(01)08717648151866(17)280831(10)50917G1(91)6892", "stack, box 2"],
+  ["NC Trek 3.00 stack", "NC Trek", 3, 12, "60207G1", "", "1012449-12", "2029-01-31", "(01)08717648151866(17)290131(10)60207G1(91)6391", "stack, box 3"],
+  ["NC Trek 3.00 stack", "NC Trek", 3, 12, "60318G1", "", "1012449-12", "2029-02-28", "(01)08717648151866(17)290228(10)60318G1(91)6466", "stack, box 4"],
+  ["NC Trek 3.00 stack", "NC Trek", 3, 8, "50702G1", "", "1012449-08", "2028-06-30", "(01)08717648151859(17)280630(10)50702G1(91)6109", "stack, box 5"],
+  ["NC Trek 3.00 stack", "NC Trek", 3, 8, "51121G1", "", "1012449-08", "2028-10-31", "(01)08717648151859(17)281031(10)51121G1(91)7250", "stack, box 6"],
+  ["NC Trek 3.00 stack", "NC Trek", 3, 8, "50301G1", "", "1012449-08", "2028-02-29", "(01)08717648151859(17)280229(10)50301G1(91)7093", "stack, box 7"],
+  ["NC Trek 3.00 stack", "NC Trek", 3, 6, "40518G1", "", "1012449-06", "2027-04-30", "(01)08717648151842(17)270430(10)40518G1(91)6136", "stack, box 8"],
+  // Mini Trek (Abbott)
+  ["Mini Trek stack", "Mini Trek", 1.5, 12, "60401G1", "", "1012269-12", "2029-03-31", "(01)08717648138096(17)290331(10)60401G1(91)6219", "stack, box 1 from the top"],
+  ["Mini Trek stack", "Mini Trek", 1.5, 12, "60817G1", "", "1012269-12", "2029-07-31", "(01)08717648138096(17)290731(10)60817G1(91)6180", "stack, box 2"],
+  ["Mini Trek stack", "Mini Trek", 1.5, 8, "60123G1", "", "1012269-08", "2028-12-31", "(01)08717648138089(17)281231(10)60123G1(91)6976", "stack, box 3"],
+  ["Mini Trek stack", "Mini Trek", 1.5, 8, "60414G1", "", "1012269-08", "2029-03-31", "(01)08717648138089(17)290331(10)60414G1(91)6548", "stack, box 4"],
+  ["Mini Trek stack", "Mini Trek", 1.5, 8, "60123G1", "", "1012269-08", "2028-12-31", "(01)08717648138089(17)281231(10)60123G1(91)6190", "stack, box 5"],
+  ["Mini Trek stack", "Mini Trek", 1.2, 6, "41022G1", "", "1012268-06", "2027-09-30", "(01)08717648138027(17)270930(10)41022G1(91)6592", "stack, box 6"],
+  ["Mini Trek stack", "Mini Trek", 1.2, 12, "41121G1", "", "1012268-12", "2027-10-31", "(01)08717648138041(17)271031(10)41121G1(91)6271", "stack, box 7"],
+  ["Mini Trek stack", "Mini Trek", 1.2, 15, "31208G1", "", "1012268-15", "2026-11-30", "(01)08717648138058(17)261130(10)31208G1(91)6985", "stack, box 8 — expires 30 Nov 2026"],
+  // NC Rockstar (Sanavascular) — no LOT; each box's own number
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4, 8, "", "133329072026H0337014", "NCP-4.00-08-RX", "2029-07-20", "", "stack, box 1 from the top"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4, 8, "", "133329081426J0185011", "NCP-4.00-08-RX", "2029-08-14", "", "stack, box 2"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4, 8, "", "133329081426J0185002", "NCP-4.00-08-RX", "2029-08-14", "", "stack, box 3"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4, 12, "", "133428112125M0300008", "NCP-4.00-12-RX", "2028-11-21", "", "stack, box 4"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4, 12, "", "133428112125M0300001", "NCP-4.00-12-RX", "2028-11-21", "", "stack, box 5"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4, 12, "", "133428122226A0520010", "NCP-4.00-12-RX", "2028-12-22", "", "stack, box 6"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4, 15, "", "133528081925J0254007", "NCP-4.00-15-RX", "2028-08-19", "", "stack, box 7"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4, 15, "", "133528110425M0292011", "NCP-4.00-15-RX", "2028-11-04", "", "stack, box 8"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4.5, 8, "", "133728042825F0125007", "NCP-4.50-08-RX", "2028-04-28", "", "stack, box 9"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4.5, 12, "", "133828042825F0159005", "NCP-4.50-12-RX", "2028-04-28", "", "stack, box 10"],
+  ["NC Rockstar 4.00–4.50 stack", "NC Rockstar", 4.5, 15, "", "133928021325C293002", "NCP-4.50-15-RX", "2028-02-13", "", "stack, box 11"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2, 12, "", "130229080926J0179108", "NCP-2.00-12-RX", "2029-08-09", "", "stack, box 1 from the top"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2, 12, "", "130229080926J0179106", "NCP-2.00-12-RX", "2029-08-09", "", "stack, box 2"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2, 15, "", "130329011226A0535034", "NCP-2.00-15-RX", "2029-01-12", "", "stack, box 3"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2, 15, "", "130328111825M0298015", "NCP-2.00-15-RX", "2028-11-18", "", "stack, box 4"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2, 15, "", "130328111825M0298019", "NCP-2.00-15-RX", "2028-11-18", "", "stack, box 5"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2, 15, "", "130329011226A0535010", "NCP-2.00-15-RX", "2029-01-12", "", "stack, box 6"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2, 15, "", "130329011226A0535035", "NCP-2.00-15-RX", "2029-01-12", "", "stack, box 7"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2.5, 8, "", "130929040926E0218018", "NCP-2.50-08-RX", "2029-04-09", "", "stack, box 8"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2.5, 12, "", "131029082026J0191151", "NCP-2.50-12-RX", "2029-08-20", "", "stack, box 9"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2.5, 12, "", "131029082026J0191109", "NCP-2.50-12-RX", "2029-08-20", "", "stack, box 10"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2.5, 15, "", "131129072026H0338076", "NCP-2.50-15-RX", "2029-07-20", "", "stack, box 11"],
+  ["NC Rockstar 2.00–2.50 stack", "NC Rockstar", 2.5, 15, "", "131129072026H0338051", "NCP-2.50-15-RX", "2029-07-20", "", "stack, box 12"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 2.75, 12, "", "131429060926G0095051", "NCP-2.75-12-RX", "2029-06-09", "", "stack, box 1 from the top"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 12, "", "131829082026J0188111", "NCP-3.00-12-RX", "2029-08-20", "", "stack, box 2"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 12, "", "131829082026J0188073", "NCP-3.00-12-RX", "2029-08-20", "", "stack, box 3"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 12, "", "131829082026J0188087", "NCP-3.00-12-RX", "2029-08-20", "", "stack, box 4"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 12, "", "131829082026J0188100", "NCP-3.00-12-RX", "2029-08-20", "", "stack, box 5"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 12, "", "131829040226E0212034", "NCP-3.00-12-RX", "2029-04-02", "", "stack, box 6"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 12, "", "131829082026J0188094", "NCP-3.00-12-RX", "2029-08-20", "", "stack, box 7"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 15, "", "131929060126F0602039", "NCP-3.00-15-RX", "2029-06-01", "", "stack, box 8"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 15, "", "131929081426J0184049", "NCP-3.00-15-RX", "2029-08-14", "", "stack, box 9"],
+  ["NC Rockstar 2.75–3.00 stack", "NC Rockstar", 3, 15, "", "131929081426J0184082", "NCP-3.00-15-RX", "2029-08-14", "", "stack, box 10"],
+  ["NC Rockstar 3.25 stack", "NC Rockstar", 3.25, 8, "", "132129010826A0534003", "NCP-3.25-08-RX", "2029-01-08", "", "stack, box 1 from the top"],
+  ["NC Rockstar 3.25 stack", "NC Rockstar", 3.25, 8, "", "132128020925C286013", "NCP-3.25-08-RX", "2028-02-09", "", "stack, box 2"],
+  ["NC Rockstar 3.25 stack", "NC Rockstar", 3.25, 8, "", "132128091125M0286010", "NCP-3.25-08-RX", "2028-09-11", "", "stack, box 3"],
+  ["NC Rockstar 3.25 stack", "NC Rockstar", 3.25, 12, "", "132229082026J0189038", "NCP-3.25-12-RX", "2029-08-20", "", "stack, box 4"],
+  ["NC Rockstar 3.25 stack", "NC Rockstar", 3.25, 15, "", "132329080926J0178013", "NCP-3.25-15-RX", "2029-08-09", "", "stack, box 5"],
+  ["NC Rockstar 3.25 stack", "NC Rockstar", 3.25, 15, "", "132329080926J0178025", "NCP-3.25-15-RX", "2029-08-09", "", "stack, box 6"],
+  ["NC Rockstar 3.25 stack", "NC Rockstar", 3.25, 20, "", "132428022625C301004", "NCP-3.25-20-RX", "2028-02-26", "", "stack, box 7"],
+  ["NC Rockstar 3.50–3.75 stack", "NC Rockstar", 3.5, 12, "", "132629082026J0187092", "NCP-3.50-12-RX", "2029-08-20", "", "stack, box 1 from the top"],
+  ["NC Rockstar 3.50–3.75 stack", "NC Rockstar", 3.5, 12, "", "132629082026J0187069", "NCP-3.50-12-RX", "2029-08-20", "", "stack, box 2"],
+  ["NC Rockstar 3.50–3.75 stack", "NC Rockstar", 3.5, 15, "", "132729060126F0601003", "NCP-3.50-15-RX", "2029-06-01", "", "stack, box 3"],
+  ["NC Rockstar 3.50–3.75 stack", "NC Rockstar", 3.75, 12, "", "133028111025M0296005", "NCP-3.75-12-RX", "2028-11-10", "", "stack, box 4"],
+  ["NC Rockstar 3.50–3.75 stack", "NC Rockstar", 3.75, 8, "", "132928022625C304007", "NCP-3.75-08-RX", "2028-02-26", "", "stack, box 5"],
+  ["NC Rockstar 3.50–3.75 stack", "NC Rockstar", 3.75, 8, "", "132929030926E0204003", "NCP-3.75-08-RX", "2029-03-09", "", "stack, box 6"],
+  ["NC Rockstar 3.50–3.75 stack", "NC Rockstar", 3.75, 12, "", "133029041726E0221002", "NCP-3.75-12-RX", "2029-04-17", "", "stack, box 7"],
+  ["NC Rockstar 3.50–3.75 stack", "NC Rockstar", 3.75, 15, "", "133128011925C285013", "NCP-3.75-15-RX", "2028-01-19", "", "stack, box 8"]
+];
+var IMPORT_20NOV_DAY = "2026-11-20";
+function boxExpiryIso_(e) {
+  var m = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(String(e || "")) || null;
+  if (m) return m[1] + "-" + m[2] + "-" + (m[3] || "28");
+  var n = /^(\d{2})-(\d{4})$/.exec(String(e || ""));
+  return n ? n[2] + "-" + n[1] + "-28" : "";
+}
+function invImport20Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_IMPORT_20NOV")) return false;
+  pr.setProperty("INV_IMPORT_20NOV", "started " + cathNow_());
+  var boxes = boxRowsAll_(), photos = [], byPhoto = {}, tot = { added: 0, repeat: 0, check: 0 };
+  IMPORT_20NOV.forEach(function (x) { if (!byPhoto[x[0]]) { byPhoto[x[0]] = []; photos.push(x[0]); } byPhoto[x[0]].push(x); });
+  photos.forEach(function (ph, i) {
+    var up = { id: "CLAUDE-20NOV-" + (i + 1), file: ph + " (photo sent 20 Nov, read by Claude)", fileId: "" };
+    var list = byPhoto[ph].map(function (x) {
+      return { device: "Balloon", brand: x[1], manufacturer: x[1] === "Tanzor NC" ? "Veiva Scientific" : x[1] === "NC Rockstar" ? "Sanavascular" : "Abbott",
+        diameter: String(x[2]), length: String(x[3]), lot: x[4], serial: x[5], ref: x[6], expiry: x[7], codes: x[8] ? [x[8]] : [], place: x[9] };
+    });
+    var c = boxTakePhoto_(up, list, "Claude (photos of 20 Nov)", "Claude", boxes, []);
+    tot.added += c.added; tot.repeat += c.repeat; tot.check += c.check;
+  });
+  // the day of the photos (the start of these balloons counts from the day after), and expired boxes put to check
+  var mine = boxRowsAll_().filter(function (b) { return String(b.up).indexOf("CLAUDE-20NOV-") === 0; });
+  mine.forEach(function (b) {
+    var changed = false;
+    if (String(b.readAt).slice(0, 10) !== IMPORT_20NOV_DAY) { b.readAt = IMPORT_20NOV_DAY + " 16:00"; changed = true; }
+    var ex = boxExpiryIso_(b.expiry);
+    if (b.status === "in stock" && ex && ex < IMPORT_20NOV_DAY) { b.status = "check"; b.why = "expired " + b.expiry + (/billed/i.test(b.place) ? " and \"Billed\" written on the box" : "") + " — not counted; add it only if it is really in use"; changed = true; tot.added--; tot.check++; }
+    if (changed) boxWrite_(b);
+  });
+  var sync = boxSyncMoves_("Claude (photos of 20 Nov)");
+  pr.setProperty("INV_IMPORT_20NOV", JSON.stringify({ at: cathNow_(), boxes: IMPORT_20NOV.length, added: tot.added, repeat: tot.repeat, check: tot.check }));
+  batchLogRow_(runId, "", "", "balloon stock of 20 Nov (read by Claude)", "written", IMPORT_20NOV.length + " box(es): " + tot.added + " counted, " + tot.repeat + " repeat(s), " + tot.check + " to check (expired)");
+  return true;
+}
+
+/* (not used: 13.50 re-read the photos from 20 Nov with Gemini; left out to spend no Gemini tokens)
+   13.50 — once, after 13.50 goes in: the stock photos uploaded from 20 Nov
    2026 (read by 13.49's stent reader, without the boxes' places in the photo
    or the foreground/background split) are read again by the new reader and
    filed in their instrument's processed folder */
