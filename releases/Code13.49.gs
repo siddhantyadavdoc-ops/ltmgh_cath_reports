@@ -93,6 +93,11 @@
  *     length or a clear LOT — or whose LOT disagrees with its barcode line —
  *     is kept "to check", not counted. Actions invReread (read every stock
  *     photo again) and boxSave (add, count as another box, discard).
+ *   - Done once, automatically, on the first run after 13.49 goes in: the
+ *     stock photos read by 13.48 are read again box by box, and stock photos
+ *     still among the used-stent photos (from 19 Nov, no patient, 3+
+ *     stickers) are moved to the inventory and read the same way. That one
+ *     correction runs at once, outside the night window too (stock photos only).
  *   - "Open & check": a case's file is served after reading only the case-ID
  *     and file-ID columns (not every row's readings), and the inbox list now
  *     carries each case's file ids, so the app fetches the pages ahead of time
@@ -1321,6 +1326,11 @@ function batchTick(opts) {
   // 13.48: which part the half-price queue plays in this run
   var pollOnly = false;
   BATCH_QUEUE_MODE_ = opts.only === "stents" || opts.only === "inventory" ? "" : opts.fromApp ? (opts.caseId ? "now" : "poll") : "send";
+  // 13.49: the one-time correction of the stock read before box-by-box
+  // reading; while its photos wait, a run outside the window reads them (only them)
+  var fixing = false;
+  try { fixing = invAutoFix_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
     if (plan.mode === "closed") {
@@ -3804,6 +3814,7 @@ function invGet_(req) {
   var o = { items: list, start: invStart_(), moves: moves.slice(-400).reverse().map(invMoveOut_), moveCount: moves.length, pending: invPending_(),
     kinds: INV_KIND_ORDER.map(function (k) { return { kind: k, label: INV_KIND_LABEL[k] }; }),
     review: chk.review, noSheet: chk.noSheet, needSync: invNeedSync_(moves, stickers) };
+  try { o.boxFix = invAutoFixStatus_(); } catch (e) {}
   try { var bl = boxList_(); o.boxes = bl.boxes; o.boxNoMatch = bl.noBox; } catch (e) { o.boxes = []; o.boxesError = String(e && e.message || e); }
   // one item's whole history, for the item open on the page
   if (req.item) { o.item = String(req.item); o.itemMoves = moves.filter(function (m) { return m.item === String(req.item); }).reverse().map(invMoveOut_); }
@@ -4740,6 +4751,63 @@ function invReread_(req) {
   });
   var sync = boxSyncMoves_(by);
   return { queued: list.length, said: list.length + " stock photo(s) will be read again box by box; the " + boxes.length + " box(es) and the stock they added are cleared until then." };
+}
+/* 13.49 — the automatic correction, done once after 13.49 goes in:
+   - the stock photos read photo-by-photo by 13.48 (no boxes yet) are read
+     again box by box;
+   - the photos of stock put in "Used stents upload" by mistake and not yet
+     moved — read as used stents from 19 Nov 2026, with no patient name or
+     number and three or more stickers — leave the Stents tab and are read as
+     stock photos too.
+   Until each is read again its 13.48 stock stays; once read, its boxes
+   replace it (repeats across the overlapping photos counted once).
+   Returns true while photos of the correction still wait to be read. */
+var INV_FIX_FROM = "2026-11-19";
+function invAutoFix_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  var done = pr.getProperty("INV_BOXFIX");
+  if (done) {
+    var d = {}; try { d = JSON.parse(done) || {}; } catch (e) {}
+    if (d.finished) return false;
+    var tab0 = stentUpRows_(), want = {}; (d.ids || []).forEach(function (id) { want[id] = 1; });
+    var left = tab0.rows.filter(function (r) { return want[r.id] && r.status === "queued"; }).length;
+    if (!left) {
+      d.finished = cathNow_();
+      var bx = boxRowsAll_().filter(function (b) { return want[b.up]; });
+      d.result = { counted: bx.filter(function (b) { return b.status === "in stock"; }).length, repeats: bx.filter(function (b) { return b.status === "repeat"; }).length,
+        check: bx.filter(function (b) { return b.status === "check"; }).length,
+        failed: tab0.rows.filter(function (r) { return want[r.id] && r.status === "failed"; }).length };
+      pr.setProperty("INV_BOXFIX", JSON.stringify(d));
+      batchLogRow_(runId, "", "", "stock correction", "finished", d.result.counted + " box(es) counted, " + d.result.repeats + " repeat(s) not counted, " + d.result.check + " to check");
+    }
+    return left > 0;
+  }
+  var tab = stentUpRows_(), boxes = boxRowsAll_(), hasBoxes = {};
+  boxes.forEach(function (b) { hasBoxes[b.up] = 1; });
+  var stock = tab.rows.filter(function (r) { return r.purpose === "stock" && r.status !== "dismissed" && r.status !== "queued" && !hasBoxes[r.id]; });
+  var misplaced = tab.rows.filter(function (r) {
+    var day = String(r.uploaded || r.scannedAt || "").slice(0, 10);
+    return r.purpose === "used" && r.status === "scanned" && !String(r.patient || "").trim() && !String(r.number || "").trim() && (r.stickers || 0) >= 3 && day >= INV_FIX_FROM;
+  });
+  var rec = { at: cathNow_(), ids: [], reread: stock.map(function (r) { return r.file; }), moved: misplaced.map(function (r) { return r.file; }) };
+  if (misplaced.length) stentToStock_({ ids: misplaced.map(function (r) { return r.id; }), by: "automatic correction (13.49)" });
+  tab = stentUpRows_();
+  stock.forEach(function (r0) {
+    var r = tab.byId[r0.id];
+    r.status = "queued"; r.tries = 0; r.stickers = 0; r.errors = [];
+    r.log = (r.log ? r.log + "\n" : "") + cathNow_() + " automatic correction (13.49): to be read again box by box";
+    stentUpWrite_(r);
+  });
+  rec.ids = stock.map(function (r) { return r.id; }).concat(misplaced.map(function (r) { return r.id; }));
+  if (!rec.ids.length) rec.finished = rec.at;
+  pr.setProperty("INV_BOXFIX", JSON.stringify(rec));
+  batchLogRow_(runId, "", "", "stock correction", "started", rec.reread.length + " stock photo(s) to read again box by box" +
+    (rec.moved.length ? "; " + rec.moved.length + " photo(s) of stock found among the used-stent photos (" + rec.moved.join(", ") + ") moved to the inventory" : ""));
+  return rec.ids.length > 0;
+}
+function invAutoFixStatus_() {
+  var d = null; try { d = JSON.parse(PropertiesService.getScriptProperties().getProperty("INV_BOXFIX") || "null"); } catch (e) {}
+  return d ? { at: d.at, finished: d.finished || "", reread: d.reread || [], moved: d.moved || [], result: d.result || null } : null;
 }
 /* the technicians' decision on a box: fixed and counted, counted as another
    box (not a repeat), or discarded */

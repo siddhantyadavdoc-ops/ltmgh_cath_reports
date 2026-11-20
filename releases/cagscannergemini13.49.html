@@ -514,6 +514,8 @@ body.hasnav #appnav{display:flex}
 .boxlist.chk .bxhead b{color:#b42318}
 .boxlist.nm>summary b{color:#8a4b00}
 .boxlist.conf .bxhead b{color:#8a4b00}
+.boxfix{flex:1 1 100%;margin:4px 0 0;padding:8px 10px;border-radius:8px;background:#eaf6ef;font-size:13px}
+.boxfix.run{background:#fff6dc}
 .bxrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--hair)}
 .bxrow.open{display:block}
 .bxrow .bxrow{border-bottom:0;padding:0 0 4px}
@@ -13064,7 +13066,7 @@ function viewTech() {
 function techInvTake(j) {
   const T = S.tech;
   T.inv = { items: j.items || [], start: j.start || "", moves: j.moves || [], moveCount: j.moveCount || 0, pending: j.pending || [],
-    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [] };
+    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null };
   T.invAt = Date.now();
   // 13.45: new stent stickers (or the first opening) — the sheet brings the inventory in line
   if (j.needSync && !T.saving && (!T.syncAt || Date.now() - T.syncAt > 60000)) {
@@ -13147,7 +13149,8 @@ function techInvPhotosHtml() {
       <button class="b" onclick="document.getElementById('invfile').click()" ${T.uploading ? "disabled" : ""}>Upload photos</button>
       <button class="b" onclick="techInvScanNow()" ${T.invScanning ? "disabled" : ""}>${T.invScanning ? "Reading…" : "Read inventory photos now"}</button>
       ${st.invInUrl ? `<a class="b" href="${esc2(st.invInUrl)}" target="_blank" rel="noopener">${esc2(st.invInName || "Inventory uploads")} folder</a>` : ""}</div>
-    ${T.invSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.invSaid)}</p>` : ""}`;
+    ${T.invSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.invSaid)}</p>` : ""}
+    ${techBoxFixHtml()}`;
   if (chk.length) h += `<div class="boxlist chk"><div class="bxhead"><b>Boxes to check (${chk.length})</b><span class="hint">Not counted. Fix what was misread and add it, or discard it.</span></div>${chk.map(techBoxCheckHtml).join("")}</div>`;
   if (conf.length) h += `<div class="boxlist chk conf"><div class="bxhead"><b>LOT to confirm (${conf.length})</b><span class="hint">Looks like a box already counted, but its LOT was read one character differently. Find the box on the shelf and type the LOT printed on it.</span></div>${conf.map(techBoxConfirmHtml).join("")}</div>`;
   const nm = (T.inv && T.inv.boxNoMatch) || [];
@@ -13199,6 +13202,17 @@ async function techBoxSave(id, status, withFields) {
   catch (e) { T.invSaid = "Not saved: " + (e.message || e); }
   T.saving = false; T.invAt = 0;
   await techLoad(true);
+}
+/* 13.49: the one-time automatic correction of the stock counted before box-by-box reading */
+function techBoxFixHtml() {
+  const f = S.tech.inv && S.tech.inv.boxFix;
+  if (!f || (!f.reread.length && !f.moved.length)) return "";
+  const n = f.reread.length + f.moved.length;
+  const what = (f.reread.length ? f.reread.length + " stock photo" + (f.reread.length === 1 ? "" : "s") + " read again box by box" : "") +
+    (f.moved.length ? (f.reread.length ? "; " : "") + f.moved.length + " stock photo" + (f.moved.length === 1 ? "" : "s") + " found among the used-stent photos and moved here (" + f.moved.join(", ") + ")" : "");
+  if (!f.finished) return `<p class="boxfix run"><b>Correcting the stock counted earlier…</b> ${esc2(what)}. Their old count stays until each photo is read again — a few minutes. <button class="b" onclick="S.tech.invAt=0;techLoad(true)">Refresh</button></p>`;
+  const r = f.result || {};
+  return `<p class="boxfix"><b>Stock corrected</b> (${esc2(techDate(String(f.finished).slice(0, 10)))}): ${esc2(what)} — ${r.counted || 0} boxes counted, ${r.repeats || 0} repeats on overlapping photos not counted${r.check ? ", " + r.check + " to check below" : ""}${r.failed ? ", " + r.failed + " photo" + (r.failed === 1 ? "" : "s") + " could not be read" : ""}.</p>`;
 }
 /* a repeat taken as the same box only because its LOT was one character off */
 function techBoxToConfirm(b) { return b.status === "repeat" && /check the LOT/.test(b.why || "") && !b.checkedBy; }
