@@ -1401,7 +1401,7 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -5343,6 +5343,39 @@ function invImport20Nov_(runId) {
   var sync = boxSyncMoves_("Claude (photos of 20 Nov)");
   pr.setProperty("INV_IMPORT_20NOV", JSON.stringify({ at: cathNow_(), boxes: IMPORT_20NOV.length, added: tot.added, repeat: tot.repeat, check: tot.check }));
   batchLogRow_(runId, "", "", "balloon stock of 20 Nov (read by Claude)", "written", IMPORT_20NOV.length + " box(es): " + tot.added + " counted, " + tot.repeat + " repeat(s), " + tot.check + " to check (expired)");
+  return true;
+}
+
+/* 13.50 — once: the second Xience Alpine 4.0 × 33 on IMG_0035 (19 Nov, box 27,
+   put to check with its LOT hidden) was photographed again on 21 Nov and
+   confirmed on the shelf: same REF and expiry as LOT 5032541 beside it; its
+   own LOT is not readable, so it is counted with no LOT */
+var FIX_21NOV = [{ id: "XMWOJO0CO26", photo: "IMG_0035.JPG", brand: "Xience Alpine", dia: 4, len: 33,
+  set: { ref: "1120400-33", expiry: "2028-03-23" },
+  why: "confirmed on the shelf from Dr Yadav's photo of 21 Nov 2026 (read by Claude): REF 1120400-33, EXP 2028-03-23; LOT not readable on the box" }];
+function invFix21Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_FIX_21NOV")) return false;
+  var boxes = boxRowsAll_(), done = [], missed = [];
+  FIX_21NOV.forEach(function (f) {
+    var b = null;
+    boxes.forEach(function (x) { if (x.id === f.id) b = x; });
+    if (!b) boxes.forEach(function (x) {
+      if (!b && x.status === "check" && x.photo === f.photo && invNorm_(x.brand) === invNorm_(f.brand) && Number(x.dia) === f.dia && Number(x.len) === f.len) b = x;
+    });
+    if (!b) { missed.push(f.id); return; }
+    if (b.status === "check") {
+      Object.keys(f.set).forEach(function (k) { if (!b[k] || k === "expiry") b[k] = f.set[k]; });
+      b.status = "in stock"; b.why = f.why; b.same = "";
+      b.checkedBy = "Claude (photo of 21 Nov)"; b.checkedAt = cathNow_();
+      boxWrite_(b);
+    }
+    done.push(b.id + " " + b.status);
+  });
+  var sync = done.length ? boxSyncMoves_("Claude (photo of 21 Nov)") : null;
+  pr.setProperty("INV_FIX_21NOV", JSON.stringify({ at: cathNow_(), done: done, missed: missed }));
+  batchLogRow_(runId, "", "", "stock fix of 21 Nov (read by Claude)", missed.length ? "partly done" : "written",
+    "Xience Alpine 4.0×33 EXP 2028-03-23: " + (done.join(", ") || "none") + (missed.length ? " · not found: " + missed.join(", ") : "") + (sync ? " · " + sync.added + " received move(s)" : ""));
   return true;
 }
 
