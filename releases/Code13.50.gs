@@ -4884,6 +4884,15 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
   };
   Object.keys(groups).forEach(function (k) {
     var g = groups[k], have = boxHaveOf_(k, boxes, stickers, up.id);
+    // 13.50: a box whose serial is read and differs from the serial of every box already counted
+    // under this LOT and size is another box (the serial is what the bill is matched on), not a repeat
+    if (have.list.length) {
+      var distinct = g.filter(function (b) {
+        return invNorm_(b.serial) && have.list.every(function (x) { return invNorm_(x.serial) && invNorm_(x.serial) !== invNorm_(b.serial); });
+      });
+      distinct.forEach(function (b) { b.status = "in stock"; counts.added++; });
+      g = g.filter(function (b) { return distinct.indexOf(b) < 0; });
+    }
     g.forEach(function (b, i) {
       var near = i < have.n ? null : nearOf(b);
       if (near) {
@@ -5550,7 +5559,7 @@ function invImport23Nov_(runId) {
 
 
 /* 13.50 — once: more stock of 23 Nov 2026 (Dr Yadav's photos, read by Claude):
-   11 Ultima PC (Translumina; each box with REF, LOT, serial and use-by), a
+   17 Ultima PC (Translumina; each box with REF, LOT, serial and use-by), a
    stack of 13 Yukon Choice Swift 3.00 mm and one of 8 Yukon Choice Swift 3.50 mm. Counted as found on the shelf: a box
    already in stock from an earlier photo (the 3.00×32 of LOT SAAX110726 on the
    20 Nov photo, which had no serial) is taken as the same box and given its
@@ -5568,6 +5577,12 @@ var IMPORT_23NOV_B = [
   ["Ultima PC box 9", "stent", "Ultima PC", "Translumina", 3.5, 36, "UAWW180426", "UAWW18554", "UAPC3536", "03-2029", "box label"],
   ["Ultima PC box 10", "stent", "Ultima PC", "Translumina", 3.5, 40, "UAWI110326", "UAWI11995", "UAPC3540", "02-2028", "box label"],
   ["Ultima PC box 11", "stent", "Ultima PC", "Translumina", 3.5, 48, "UAXC150526", "UAXC151980", "UAPC3548", "04-2029", "box label"],
+  ["Ultima PC box 12", "stent", "Ultima PC", "Translumina", 3.5, 36, "UAWW180426", "UAWW18565", "UAPC3536", "03-2029", "box label"],
+  ["Ultima PC box 13", "stent", "Ultima PC", "Translumina", 3.5, 28, "UAXS170726", "UAXS171399", "UAPC3528", "06-2028", "box label"],
+  ["Ultima PC box 14", "stent", "Ultima PC", "Translumina", 3.5, 24, "UAWE240226", "UAWE24627", "UAPC3524", "01-2028", "box label"],
+  ["Ultima PC box 15", "stent", "Ultima PC", "Translumina", 3.5, 18, "UAWI110326", "UAWI11483", "UAPC3518", "02-2028", "box label"],
+  ["Ultima PC box 16", "stent", "Ultima PC", "Translumina", 3.5, 48, "UAXT200726", "UAXT201937", "UAPC3548", "06-2029", "box label"],
+  ["Ultima PC box 17", "stent", "Ultima PC", "Translumina", 3.5, 44, "UAVJ251225", "UAVJ25809", "UAPC3544", "11-2028", "box label"],
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 32, "SAAY050826", "SAAY051550", "", "", "stack, box 1 from the top"],
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 32, "SAAX110726", "SAAX111715", "", "", "stack, box 2"],
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 44, "SABA070926", "SABA071740", "", "", "stack, box 3"],
@@ -5621,7 +5636,7 @@ function invImport23NovB_(runId) {
   boxSyncMoves_(who);
   pr.setProperty("INV_IMPORT_23NOV_B", JSON.stringify({ at: cathNow_(), boxes: IMPORT_23NOV_B.length, added: tot.added, same: tot.same, check: tot.check }));
   batchLogRow_(runId, "", "", "more stock of 23 Nov (read by Claude)", tot.check ? "partly written" : "written",
-    IMPORT_23NOV_B.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock from an earlier photo" : "") + (tot.check ? ", " + tot.check + " to check" : "") + " (11 Ultima PC, 13 Yukon Choice Swift 3.00, 8 Yukon Choice Swift 3.50)");
+    IMPORT_23NOV_B.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock from an earlier photo" : "") + (tot.check ? ", " + tot.check + " to check" : "") + " (17 Ultima PC, 13 Yukon Choice Swift 3.00, 8 Yukon Choice Swift 3.50)");
   return true;
 }
 
