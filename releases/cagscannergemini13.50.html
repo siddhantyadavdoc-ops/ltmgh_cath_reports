@@ -13501,11 +13501,12 @@ function techBoxSize(b) {
   return b.dia && b.len ? stentNum(b.dia) + " × " + stentNum(b.len) : b.dia ? stentNum(b.dia) + " × ?" : "size ?";
 }
 function techBoxRowHtml(b, btns) {
+  const usedIn = b.usedIn ? `<span class="bxused">used in · ${esc2(b.usedIn)}</span>` : "";
   const used = b.usedBy ? `<span class="bxused">used · ${esc2([b.usedBy.ptcaNo ? "PTCA " + b.usedBy.ptcaNo : "", b.usedBy.patient, b.usedBy.date ? techDate(b.usedBy.date) : "", b.usedBy.how === "size" ? "taken as any box of this size" : ""].filter(Boolean).join(" · "))}</span>` : "";
   return `<div class="bxrow" data-bx="${esc2(b.id || "")}"><div class="bxmain"><b>${esc2(b.status === "background" ? (b.brand || "?") : (b.brand || "?") + " " + techBoxSize(b))}</b>
       <span>${b.status === "background" ? esc2(techKindOne(b.kind || "stent")) : esc2([b.kind && b.kind !== "stent" ? techKindOne(b.kind) : "", b.lot ? "LOT " + b.lot : b.serial ? "No. " + b.serial : "LOT ?", b.ref ? "REF " + b.ref : "", b.expiry ? "exp " + b.expiry : "", techBoxUnit(b) ? "(91) " + techBoxUnit(b) : ""].filter(Boolean).join(" · "))}</span>
       <span class="m">${b.id && b.fileId ? `<button type="button" class="linkbtn" onclick="techBoxShow('${esc2(b.id)}')">Show in photo</button> · ` : ""}${b.url ? `<a href="${esc2(b.url)}" target="_blank" rel="noopener">${esc2(b.photo || "photo")}</a>` : esc2(b.photo || "")}${b.place ? " · " + esc2(b.place) : ""}</span>
-      ${b.why ? `<span class="why">${esc2(b.why)}</span>` : ""}${used}</div>${btns ? `<div class="btns" style="margin:0">${btns}</div>` : ""}</div>`;
+      ${b.why ? `<span class="why">${esc2(b.why)}</span>` : ""}${used}${usedIn}</div>${btns ? `<div class="btns" style="margin:0">${btns}</div>` : ""}</div>`;
 }
 function techBoxCheckHtml(b) {
   const T = S.tech;
@@ -13699,12 +13700,12 @@ function techInvFromBrand(id) {
 /* the boxes of one size (stock photos), with their LOT and what became of them */
 function techSizeBoxesHtml(x) {
   const bx = ((S.tech.inv && S.tech.inv.boxes) || []).filter(function (b) {
-    if (b.status !== "in stock" || hwNorm(b.brand) !== hwNorm(x.brand) || (b.kind || "stent") !== x.kind) return false;
+    if ((b.status !== "in stock" && b.status !== "used") || hwNorm(b.brand) !== hwNorm(x.brand) || (b.kind || "stent") !== x.kind) return false;
     const dl = stentDiaLen(x.size);
     return dl && Math.abs(Number(b.dia) - dl.d) < 0.01 && Math.abs(Number(b.len) - dl.l) < 0.01;
   });
   if (!bx.length) return `<p class="hint">No boxes of this size from stock photos yet.</p>`;
-  const left = bx.filter(function (b) { return !b.usedBy; }).length;
+  const left = bx.filter(function (b) { return !b.usedBy && b.status !== "used"; }).length;
   return `<details class="stsizest" open><summary>Boxes of this size from stock photos (${bx.length}${left !== bx.length ? ", " + left + " not yet used" : ""})</summary>${bx.map(function (b) { return techBoxRowHtml(b, ""); }).join("")}</details>`;
 }
 async function techInvScanNow() {

@@ -1415,7 +1415,7 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); invImport23NovB_(runId); invImport23NovC_(runId); invReturn23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); invImport23NovB_(runId); invImport23NovC_(runId); invReturn23Nov_(runId); invUsed23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -3753,6 +3753,11 @@ function invCaseKey_(year, ptcaNo, cagNo, name) {
 /* A saved PTCA's hardware (from appendCase): its moves are replaced by the
    ones sent now. Nothing is written when nothing changed. */
 function invApplyCase_(c) {
+  var r = invApplyCase0_(c);
+  try { boxLinkUse_(c.caseDate); } catch (e) {}   // 13.50: a box used that day is named with its case
+  return r;
+}
+function invApplyCase0_(c) {
   if (!c.caseKey) return { n: 0, note: "the case has no number or name" };
   var items = invItems_();
   var moves = invMovesAll_();
@@ -4274,9 +4279,9 @@ var BILL_PROMPT = "You are reading a photograph of a bill, invoice, delivery cha
 var BOX_TAB = "Stock boxes";
 var BOX_HEAD = ["Box id", "Upload id", "Photo", "File id", "Status", "Why", "Kind", "Brand", "Manufacturer", "Diameter (mm)", "Length (mm)",
   "REF", "LOT", "Serial No", "Expiry", "GTIN", "Barcode text", "Place in photo", "Item id", "Same as", "Read at", "Read by", "Checked by", "Checked at",
-  "Size", "Area in photo"];
+  "Size", "Area in photo", "Used in"];
 var BOX_KEYS = ["id", "up", "photo", "fileId", "status", "why", "kind", "brand", "mfr", "dia", "len", "ref", "lot", "serial", "expiry", "gtin",
-  "codes", "place", "item", "same", "readAt", "readBy", "checkedBy", "checkedAt", "size", "area"];
+  "codes", "place", "item", "same", "readAt", "readBy", "checkedBy", "checkedAt", "size", "area", "usedIn"];
 /* status: "in stock" (counted), "repeat" (the same box seen before — not
    counted), "check" (not read well enough — not counted until fixed),
    "discarded" (not a device / a mistake — never counted) */
@@ -4963,7 +4968,10 @@ function boxSyncMoves_(by) {
     var it = invEnsure_(items, b.kind || "stent", b.brand || INV_KIND_LABEL[b.kind || "stent"], boxSizeText_(b), by);
     if (b.item !== it.id) { b.item = it.id; if (b.row) boxWrite_(b); }
     var day = String(upDay[b.up] || b.readAt || "").slice(0, 10);
-    if (day && (!firstDay[it.id] || day < firstDay[it.id])) firstDay[it.id] = day;
+    // 13.50: a box first seen as "used" on a day's instrument photo (not on the shelf list)
+    // does not start the item's tracking, or that day's own sheet would be skipped
+    var dayOnly = b.status === "used" && !b.same && /^used \d{4}-\d{2}-\d{2}/.test(String(b.why));
+    if (!dayOnly && day && (!firstDay[it.id] || day < firstDay[it.id])) firstDay[it.id] = day;
     var m = haveMv[b.id];
     if (m && m.item === it.id) return;
     if (m) del.push(m);
@@ -5746,6 +5754,66 @@ function invReturn23Nov_(runId) {
   pr.setProperty("INV_RETURN_23NOV", JSON.stringify({ at: cathNow_(), done: done, miss: miss }));
   batchLogRow_(runId, "", "", "returned to company (Ultimaster Tansei)", miss.length ? "partly written" : "written",
     done.length + " box(es) taken off the stock" + (miss.length ? "; not found in stock: " + miss.join(", ") : ""));
+  return true;
+}
+
+/* ---- 13.50: which case used which box. A box marked "used" from the day's
+   instrument photo (not from a sticker) is matched, once the utilization
+   sheets are saved, to the cases of that day that used a device of its brand
+   and size. The sheet carries no LOT, so: one case that day → "PTCA n · name"
+   exactly; more than one → "one of: PTCA a, PTCA b" (never a guess). ---- */
+function boxLinkUse_(onlyDay) {
+  var boxes = boxRowsAll_().filter(function (b) {
+    return b.status === "used" && (b.kind || "stent") !== "stent" && /^used (\d{4}-\d{2}-\d{2})/.test(String(b.why));
+  });
+  if (!boxes.length) return 0;
+  var items = invItems_(), moves = invMovesAll_(), byId = {};
+  items.forEach(function (it) { byId[it.id] = it; });
+  var changed = 0;
+  boxes.forEach(function (b) {
+    var day = /^used (\d{4}-\d{2}-\d{2})/.exec(String(b.why))[1];
+    if (onlyDay && day !== onlyDay) return;
+    var cases = {}, order = [];
+    moves.forEach(function (m) {
+      if (m.kind !== "used" || m.caseDate !== day) return;
+      var it = byId[m.item]; if (!it) return;
+      if (it.kind !== (b.kind || "stent") || invNorm_(it.brand) !== invNorm_(b.brand) || invSizeKey_(it.size) !== invSizeKey_(boxSizeText_(b))) return;
+      if (!cases[m.caseKey]) { cases[m.caseKey] = { no: m.ptcaNo, patient: m.patient }; order.push(m.caseKey); }
+    });
+    var lab = function (c) { return [c.no ? "PTCA " + c.no : "", c.patient].filter(Boolean).join(" · "); };
+    var v = !order.length ? "" : order.length === 1 ? lab(cases[order[0]]) : "one of: " + order.map(function (k) { return cases[k].no ? "PTCA " + cases[k].no : cases[k].patient; }).join(", ");
+    if (v !== String(b.usedIn || "")) { b.usedIn = v; boxWrite_(b); changed++; }
+  });
+  return changed;
+}
+
+/* 13.50: balloons used on 23 Nov (photo of the seven boxes, 15:03).
+   Each is marked "used" without changing the count — the utilization sheet
+   takes it off; one that is not on the stock list becomes its own "used" row. */
+var USED_23NOV = [
+  ["balloon", "Tanzor NC", "Veiva Scientific", 2.5, 12, "G1226AJ", "", "VSTZN25012", "2028-04"],
+  ["balloon", "Tanzor NC", "Veiva Scientific", 2.5, 12, "G1226AQ", "", "VSTZN25012", "2028-06"],
+  ["balloon", "Tanzor NC", "Veiva Scientific", 3.5, 12, "K1226AS", "", "VSTZN35012", "2028-06"],
+  ["balloon", "Tanzor NC", "Veiva Scientific", 2, 12, "E1226AQ", "", "VSTZN20012", "2028-06"],
+  ["balloon", "Seguro", "", 3, 12, "S26NC009", "NS2600930012155", "SLS/NC/30012", "2029-06"],
+  ["balloon", "Seguro", "", 3, 12, "S26NC002", "NS2630012088", "SLS/NC/30012", "2029-02"],
+  ["balloon", "Seguro", "", 2, 15, "S25NC006", "NS2520015007", "SLS/NC/20015", "2028-08"]
+];
+function invUsed23Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_USED_23NOV")) return false;
+  pr.setProperty("INV_USED_23NOV", "started " + cathNow_());
+  var who = "Claude (balloons used 23 Nov)", day = "2026-11-23";
+  var up = { id: "CLAUDE-23NOVU-1", file: "balloons used today (photo sent 23 Nov, read by Claude)", fileId: "" };
+  var list = USED_23NOV.map(function (x) {
+    return { device: "Balloon", brand: x[1], manufacturer: x[2], diameter: String(x[3]), length: String(x[4]), lot: x[5], serial: x[6], ref: x[7], expiry: x[8], codes: [], place: "used today" };
+  });
+  var r = dayTakePhoto_(up, list, day, "Claude", boxRowsAll_());
+  boxSyncMoves_(who);
+  try { boxLinkUse_(day); } catch (e) {}
+  pr.setProperty("INV_USED_23NOV", JSON.stringify({ at: cathNow_(), matched: r.matched, noBox: r.noBox }));
+  batchLogRow_(runId, "", "", "balloons used 23 Nov (read by Claude)", "written",
+    USED_23NOV.length + " balloon(s): " + r.matched + " marked used in stock" + (r.noBox.length ? ", " + r.noBox.length + " not on the stock list: " + r.noBox.join("; ") : ""));
   return true;
 }
 
