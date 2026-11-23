@@ -5550,8 +5550,8 @@ function invImport23Nov_(runId) {
 
 
 /* 13.50 — once: more stock of 23 Nov 2026 (Dr Yadav's photos, read by Claude):
-   6 Ultima PC (Translumina; each box with REF, LOT, serial and use-by) and a
-   stack of 13 Yukon Choice Swift 3.00 mm. Counted as found on the shelf: a box
+   6 Ultima PC (Translumina; each box with REF, LOT, serial and use-by), a
+   stack of 13 Yukon Choice Swift 3.00 mm and one of 8 Yukon Choice Swift 3.50 mm. Counted as found on the shelf: a box
    already in stock from an earlier photo (the 3.00×32 of LOT SAAX110726 on the
    20 Nov photo, which had no serial) is taken as the same box and given its
    serial, not counted twice.
@@ -5576,12 +5576,20 @@ var IMPORT_23NOV_B = [
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 40, "SAAY050826", "SAAY051752", "", "", "stack, box 11"],
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 48, "SAAW060726", "SAAW060456", "", "", "stack, box 12"],
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 48, "SAAW060726", "SAAW060460", "", "", "stack, box 13"],
+  ["Yukon Choice Swift 3.50 stack", "stent", "Yukon Choice Swift", "Translumina", 3.5, 18, "SAAX110726", "SAAX110593", "", "", "stack, box 1 from the top"],
+  ["Yukon Choice Swift 3.50 stack", "stent", "Yukon Choice Swift", "Translumina", 3.5, 24, "SAAX110726", "SAAX111291", "", "", "stack, box 2"],
+  ["Yukon Choice Swift 3.50 stack", "stent", "Yukon Choice Swift", "Translumina", 3.5, 21, "SAAX110726", "SAAX110910", "", "", "stack, box 3"],
+  ["Yukon Choice Swift 3.50 stack", "stent", "Yukon Choice Swift", "Translumina", 3.5, 21, "SAAX110726", "SAAX110892", "", "", "stack, box 4"],
+  ["Yukon Choice Swift 3.50 stack", "stent", "Yukon Choice Swift", "Translumina", 3.5, 28, "SAAX110726", "SAAX111545", "", "", "stack, box 5"],
+  ["Yukon Choice Swift 3.50 stack", "stent", "Yukon Choice Swift", "Translumina", 3.5, 32, "SAAX110726", "SAAX111738", "", "", "stack, box 6"],
+  ["Yukon Choice Swift 3.50 stack", "stent", "Yukon Choice Swift", "Translumina", 3.5, 32, "SAAX110726", "SAAX111736", "", "", "stack, box 7"],
+  ["Yukon Choice Swift 3.50 stack", "stent", "Yukon Choice Swift", "Translumina", 3.5, 40, "SAAX110726", "SAAX111924", "", "", "stack, box 8"],
 ];
 function invImport23NovB_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("INV_IMPORT_23NOV_B")) return false;
   pr.setProperty("INV_IMPORT_23NOV_B", "started " + cathNow_());
-  var who = "Claude (photos of 23 Nov, Ultima PC and Yukon 3.00)";
+  var who = "Claude (photos of 23 Nov, Ultima PC and Yukon 3.00 / 3.50)";
   var boxes = boxRowsAll_(), photos = [], byPhoto = {}, tot = { added: 0, same: 0, check: 0 };
   IMPORT_23NOV_B.forEach(function (x) { if (!byPhoto[x[0]]) { byPhoto[x[0]] = []; photos.push(x[0]); } byPhoto[x[0]].push(x); });
   photos.forEach(function (ph, i) {
@@ -5608,7 +5616,7 @@ function invImport23NovB_(runId) {
   boxSyncMoves_(who);
   pr.setProperty("INV_IMPORT_23NOV_B", JSON.stringify({ at: cathNow_(), boxes: IMPORT_23NOV_B.length, added: tot.added, same: tot.same, check: tot.check }));
   batchLogRow_(runId, "", "", "more stock of 23 Nov (read by Claude)", tot.check ? "partly written" : "written",
-    IMPORT_23NOV_B.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock from an earlier photo" : "") + (tot.check ? ", " + tot.check + " to check" : "") + " (6 Ultima PC, 13 Yukon Choice Swift 3.00)");
+    IMPORT_23NOV_B.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock from an earlier photo" : "") + (tot.check ? ", " + tot.check + " to check" : "") + " (6 Ultima PC, 13 Yukon Choice Swift 3.00, 8 Yukon Choice Swift 3.50)");
   return true;
 }
 
