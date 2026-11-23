@@ -1415,7 +1415,7 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); invImport23NovB_(runId); invReturn23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); invImport23NovB_(runId); invImport23NovC_(runId); invReturn23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -5637,6 +5637,90 @@ function invImport23NovB_(runId) {
   pr.setProperty("INV_IMPORT_23NOV_B", JSON.stringify({ at: cathNow_(), boxes: IMPORT_23NOV_B.length, added: tot.added, same: tot.same, check: tot.check }));
   batchLogRow_(runId, "", "", "more stock of 23 Nov (read by Claude)", tot.check ? "partly written" : "written",
     IMPORT_23NOV_B.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock from an earlier photo" : "") + (tot.check ? ", " + tot.check + " to check" : "") + " (17 Ultima PC, 13 Yukon Choice Swift 3.00, 8 Yukon Choice Swift 3.50)");
+  return true;
+}
+
+/* 13.50: 54 Biomime Aura boxes (Meril) photographed on 23 Nov: 4.00 (3), 3.50 (13), 3.00 (9),
+   2.75 (12), 2.25 (4) and 2.50 (13). Each has its own serial (SN) on the box; they are counted as found. */
+var IMPORT_23NOV_C = [
+  ["Biomime Aura 4.00 trio", "stent", "Biomime Aura", "Meril", 4, 19, "AJ99", "CL19AJ99006", "BIA40019", "2027-05-18", "box on the shelf photo"],
+  ["Biomime Aura 4.00 trio", "stent", "Biomime Aura", "Meril", 4, 37, "AL10", "CL37AL10002", "BIA40037", "2028-02-08", "box on the shelf photo"],
+  ["Biomime Aura 4.00 trio", "stent", "Biomime Aura", "Meril", 4, 19, "AJ18", "CL19AJ18001", "BIA40019", "2026-11-15", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 13, "AJ78", "CM13AJ78075", "BIA35013", "2027-04-08", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 16, "AJ78", "CM16AJ78026", "BIA35016", "2027-04-08", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 19, "PFJ16", "CM19PFJ16193", "BIA35019", "2029-02-01", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 24, "AL49", "CM24AL49003", "BIA35024", "2028-04-24", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 29, "PFJ26", "CM29PFJ26139", "BIA35029", "2029-02-21", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 32, "AJ44", "CM32AJ44042", "BIA35032", "2027-02-28", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 37, "PFJ34", "CM37PFJ34026", "BIA35037", "2029-03-10", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 37, "AO50", "CM37AO50168", "BIA35037", "2029-04-21", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 40, "AO75", "CM40AO75058", "BIA35040", "2029-06-19", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 40, "AO49", "CM40AO49027", "BIA35040", "2029-04-20", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 44, "PFJ41", "CM44PFJ41132", "BIA35044", "2029-03-13", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 44, "AO54", "CM44AO54029", "BIA35044", "2029-04-29", "box on the shelf photo"],
+  ["Biomime Aura 3.50 stack", "stent", "Biomime Aura", "Meril", 3.5, 48, "AJ92", "CM48AJ92078", "BIA35048", "2027-05-03", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 13, "AK54", "CM13AK54002", "BIA30013", "2027-08-30", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 16, "AO45", "CM16AO45129", "BIA30016", "2029-04-20", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 19, "AN29", "CM19AN29072", "BIA30019", "2028-12-22", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 19, "AN26", "CM19AN26070", "BIA30019", "2028-12-17", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 24, "AO56", "CM24AO56032", "BIA30024", "2029-05-01", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 29, "AO65", "CM29AO65083", "BIA30029", "2029-05-27", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 32, "AO23", "CM32AO23265", "BIA30032", "2029-03-25", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 40, "AJ69", "CM40AJ69024", "BIA30040", "2027-03-29", "box on the shelf photo"],
+  ["Biomime Aura 3.00 stack", "stent", "Biomime Aura", "Meril", 3, 44, "PFJ37", "CM44PFJ37007", "BIA30044", "2029-03-15", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 13, "AK18", "CM13AK18096", "BIA27513", "2027-06-12", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 16, "AN32", "CM16AN32012", "BIA27516", "2028-12-23", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 16, "AK25", "CM16AK25002", "BIA27516", "2027-06-18", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 19, "AM08", "CM19AM08029", "BIA27519", "2028-08-21", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 19, "AO39", "CM19AO39169", "BIA27519", "2029-04-11", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 24, "AK25", "CM24AK25021", "BIA27524", "2027-06-18", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 29, "AO37", "CM29AO37191", "BIA27529", "2029-04-09", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 32, "AN27", "CM32AN27045", "BIA27532", "2028-12-19", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 32, "AO33", "CM32AO33057", "BIA27532", "2029-04-01", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 40, "AO48", "CM40AO48059", "BIA27540", "2029-04-19", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 44, "AO69", "CM44AO69003", "BIA27544", "2029-06-01", "box on the shelf photo"],
+  ["Biomime Aura 2.75 stack", "stent", "Biomime Aura", "Meril", 2.75, 48, "AO73", "CM48AO73001", "BIA27548", "2029-06-16", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.25, 13, "AJ93", "CS13AJ93008", "BIA22513", "2027-05-04", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.25, 16, "AO67", "CS16AO67016", "BIA22516", "2029-05-28", "SN last digits half hidden in the photo, check on the box"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.25, 19, "AO39", "CS19AO39093", "BIA22519", "2029-04-11", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.25, 24, "AK17", "CS24AK17038", "BIA22524", "2027-06-11", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 13, "AJ19", "CS13AJ19023", "BIA25013", "2026-11-18", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 16, "AO54", "CS16AO54022", "BIA25016", "2029-04-29", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 19, "AO37", "CS19AO37034", "BIA25019", "2029-04-09", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 19, "AN18", "CS19AN18180", "BIA25019", "2028-12-11", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 24, "AO30", "CS24AO30067", "BIA25024", "2029-03-28", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 29, "AO34", "CS29AO34025", "BIA25029", "2029-04-02", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 29, "AO70", "CS29AO70072", "BIA25029", "2029-06-12", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 32, "AO57", "CS32AO57011", "BIA25032", "2029-05-02", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 37, "PFJ14", "CS37PFJ14027", "BIA25037", "2029-01-30", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 40, "AO59", "CS40AO59014", "BIA25040", "2029-05-04", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 44, "AO34", "CS44AO34034", "BIA25044", "2029-04-02", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 48, "AJ64", "CS48AJ64007", "BIA25048", "2027-03-22", "box on the shelf photo"],
+  ["Biomime Aura 2.25 and 2.50 stack", "stent", "Biomime Aura", "Meril", 2.5, 48, "AN95", "CS48AN95140", "BIA25048", "2029-02-27", "box on the shelf photo"],
+];
+function invImport23NovC_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_IMPORT_23NOV_C")) return false;
+  pr.setProperty("INV_IMPORT_23NOV_C", "started " + cathNow_());
+  var who = "Claude (photos of 23 Nov, Biomime Aura)";
+  var boxes = boxRowsAll_(), photos = [], byPhoto = {}, tot = { added: 0, same: 0, check: 0 };
+  IMPORT_23NOV_C.forEach(function (x) { if (!byPhoto[x[0]]) { byPhoto[x[0]] = []; photos.push(x[0]); } byPhoto[x[0]].push(x); });
+  photos.forEach(function (ph, i) {
+    var up = { id: "CLAUDE-23NOVC-" + (i + 1), file: ph + " (photo sent 23 Nov, read by Claude)", fileId: "" };
+    var list = byPhoto[ph].map(function (x) {
+      return { device: "Stent", brand: x[2], manufacturer: x[3], diameter: String(x[4]), length: String(x[5]),
+        lot: x[6], serial: x[7], ref: x[8], expiry: x[9], codes: [], place: x[10] };
+    });
+    boxTakePhoto_(up, list, who, "Claude", boxes, []);
+  });
+  boxRowsAll_().filter(function (b) { return String(b.up).indexOf("CLAUDE-23NOVC-") === 0; }).forEach(function (b) {
+    if (String(b.readAt).slice(0, 10) !== IMPORT_23NOV_DAY) { b.readAt = IMPORT_23NOV_DAY + " 14:55"; boxWrite_(b); }
+    if (b.status === "repeat") tot.same++; else if (b.status === "in stock") tot.added++; else tot.check++;
+  });
+  boxSyncMoves_(who);
+  pr.setProperty("INV_IMPORT_23NOV_C", JSON.stringify({ at: cathNow_(), boxes: IMPORT_23NOV_C.length, added: tot.added, same: tot.same, check: tot.check }));
+  batchLogRow_(runId, "", "", "more stock of 23 Nov (Biomime Aura, read by Claude)", tot.check ? "partly written" : "written",
+    IMPORT_23NOV_C.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock" : "") + (tot.check ? ", " + tot.check + " to check" : ""));
   return true;
 }
 
