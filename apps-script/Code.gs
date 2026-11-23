@@ -351,7 +351,13 @@ function handle(e) {
     // 13.44 — what changes the inventory or the stents needs the technicians' key
     var needTech = { invSave: 1, invApplyPending: 1, stentSave: 1, stentRetry: 1, stentDismiss: 1, stentScanNow: 1, stentToStock: 1, invScanNow: 1, invReread: 1, boxSave: 1, boxNoMatchOk: 1, boxPhoto: 1 };
     if (needTech[action] && !techAllowed(req.tkey)) return out({ ok: false, error: techRefused_(), canTech: false });
+    // 13.50 — costs: a phone's scans are logged with either key; the list and the prices need the edit key
+    if (action === "costLog" && !canEdit && !techAllowed(req.tkey)) return out({ ok: false, error: "no key to log costs" });
+    if ((action === "costList" || action === "costPricesSet") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
     switch (action) {
+      case "costLog": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, costLog_(req)));
+      case "costList": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, costList_(req)));
+      case "costPricesSet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, costPricesSet_(req)));
       case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_(), canTech: techAllowed(req.tkey), techSet: techKeyIsSet_() });
       case "append": { var r = appendCase(req); return out({ ok: true, canEdit: true, diagramUrl: r.diagramUrl || "", utilUrl: r.utilUrl || "", utilError: r.utilError || "", replaced: !!r.replaced, inv: r.inv || null, v: SCRIPT_VERSION }); }
       case "list":   return out({ ok: true, canEdit: canEdit, cases: listCases() });
@@ -1712,8 +1718,9 @@ function batchGroupInbox_(f, tab, manual) {
 function batchProcessCase_(c, f, prompts, models, key, runStart, runId) {
   if (!c.results || typeof c.results !== "object") c.results = {};
   BATCH_CASE_TOK_ = c.results._tokens = c.results._tokens || {};
+  COST_CTX_ = { what: batchType_(c.type) + " case", id: c.caseId || "", name: c.name || "", runId: runId || "" };
   try { return batchProcessCase0_(c, f, prompts, models, key, runStart, runId); }
-  finally { BATCH_CASE_TOK_ = null; }
+  finally { BATCH_CASE_TOK_ = null; COST_CTX_ = null; }
 }
 function batchProcessCase0_(c, f, prompts, models, key, runStart, runId) {
   var gap = batchGapMs_();
@@ -2444,7 +2451,7 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
   }
   var j;
   try { j = JSON.parse(text); } catch (e) { return { ok: false, reason: "Google's reply was not readable", retry: true }; }
-  batchTokAdd_(j && j.usageMetadata);
+  batchTokAdd_(j && j.usageMetadata, model, false, (item && item.name ? item.name : "") + (pdfPage ? " p." + pdfPage : ""));
   var rp = batchReply_(j);
   if (!rp.ok) return rp;
   BATCH_RUN_.ok++;
@@ -2455,7 +2462,8 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
    (thoughtsTokenCount, billed as output). Noted per page in the case log and
    added up per case (results._tokens), so the cost of a case can be read off. */
 var BATCH_CASE_TOK_ = null;   // the case being read: its running totals
-function batchTokAdd_(u) {
+function batchTokAdd_(u, model, half, step) {
+  if (u) costNote_(u, model, half, step);
   if (!u || !BATCH_CASE_TOK_) return;
   var t = BATCH_CASE_TOK_;
   t["in"] = (t["in"] || 0) + (Number(u.promptTokenCount) || 0);
@@ -2504,6 +2512,12 @@ var BATCH_QUEUE_MAX_BYTES = 18 * 1024 * 1024;     // Google takes inline batch j
    PHOTO_MODE_: "send" (a night run), "poll" (only collect answers), "now". */
 var PHOTO_MODE_ = "poll";
 function photoRead_(r, prompt, item, models, key, runId, pause, timeLeft) {
+  COST_CTX_ = { what: COST_PHOTO_WHAT[r.purpose] || "used-stent photo", id: r.id || "", name: r.file || "", runId: runId || "" };
+  try { return photoRead0_(r, prompt, item, models, key, runId, pause, timeLeft); }
+  finally { COST_CTX_ = null; }
+}
+var COST_PHOTO_WHAT = { used: "used-stent photo", stock: "stock photo", day: "day photo (used instruments)", weekly: "weekly shelf photo" };
+function photoRead0_(r, prompt, item, models, key, runId, pause, timeLeft) {
   var mode = PHOTO_MODE_;
   r.result = r.result && typeof r.result === "object" ? r.result : {};
   var job = r.result._job;
@@ -2523,7 +2537,7 @@ function photoRead_(r, prompt, item, models, key, runId, pause, timeLeft) {
       var it = st.state === "done" ? st.items[0] : null;
       var rp = st.state !== "done" ? { ok: false, reason: st.reason } : !it ? { ok: false, reason: "no answer came back" }
         : it.error ? { ok: false, reason: "Google: " + String(it.error.message || it.error.code || "error").slice(0, 200) } : batchReply_(it.response || it);
-      if (it && !it.error) batchTokAdd_((it.response || it).usageMetadata);
+      if (it && !it.error) batchTokAdd_((it.response || it).usageMetadata, job.model, true, r.file || "");
       if (rp.ok) {
         stentNote_(r, runId, "half-price queue", "ok", "answer back after " + mins + " min (half price)");
         return { ok: true, json: rp.json, model: job.model, queued: true };
@@ -2648,7 +2662,7 @@ function batchQueueStep_(c, items, prompts, models, key, runId) {
         : it.error ? { ok: false, reason: "Google: " + String(it.error.message || it.error.code || "error").slice(0, 200) }
         : batchReply_(it.response || it);
       var um = it && !it.error ? (it.response || it).usageMetadata : null;
-      batchTokAdd_(um);
+      batchTokAdd_(um, job.model, true, sl.label || "");
       if (!rp.ok) { miss.push(BATCH_SLOT_WORD[sl.slot] + " (" + rp.reason + ")"); return; }
       c.results[sl.slot] = rp.json;
       c.readBy = c.readBy || {}; c.readBy[sl.slot] = job.model;
@@ -3087,7 +3101,10 @@ function runModelCheck_(key, prev, nowIso) {
         contentType: "application/json", headers: { "x-goog-api-key": key },
         payload: JSON.stringify(MC_PROBE_BODY), muteHttpExceptions: true };
     }));
-    answers.forEach(function (a, i) { results[batch[i].id] = mcClassify(a.code, a.body, batch[i].id); });
+    answers.forEach(function (a, i) {
+      results[batch[i].id] = mcClassify(a.code, a.body, batch[i].id);
+      if (a.code === 200) { try { var pj = JSON.parse(a.body); COST_CTX_ = { what: "model check", id: "", name: "Reply with the single word OK" }; costNote_(pj && pj.usageMetadata, batch[i].id, false, ""); } catch (e) {} finally { COST_CTX_ = null; } }
+    });
   }
   return mcBuild(cands, results, prev, "sheet", nowIso);
 }
@@ -4468,6 +4485,7 @@ function stentTick_(f, models, key, runId, manual, pause, timeLeft) {
   if (out.scanned || out.failed) {
     try { var hk = stentHousekeep_(f, runId); if (hk) out.why = (out.why ? out.why + "; " : "") + hk; }
     catch (e) { batchLogRow_(runId, "", "", "stent housekeeping", "failed", String(e && e.message || e)); }
+    try { costTrim_(); } catch (eC) {}
   }
   if (out.scanned || out.failed || out.stopped) {
     try { PropertiesService.getScriptProperties().setProperty("STENT_LAST", JSON.stringify({ at: new Date().toISOString(), scanned: out.scanned, failed: out.failed, stickers: out.stickers, why: out.why })); } catch (e) {}
@@ -4671,8 +4689,10 @@ function stentReadBill_(req) {
   BATCH_RUN_ = { start: t0, ok: 0, rested: 0, notes: [] };
   var item = { bytes: Utilities.base64Decode(b64), name: "bill", mime: mime, isPdf: mime === "application/pdf" };
   var models = batchModels_();
+  COST_CTX_ = { what: "bill", id: "", name: "bill photo" };
   var res = batchCallChain_(key, (models.readChain || [models.read]).slice(0, 3), BILL_PROMPT, item, null,
     function () { Utilities.sleep(1500); }, function () { return 200000 - (Date.now() - t0); });
+  COST_CTX_ = null;
   if (!res || !res.ok) throw new Error("the bill could not be read: " + ((res && res.reason) || "no answer") + " — type what it says below instead");
   var j = res.json && typeof res.json === "object" ? res.json : {};
   var b = j.bill && typeof j.bill === "object" ? j.bill : {};
@@ -4705,6 +4725,10 @@ function boxStickerFits_(b, st) {
   if (invNorm_(b.ref) && invNorm_(st.ref)) return invNorm_(b.ref) === invNorm_(st.ref);
   return Number(b.dia) === Number(st.dia) && Number(b.len) === Number(st.len);
 }
+/* 13.50: brands whose used stent takes any box of its size (Yukon) */
+var BOX_ANY_SIZE_RE = /yukon/i;
+function boxAnySize_(brand) { return BOX_ANY_SIZE_RE.test(String(brand || "")); }
+function boxSizeSame_(b, st) { return Number(b.dia) === Number(st.dia) && Number(b.len) === Number(st.len); }
 function boxSizeOk_(kind, dia, len) {
   var d = Number(dia), l = Number(len);
   if (kind === "stent") return d >= 1.5 && d <= 6 && l >= 6 && l <= 60;
@@ -5019,8 +5043,12 @@ function dayTakePhoto_(up, list, day, readBy, boxes) {
     out.kinds[b.kind] = (out.kinds[b.kind] || 0) + 1;
     var id = invNorm_(b.lot) || invNorm_(b.serial);
     var same = function (x) { return (x.kind || "stent") === b.kind && invNorm_(x.brand) === invNorm_(b.brand) && invSizeKey_(boxSizeText_(x)) === invSizeKey_(boxSizeText_(b)); };
-    var hit = id ? free.filter(function (x) { return same(x) && (invNorm_(x.lot) || invNorm_(x.serial)) === id; }) : [];
+    var sn = invNorm_(b.serial);
+    var hit = sn ? free.filter(function (x) { return same(x) && invNorm_(x.serial) === sn; }) : [];
+    if (!hit.length && id) hit = free.filter(function (x) { return same(x) && (invNorm_(x.lot) || invNorm_(x.serial)) === id; });
     if (!hit.length && id) hit = free.filter(function (x) { return same(x) && boxEdit1_(invNorm_(x.lot) || invNorm_(x.serial), id); });
+    // 13.50: Yukon — any box of its size
+    if (!hit.length && boxAnySize_(b.brand)) hit = free.filter(same);
     var sk = b.kind + "|" + invNorm_(b.brand) + "|" + invSizeKey_(boxSizeText_(b));
     shown[sk] = shown[sk] || { kind: b.kind, brand: b.brand, size: boxSizeText_(b), n: 0 }; shown[sk].n++;
     if (hit.length) {
@@ -5453,6 +5481,127 @@ function invImport23Nov_(runId) {
   return true;
 }
 
+
+/* ==== 13.50 — what each Gemini request cost ====
+   Every answer from Google carries its own count of tokens (usageMetadata):
+   tokens in (the page and the prompt), the answer, and the model's thinking
+   (billed as output). Each request is written to the "Costs" tab with what it
+   was for (a CAG or PTCA case, a used-stent / stock / day / weekly photo, a
+   bill, the daily model check, a scan on a phone), the case or photo, the
+   model and whether it went at the batch queue's half price. The app's Costs
+   page adds these up with the prices set there (₹ per million tokens). */
+var COSTS_TAB = "Costs";
+var COST_HEAD = ["Time", "What", "Case / photo id", "Name", "Step", "Model", "Price", "Tokens in", "Answer", "Thinking", "Run id"];
+var COST_CTX_ = null;
+var COST_KEEP = 20000;
+function costNote_(u, model, half, step) {
+  if (!u) return;
+  var c = COST_CTX_ || { what: "other" };
+  try {
+    sheet(COSTS_TAB, COST_HEAD).appendRow([Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"),
+      c.what || "other", c.id || "", String(c.name || "").slice(0, 80), String(step || "").slice(0, 80), String(model || ""), half ? "half" : "full",
+      Number(u.promptTokenCount) || 0, Number(u.candidatesTokenCount) || 0, Number(u.thoughtsTokenCount) || 0, c.runId || ""]);
+  } catch (e) {}
+}
+/* the phone's own scans (the app reads a sheet straight from Google) are sent
+   here afterwards, a few at a time */
+function costLog_(req) {
+  var rows = Array.isArray(req.rows) ? req.rows.slice(0, 200) : [];
+  var sh = sheet(COSTS_TAB, COST_HEAD), out = [];
+  rows.forEach(function (r) {
+    if (!r || typeof r !== "object") return;
+    var at = /^\d{4}-\d\d-\d\d \d\d:\d\d(:\d\d)?$/.test(String(r.at || "")) ? String(r.at) : Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+    out.push([at, cathStr_(r.what, 40) || "phone scan", cathStr_(r.id, 80), cathStr_(r.name, 80), cathStr_(r.step, 80), cathStr_(r.model, 60), r.half ? "half" : "full",
+      Number(r["in"]) || 0, Number(r.answer) || 0, Number(r.thinking) || 0, "phone"]);
+  });
+  if (out.length) sh.getRange(sh.getLastRow() + 1, 1, out.length, COST_HEAD.length).setValues(out);
+  return { logged: out.length };
+}
+/* prices, ₹ per million tokens, per model ("*" for any model not listed);
+   the half-price queue costs half (COST_PRICES.half, default 0.5) */
+function costPrices_() {
+  var d = null;
+  try { d = JSON.parse(PropertiesService.getScriptProperties().getProperty("COST_PRICES") || "null"); } catch (e) {}
+  if (!d || typeof d !== "object") d = {};
+  if (!d.models || typeof d.models !== "object") d.models = {};
+  if (!(Number(d.half) > 0)) d.half = 0.5;
+  return d;
+}
+function costPricesSet_(req) {
+  var p = req.prices && typeof req.prices === "object" ? req.prices : {};
+  var d = { models: {}, half: Number(p.half) > 0 && Number(p.half) <= 1 ? Number(p.half) : 0.5, note: cathStr_(p.note, 200), at: cathNow_(), by: cathStr_(req.by, 60) };
+  Object.keys(p.models || {}).slice(0, 40).forEach(function (m) {
+    var x = p.models[m] || {}, i = Number(x["in"]), o = Number(x.out);
+    if (isFinite(i) && isFinite(o) && i >= 0 && o >= 0 && (i || o)) d.models[cathStr_(m, 60)] = { "in": i, out: o };
+  });
+  PropertiesService.getScriptProperties().setProperty("COST_PRICES", JSON.stringify(d));
+  return { prices: d };
+}
+/* the requests of the last days for the Costs page (the app adds them up) */
+function costList_(req) {
+  costBackfill_();
+  var days = Math.max(1, Math.min(400, Number(req.days) || 31));
+  var from = Utilities.formatDate(new Date(Date.now() - days * 86400000), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(COSTS_TAB), rows = [];
+  if (sh && sh.getLastRow() > 1) {
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, COST_HEAD.length).getValues();
+    v.forEach(function (r) {
+      var t = r[0] instanceof Date ? Utilities.formatDate(r[0], Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss") : String(r[0]);
+      if (t.slice(0, 10) < from) return;
+      rows.push([t, String(r[1]), String(r[2]), String(r[3]), String(r[4]), String(r[5]), String(r[6]), Number(r[7]) || 0, Number(r[8]) || 0, Number(r[9]) || 0]);
+    });
+  }
+  return { rows: rows, prices: costPrices_(), since: costSince_() };
+}
+function costSince_() { return PropertiesService.getScriptProperties().getProperty("COST_SINCE") || ""; }
+/* once: the token counts the Batch log already holds (each page read since
+   13.48, 19 Nov 2026) are put on the Costs tab, so the page starts with them */
+function costBackfill_() {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("COST_SINCE")) return;
+  pr.setProperty("COST_SINCE", cathNow_());
+  var lg = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(BATCH_LOG);
+  if (!lg || lg.getLastRow() < 2) return;
+  var v = lg.getRange(2, 1, lg.getLastRow() - 1, 7).getValues(), names = {}, out = [];
+  var tz = Session.getScriptTimeZone();
+  var sum = {};
+  v.forEach(function (r) {
+    var det = String(r[5] || ""), id = String(r[1] || ""), t = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "yyyy-MM-dd HH:mm:ss") : String(r[0]);
+    var what = /PTCA/i.test(id) || /PTCA/.test(String(r[3])) ? "PTCA case" : "CAG case";
+    if (String(r[3]) === "finish") {
+      // the case's totals: what its pages do not account for is the page recognition (read at once)
+      var f = /(\d+) request\(s\), tokens in (\d+), answer (\d+), thinking (\d+)/.exec(det), sm = sum[id];
+      if (f && sm) {
+        var left = [Number(f[1]) - sm.n, Number(f[2]) - sm.i, Number(f[3]) - sm.a, Number(f[4]) - sm.k];
+        if (left[0] > 0 && left[1] >= 0 && left[2] >= 0 && left[3] >= 0)
+          out.push([t, what, id, "", "page recognition" + (left[0] > 1 ? " and retries (" + left[0] + ")" : ""), "", "full", left[1], left[2], left[3], String(r[6] || "")]);
+      }
+      delete sum[id];
+      return;
+    }
+    var m = /tokens: in (\d+), answer (\d+), thinking (\d+)/.exec(det);
+    if (!m) return;
+    if (/· (\S.*?) · /.test(det) && /^reading (PTCA sheet 1|Sheet 1)/.test(String(r[3]))) names[id] = det.split(" · ")[0];
+    var s0 = sum[id] = sum[id] || { n: 0, i: 0, a: 0, k: 0 };
+    s0.n++; s0.i += Number(m[1]); s0.a += Number(m[2]); s0.k += Number(m[3]);
+    out.push([t, what, id, "", String(r[2] || "").slice(0, 80), "", /half-price/.test(det) ? "half" : "full",
+      Number(m[1]), Number(m[2]), Number(m[3]), String(r[6] || "")]);
+  });
+  out.forEach(function (o) { o[3] = names[o[2]] || ""; });
+  if (!out.length) return;
+  var sh = sheet(COSTS_TAB, COST_HEAD);
+  sh.getRange(sh.getLastRow() + 1, 1, out.length, COST_HEAD.length).setValues(out);
+  pr.setProperty("COST_SINCE", cathNow_() + " (" + out.length + " page(s) from the Batch log)");
+}
+/* the tab keeps the newest COST_KEEP requests (housekeeping) */
+function costTrim_() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(COSTS_TAB);
+  if (!sh) return 0;
+  var n = sh.getLastRow() - 1 - COST_KEEP;
+  if (n > 200) { sh.deleteRows(2, n); return n; }
+  return 0;
+}
+
 /* (not used: 13.50 re-read the photos from 20 Nov with Gemini; left out to spend no Gemini tokens)
    13.50 — once, after 13.50 goes in: the stock photos uploaded from 20 Nov
    2026 (read by 13.49's stent reader, without the boxes' places in the photo
@@ -5558,20 +5707,35 @@ function invPhotoList_() {
 function boxList_() {
   var boxes = boxRowsAll_(), stickers = [];
   try { stickers = stentRowsAll_().filter(invIsStentSticker_); } catch (e) {}
-  var taken = {};
+  var taken = {}, boxBy = {};
+  var give = function (b, st, how) { taken[st.id] = 1; boxBy[b.id] = { sticker: st.id, ptcaNo: st.ptcaNo, patient: st.patient, date: invStickerDate_(st), how: how }; };
+  var inStock = boxes.filter(function (b) { return b.status === "in stock"; });
+  // 1) the very box: the sticker's serial number on a box in stock
+  stickers.forEach(function (st) {
+    var sn = invNorm_(st.serial); if (!sn) return;
+    for (var i = 0; i < inStock.length; i++) if (!boxBy[inStock[i].id] && invNorm_(inStock[i].serial) === sn && boxSizeSame_(inStock[i], st)) { give(inStock[i], st, "serial"); return; }
+  });
+  // 2) a box of the same LOT and size (as before)
+  inStock.forEach(function (b) {
+    if (boxBy[b.id]) return;
+    for (var i = 0; i < stickers.length; i++) { var st = stickers[i]; if (!taken[st.id] && boxStickerFits_(b, st)) { give(b, st, "lot"); break; } }
+  });
+  // 3) 13.50: Yukon — any box of the same brand and size, the oldest first:
+  //    its boxes are not photographed one by one, so the shelf only needs the
+  //    right count per size; the exact stent (for the bill) is the sticker's
+  var anyLeft = inStock.filter(function (b) { return !boxBy[b.id] && boxAnySize_(b.brand); }).sort(function (a, b) { return String(a.readAt).localeCompare(String(b.readAt)); });
+  stickers.forEach(function (st) {
+    if (taken[st.id] || !boxAnySize_(st.brand)) return;
+    for (var i = 0; i < anyLeft.length; i++) {
+      var b = anyLeft[i];
+      if (!boxBy[b.id] && invNorm_(b.brand) === invNorm_(st.brand) && boxSizeSame_(b, st)) { give(b, st, "size"); return; }
+    }
+  });
   var list = boxes.map(function (b) {
     var o = {};
     BOX_KEYS.forEach(function (k) { o[k] = b[k]; });
     o.url = stentPhotoUrl_(b.fileId);
-    if (b.status === "in stock") {
-      for (var i = 0; i < stickers.length; i++) {
-        var st = stickers[i];
-        if (taken[st.id] || !boxStickerFits_(b, st)) continue;
-        taken[st.id] = 1;
-        o.usedBy = { sticker: st.id, ptcaNo: st.ptcaNo, patient: st.patient, date: invStickerDate_(st) };
-        break;
-      }
-    }
+    if (boxBy[b.id]) o.usedBy = boxBy[b.id];
     return o;
   });
   // a used stent (sticker read since the first stock photo) that fits no box in
