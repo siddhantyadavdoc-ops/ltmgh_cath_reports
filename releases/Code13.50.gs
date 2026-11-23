@@ -1401,7 +1401,7 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -5376,6 +5376,80 @@ function invFix21Nov_(runId) {
   pr.setProperty("INV_FIX_21NOV", JSON.stringify({ at: cathNow_(), done: done, missed: missed }));
   batchLogRow_(runId, "", "", "stock fix of 21 Nov (read by Claude)", missed.length ? "partly done" : "written",
     "Xience Alpine 4.0×33 EXP 2028-03-23: " + (done.join(", ") || "none") + (missed.length ? " · not found: " + missed.join(", ") : "") + (sync ? " · " + sync.added + " received move(s)" : ""));
+  return true;
+}
+
+/* 13.50 — once: new stock of 23 Nov 2026 (Dr Yadav's photos, read by Claude):
+   27 Yukon Choice Swift (each with its own serial; no expiry on the box end)
+   and 7 Tanzor NC. All are new boxes: a Tanzor of the same LOT as a box of the
+   20 Nov photos is another box (Dr Yadav), so it is counted, not taken as a repeat.
+   [photo, kind, brand, maker, diameter, length, LOT, serial, REF, expiry, place] */
+var IMPORT_23NOV = [
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 18, "SAAX110726", "SAAX110451", "", "", "stack, box 1 from the top"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 18, "SAAX110726", "SAAX110456", "", "", "stack, box 2"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 21, "SAAX110726", "SAAX110705", "", "", "stack, box 3"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 21, "SAAX110726", "SAAX110688", "", "", "stack, box 4"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 24, "SAAX110726", "SAAX110959", "", "", "stack, box 5"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 24, "SAAX110726", "SAAX110963", "", "", "stack, box 6"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 28, "SAAX110726", "SAAX111413", "", "", "stack, box 7"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 28, "SAAX110726", "SAAX111414", "", "", "stack, box 8"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 32, "SAAX110726", "SAAX111645", "", "", "stack, box 9"],
+  ["Yukon Choice Swift 2.50 stack", "stent", "Yukon Choice Swift", "Translumina", 2.5, 32, "SAAX110726", "SAAX111641", "", "", "stack, box 10"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 21, "SAAX110726", "SAAX110797", "", "", "stack, box 1 from the top"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 21, "SAAX110726", "SAAX110794", "", "", "stack, box 2"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 24, "SAAX110726", "SAAX111015", "", "", "stack, box 3"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 24, "SAAX110726", "SAAX111013", "", "", "stack, box 4"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 28, "SAAX110726", "SAAX111437", "", "", "stack, box 5"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 28, "SAAX110726", "SAAX111436", "", "", "stack, box 6"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 32, "SAAY050826", "SAAY051478", "", "", "stack, box 7"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 32, "SAAX110726", "SAAX111673", "", "", "stack, box 8"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 36, "SAAW060726", "SAAW060236", "", "", "stack, box 9"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 36, "SAAW060726", "SAAW060248", "", "", "stack, box 10"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 40, "SAAX110726", "SAAX111867", "", "", "stack, box 11"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 40, "SAAX110726", "SAAX111866", "", "", "stack, box 12"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 44, "SAAQ090426", "SAAQ09690", "", "", "stack, box 13 (SN printed with 5 digits)"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 48, "SAAW060726", "SAAW060433", "", "", "stack, box 14"],
+  ["Yukon Choice Swift 2.75 stack", "stent", "Yukon Choice Swift", "Translumina", 2.75, 48, "SAAW060726", "SAAW060443", "", "", "stack, box 15"],
+  ["Yukon Choice Swift 2.75×18 pair", "stent", "Yukon Choice Swift", "Translumina", 2.75, 18, "SAAX110726", "SAAX110516", "", "", "upper box"],
+  ["Yukon Choice Swift 2.75×18 pair", "stent", "Yukon Choice Swift", "Translumina", 2.75, 18, "SAAX110726", "SAAX110499", "", "", "lower box"],
+  ["Tanzor NC row", "balloon", "Tanzor NC", "Veiva Scientific", 3.5, 12, "K1226AS", "", "VSTZN35012", "06-2028", "box 1 from the left"],
+  ["Tanzor NC row", "balloon", "Tanzor NC", "Veiva Scientific", 3.5, 10, "K1026AN", "", "VSTZN35010", "05-2028", "box 2"],
+  ["Tanzor NC row", "balloon", "Tanzor NC", "Veiva Scientific", 3.5, 10, "K1026AN", "", "VSTZN35010", "05-2028", "box 3"],
+  ["Tanzor NC row", "balloon", "Tanzor NC", "Veiva Scientific", 2.5, 12, "G1226AQ", "", "VSTZN25012", "06-2028", "box 4"],
+  ["Tanzor NC row", "balloon", "Tanzor NC", "Veiva Scientific", 2.5, 12, "G1226AQ", "", "VSTZN25012", "06-2028", "box 5"],
+  ["Tanzor NC row", "balloon", "Tanzor NC", "Veiva Scientific", 2, 12, "E1226AQ", "", "VSTZN20012", "06-2028", "box 6"],
+  ["Tanzor NC row", "balloon", "Tanzor NC", "Veiva Scientific", 2, 12, "E1226AS", "", "VSTZN20012", "06-2028", "box 7"],
+];
+var IMPORT_23NOV_DAY = "2026-11-23";
+function invImport23Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_IMPORT_23NOV")) return false;
+  pr.setProperty("INV_IMPORT_23NOV", "started " + cathNow_());
+  var boxes = boxRowsAll_(), photos = [], byPhoto = {}, tot = { added: 0, check: 0 };
+  IMPORT_23NOV.forEach(function (x) { if (!byPhoto[x[0]]) { byPhoto[x[0]] = []; photos.push(x[0]); } byPhoto[x[0]].push(x); });
+  photos.forEach(function (ph, i) {
+    var up = { id: "CLAUDE-23NOV-" + (i + 1), file: ph + " (photo sent 23 Nov, read by Claude)", fileId: "" };
+    var list = byPhoto[ph].map(function (x) {
+      return { device: x[1] === "balloon" ? "Balloon" : "Stent", brand: x[2], manufacturer: x[3], diameter: String(x[4]), length: String(x[5]),
+        lot: x[6], serial: x[7], ref: x[8], expiry: x[9], codes: [], place: x[10] };
+    });
+    boxTakePhoto_(up, list, "Claude (photos of 23 Nov)", "Claude", boxes, []);
+  });
+  var mine = boxRowsAll_().filter(function (b) { return String(b.up).indexOf("CLAUDE-23NOV-") === 0; });
+  mine.forEach(function (b) {
+    var changed = false;
+    if (String(b.readAt).slice(0, 10) !== IMPORT_23NOV_DAY) { b.readAt = IMPORT_23NOV_DAY + " 11:30"; changed = true; }
+    if (b.status === "repeat") {
+      b.why = "new delivery of 23 Nov — another box of a LOT already in stock (" + (b.lot || b.serial) + "), confirmed new by Dr Yadav";
+      b.status = "in stock"; b.same = ""; changed = true;
+    }
+    if (changed) boxWrite_(b);
+    if (b.status === "in stock") tot.added++; else tot.check++;
+  });
+  boxSyncMoves_("Claude (photos of 23 Nov)");
+  pr.setProperty("INV_IMPORT_23NOV", JSON.stringify({ at: cathNow_(), boxes: IMPORT_23NOV.length, added: tot.added, check: tot.check }));
+  batchLogRow_(runId, "", "", "new stock of 23 Nov (read by Claude)", tot.check ? "partly written" : "written",
+    IMPORT_23NOV.length + " box(es): " + tot.added + " counted" + (tot.check ? ", " + tot.check + " to check" : "") + " (27 Yukon Choice Swift, 7 Tanzor NC)");
   return true;
 }
 
