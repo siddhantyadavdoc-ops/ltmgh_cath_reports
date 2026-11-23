@@ -317,6 +317,11 @@ fieldset.otlock:disabled{opacity:.55}
 .invpanel{padding:10px 12px 12px 22px;background:#fafbfc;border-top:1px dashed var(--hair);border-bottom:1px dashed var(--hair)}
 .invpanel .row{gap:8px;margin-bottom:6px}
 .invform,.stedit,.billform{border:1px solid var(--hair);border-radius:9px;background:var(--paper);padding:10px 12px;margin:10px 0}
+.invlive{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:8px 0 4px;padding:8px 12px;border-radius:8px;background:#f4f4f2;border:1px solid var(--hair)}
+.invlive.ok{background:#e9f6ec;border-color:#9fd3ac}.invlive.new{background:#fff6e0;border-color:#f0cf7a}
+.invlive .what{font-weight:600}.invlive .sum{font-size:18px}.invlive .tot{font-size:24px;color:#0b6b2a}
+.invnear{display:flex;flex-wrap:wrap;gap:6px}.invnear .b{font-size:13px}
+.invlivei{align-self:center;font-size:15px;padding-bottom:6px}.invlivei b{font-size:20px;color:#0b6b2a}
 .billitem{border-top:1px dashed var(--hair);margin-top:8px;padding-top:4px}
 .ckline{display:flex;gap:7px;align-items:center;font-size:13px;margin:4px 0 2px}
 .ckline input{width:17px;height:17px;accent-color:var(--wine)}
@@ -514,6 +519,34 @@ body.hasnav #appnav{display:flex}
 .boxlist.chk .bxhead b{color:#b42318}
 .boxlist.nm>summary b{color:#8a4b00}
 .boxlist.conf .bxhead b{color:#8a4b00}
+.expcard{border:1px solid #f1c27d;background:#fffaf0;border-radius:10px;padding:10px 12px;margin:8px 0}
+@media (min-width:900px){
+  .invlay.hasexp{grid-template-columns:220px minmax(0,1fr) 300px}
+  .invlay .expcard{margin:0;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding:8px 10px}
+  .invlay .expcard .bxrow{display:block}
+  .invlay .expcard .bxrow .btns{margin-top:4px!important}
+  .invlay .expcard .bxmain{flex:none}
+}
+.expbar{position:sticky;top:0;z-index:30;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;margin:6px 0;padding:10px 14px;border:0;border-radius:10px;
+  background:#fde68a;color:#5c3b00;font:inherit;text-align:left;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.expbar.gone{background:#fecaca;color:#7f1d1d}
+.expbar .nx{font-size:12.5px;opacity:.85}
+.remind{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;margin:8px 0;padding:10px 14px;border-radius:10px;background:#e0ecff;border:1px solid #9cb9ef;font-size:14px}
+.remind.wk{background:#eef6ea;border-color:#a9d39b}
+.nightbar{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;justify-content:space-between;margin:6px 0 10px;padding:9px 14px;border-radius:10px;background:#1f2a44;color:#e8edf7;font-size:13.5px}
+.nightbar .hint{color:#c9d3e6}
+.dayph{margin-top:8px}
+.daydiff{margin:6px 0;padding:8px 10px;background:#fff6dc;border-radius:8px;font-size:13.5px}
+.flash{animation:flashbox 1.6s ease}
+@keyframes flashbox{0%,60%{box-shadow:0 0 0 4px #e11d48}100%{box-shadow:none}}
+.invrow.exp-gone{box-shadow:inset 3px 0 0 #b42318}.invrow.exp-soon{box-shadow:inset 3px 0 0 #d97706}
+.exphead{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.exphead b.r{color:#b42318}.exphead b.a{color:#8a4b00}
+.expgrp.gone .bxmain .why{color:#b42318;font-weight:600}
+.expgrp.soon .bxmain .why{color:#8a4b00;font-weight:600}
+.expdot{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px;background:#fde68a;color:#7a4b00}
+.sttile.exp-gone{box-shadow:inset 0 0 0 2px #b42318}.expdot.gone{background:#fecaca;color:#991b1b}
+.sttile.exp-soon{box-shadow:inset 0 0 0 2px #d97706}
 .boxfix{flex:1 1 100%;margin:4px 0 0;padding:8px 10px;border-radius:8px;background:#eaf6ef;font-size:13px}
 .boxfix.run{background:#fff6dc}
 .bxrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--hair)}
@@ -525,6 +558,13 @@ body.hasnav #appnav{display:flex}
 .bxmain .why{color:#8a4b00}
 .bxmain .bxused{color:#1f5fc2}
 .bxbill{border-left:3px solid #1f5fc2;padding-left:8px;margin:6px 0}
+.linkbtn{background:none;border:0;padding:0;color:#1f5fc2;text-decoration:underline;cursor:pointer;font:inherit}
+.boxshow{position:fixed;inset:0;background:rgba(10,14,20,.55);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
+.boxshowin{background:#fff;border-radius:12px;padding:12px 14px;max-width:1140px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.boxshowpics{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.boxshowpics canvas{max-width:100%;height:auto;border-radius:6px}
+.boxshowpics canvas.hide{display:none}
+#bxZoom{border:3px solid #e11d48;align-self:flex-start}
 .invbrand.co{display:flex;align-items:baseline;gap:8px;border-top:2px solid var(--bc);margin-top:10px;padding-top:6px}
 .invbrand.co .coname{font-size:11.5px;font-weight:500;opacity:.8}
 .cogroup{border-left:4px solid var(--bc);padding-left:6px;margin:0 0 6px}
@@ -585,6 +625,19 @@ body.hasnav #appnav{display:flex}
   .tab,.b{min-height:40px}
 }
 
+
+.costs .costtiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0}
+.costs .costtiles div{border:1px solid var(--line,#ddd);border-radius:10px;padding:10px 12px;background:#fafafa}
+.costs .costtiles b{display:block;font-size:22px}
+.costs .costtiles span{font-size:12.5px;color:#666}
+.costs h3{margin:18px 0 6px}
+.costs .tblwrap{overflow-x:auto}
+.costtbl{border-collapse:collapse;width:100%;font-size:13.5px}
+.costtbl th,.costtbl td{border-bottom:1px solid #e5e5e5;padding:6px 8px;text-align:left;white-space:nowrap}
+.costtbl th{font-weight:600;color:#444;background:#f6f6f6}
+.costtbl input{width:110px}
+.costs .btns .b.on{background:#111;color:#fff}
+.thinkbox{border:1px solid #ddd;border-radius:8px;padding:6px 12px 2px;margin:10px 0 4px}
 </style>
 </head>
 <body>
@@ -8488,6 +8541,37 @@ async function callGemini(b64, prompt, label, opts) {
 const TEMPERATURE_REFUSED = /temperature|top_?p\b|top_?k\b|topP|topK|sampling param/i;
 function noTemperature(model) { return !!(S.cfg.noTemp && typeof S.cfg.noTemp === "object" && S.cfg.noTemp[model]); }
 
+/* 13.50 — how much the model thinks (the sheet's THINKING setting, changed
+   on the Gemini costs page; remembered on this phone). A model that refuses
+   the setting is remembered and sent without it. */
+const THINK_WORD = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", auto: "Model's own (high)" };
+function thinkLevelApp() { const v = String(S.cfg.think || "low"); return THINK_WORD[v] ? v : "low"; }
+function thinkConfigApp(model) {
+  let lv = thinkLevelApp();
+  if (lv === "auto" || (S.cfg.noThink && S.cfg.noThink[model])) return null;
+  if (/pro/i.test(String(model || ""))) lv = lv === "minimal" ? "low" : lv === "medium" ? "high" : lv;
+  return { thinkingLevel: lv };
+}
+function thinkTake(t) {
+  if (!t || !t.level || !THINK_WORD[t.level]) return;
+  if (S.cfg.think !== t.level) { S.cfg.think = t.level; saveCfg(); }
+}
+async function thinkSync() {
+  if (!S.cfg.sheetUrl || sheetUrlProblem(S.cfg.sheetUrl)) return;
+  try { thinkTake((await sheetApi("thinkGet", {}, 20000)).think); } catch (e) {}
+}
+setTimeout(thinkSync, 6000);
+async function thinkSet(level) {
+  const C = S.costs = S.costs || {};
+  if (C.thinkBusy) return;
+  C.thinkBusy = true; render();
+  try {
+    const r = await sheetApi("thinkSet", { level: level, by: S.cfg.userName || "" });
+    C.think = r.think; thinkTake(r.think); flash("ok", r.said || "Saved.");
+  } catch (e) { flash("err", "Not saved: " + (/unknown action/i.test(String(e && e.message)) ? "the shared sheet's script is older than 13.50" : (e.message || e))); }
+  C.thinkBusy = false; render();
+}
+
 async function geminiRequest(b64, prompt, label, opts, ctrl) {
   const quiet = !!opts.quiet;
   const isCancelled = opts.isCancelled || function () { return S.cancelled; };
@@ -8507,9 +8591,10 @@ async function geminiRequest(b64, prompt, label, opts, ctrl) {
           { inlineData: { mimeType: "image/jpeg", data: b64 } }
         ]
       }],
-      generationConfig: noTemperature(model)
+      generationConfig: Object.assign(noTemperature(model)
         ? { responseMimeType: "application/json", maxOutputTokens: 8192 }
-        : { responseMimeType: "application/json", maxOutputTokens: 8192, temperature: 0.1 }
+        : { responseMimeType: "application/json", maxOutputTokens: 8192, temperature: 0.1 },
+        thinkConfigApp(model) ? { thinkingConfig: thinkConfigApp(model) } : {})
     })
   };
 
@@ -8528,6 +8613,13 @@ async function geminiRequest(b64, prompt, label, opts, ctrl) {
       addLog("Notice", label, model + " no longer accepts the temperature setting \u2014 sent again without it, and from now on", errText);
       return geminiRequest(b64, prompt, label, opts, ctrl);
     }
+    if (res.status === 400 && thinkConfigApp(model) && /think/i.test(errText) && !mcKeyProblem(errText)) {
+      if (!S.cfg.noThink || typeof S.cfg.noThink !== "object") S.cfg.noThink = {};
+      S.cfg.noThink[model] = new Date().toISOString();
+      saveCfg();
+      addLog("Notice", label, model + " does not take the thinking setting \u2014 sent again without it, and from now on", errText);
+      return geminiRequest(b64, prompt, label, opts, ctrl);
+    }
     addLog("Error", label, "HTTP " + res.status, errText);
     throw new Error("Gemini API Error: " + res.status + " — " + errText.slice(0, 150));
   }
@@ -8537,6 +8629,7 @@ async function geminiRequest(b64, prompt, label, opts, ctrl) {
   let text = "";
   let buf = "";
   let lastRenderAt = 0;
+  let usage = null;
 
   for (;;) {
     const chunk = await reader.read();
@@ -8555,6 +8648,7 @@ async function geminiRequest(b64, prompt, label, opts, ctrl) {
       if (!payload || payload === "[DONE]") continue;
       try {
         const ev = JSON.parse(payload);
+        if (ev.usageMetadata) usage = ev.usageMetadata;
         const t = ev.candidates?.[0]?.content?.parts?.[0]?.text;
         if (t) {
           text += t;
@@ -8570,6 +8664,7 @@ async function geminiRequest(b64, prompt, label, opts, ctrl) {
     }
   }
 
+  if (usage) costQueue({ what: opts.costWhat || "phone scan", step: label || "", model: model, usage: usage });
   if (!text) {
     addLog("Error", label, "Empty response", buf);
     throw new Error("Empty response from Gemini.");
@@ -10876,6 +10971,7 @@ function viewSettings() {
     </div></div></section><section class="setsec" id="set-backup"><h3>Backup &amp; debug log</h3><div class="setsplit"><div>
     <div class="btns" style="margin-top:16px">
       <button class="b" onclick="S.step='logs';render()">View Debug Log</button>
+      <button class="b" onclick="openCosts()" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Gemini costs</button>
     </div>
     </div><div>
     <div class="btns" style="margin-top:16px">
@@ -10886,6 +10982,202 @@ function viewSettings() {
     <p class="hint">Merge accepts the .json backup, or the .xlsx from \u201cDownload registry\u201d (from this app, or after Excel/Sheets re-saved it). Cases already here with the same CAG No are updated.</p>
     </div></div></section></div></div>
     <p class="hint" style="margin-top:14px">App version ${APP_VERSION} \u00b7 made for sheet script version ${SCRIPT_WANTED} (Code${SCRIPT_WANTED}.gs). \u201cTest connection\u201d shows which version the sheet is running.</p></div>`;
+}
+
+
+/* ==== 13.50 — Gemini costs ====
+   The sheet's script writes every request it makes (and the phones send the
+   ones they make) to the "Costs" tab, with Google's own token count. This page
+   adds them up: per case and per photo, per kind of work, per day, and the
+   batch queue's half price against the full price. Prices are ₹ per million
+   tokens, set below (thinking is billed as output). */
+const COST_Q_KEY = "cathCostQ";
+let costFlushT = null;
+function costQueue(x) {
+  try {
+    const u = x.usage || {};
+    const q = JSON.parse(localStorage.getItem(COST_Q_KEY) || "[]");
+    const d = new Date(), pad = function (n) { return String(n).padStart(2, "0"); };
+    q.push({ at: d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()),
+      what: x.what, step: ((S.mode ? S.mode + " · " : "") + String(x.step || "")).slice(0, 80), model: x.model || "", name: "",
+      in: Number(u.promptTokenCount) || 0, answer: Number(u.candidatesTokenCount) || 0, thinking: Number(u.thoughtsTokenCount) || 0 });
+    localStorage.setItem(COST_Q_KEY, JSON.stringify(q.slice(-500)));
+  } catch (e) {}
+  clearTimeout(costFlushT); costFlushT = setTimeout(costFlush, 8000);
+}
+async function costFlush() {
+  if (!S.cfg.sheetUrl || !(S.cfg.editKey || S.cfg.techKey)) return;
+  let q = [];
+  try { q = JSON.parse(localStorage.getItem(COST_Q_KEY) || "[]"); } catch (e) {}
+  if (!q.length) return;
+  try {
+    const r = await sheetApi("costLog", { rows: q.slice(0, 200) }, 20000);
+    let now = [];
+    try { now = JSON.parse(localStorage.getItem(COST_Q_KEY) || "[]"); } catch (e) {}
+    localStorage.setItem(COST_Q_KEY, JSON.stringify(now.slice(Math.min(now.length, r.logged || 0))));
+  } catch (e) { /* an older script, no key or no network: kept for later */ }
+}
+window.addEventListener("online", function () { setTimeout(costFlush, 3000); });
+setTimeout(costFlush, 15000);
+
+function openCosts() { S.step = "costs"; S.navMore = false; S.costs = S.costs || {}; render(); costLoad(false); }
+async function costLoad(force) {
+  const C = S.costs = S.costs || {};
+  if (C.busy || (!force && C.rows && Date.now() - C.at < 60000)) return;
+  C.busy = true; C.err = ""; render();
+  try {
+    const r = await sheetApi("costList", { days: 95 }, 60000);
+    C.rows = r.rows || []; C.prices = r.prices || { models: {}, half: 0.5 }; C.since = r.since || ""; C.at = Date.now();
+    if (r.think) { C.think = r.think; thinkTake(r.think); }
+    C.edit = null;
+  } catch (e) {
+    C.err = /unknown action/i.test(String(e && e.message)) ? "The shared sheet's script is older than this app — the Costs page needs Code 13.50." : String(e.message || e);
+  }
+  C.busy = false; render();
+}
+function costPriceOf(model) {
+  const P = (S.costs && S.costs.prices) || { models: {} };
+  return (P.models || {})[model] || (P.models || {})["*"] || null;
+}
+function costRupees(r) {
+  const p = costPriceOf(r[5]);
+  if (!p) return null;
+  const half = r[6] === "half" ? (Number(S.costs.prices.half) || 0.5) : 1;
+  return ((r[7] * (Number(p.in) || 0)) + ((r[8] + r[9]) * (Number(p.out) || 0))) / 1e6 * half;
+}
+function costPeriod() {
+  const k = S.costs.period || "30";
+  const d = new Date(), pad = function (n) { return String(n).padStart(2, "0"); };
+  const iso = function (x) { return x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate()); };
+  if (k === "month") return { from: iso(new Date(d.getFullYear(), d.getMonth(), 1)), to: "9999", word: "this month" };
+  if (k === "last") return { from: iso(new Date(d.getFullYear(), d.getMonth() - 1, 1)), to: iso(new Date(d.getFullYear(), d.getMonth(), 1)), word: "last month" };
+  const n = Number(k) || 30;
+  return { from: iso(new Date(Date.now() - (n - 1) * 86400000)), to: "9999", word: "the last " + n + " days" };
+}
+function costRs(v, dp) { return v == null ? "—" : "₹" + (v >= 100 ? Math.round(v).toLocaleString("en-IN") : v.toFixed(dp == null ? 2 : dp)); }
+function costK(n) { return n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(Math.round(n)); }
+const COST_ORDER = ["CAG case", "PTCA case", "used-stent photo", "stock photo", "day photo (used instruments)", "weekly shelf photo", "bill", "phone scan", "model check", "other"];
+function costSumUp(rows) {
+  const by = {}, items = {}, days = {}, cases = {};
+  let tot = { req: 0, inT: 0, outT: 0, rs: 0, priced: true, half: 0 };
+  rows.forEach(function (r) {
+    const rs = costRupees(r);
+    if (rs == null) tot.priced = false;
+    const w = COST_ORDER.indexOf(r[1]) >= 0 ? r[1] : "other";
+    const b = by[w] = by[w] || { req: 0, inT: 0, outT: 0, rs: 0, ids: {}, half: 0 };
+    [b, tot].forEach(function (x) { x.req++; x.inT += r[7]; x.outT += r[8] + r[9]; x.rs += rs || 0; if (r[6] === "half") x.half++; });
+    b.ids[r[2] || r[0].slice(0, 16)] = 1;
+    const day = r[0].slice(0, 10);
+    const dd = days[day] = days[day] || { req: 0, rs: 0, cases: {}, half: 0 };
+    dd.req++; dd.rs += rs || 0; if (r[6] === "half") dd.half++;
+    if (/case$/.test(w) && r[2]) dd.cases[r[2]] = 1;
+    if (/case$/.test(w) && r[2]) {
+      const c = cases[r[2]] = cases[r[2]] || { id: r[2], what: w, name: r[3], at: r[0], req: 0, inT: 0, ans: 0, think: 0, rs: 0, half: 0 };
+      c.req++; c.inT += r[7]; c.ans += r[8]; c.think += r[9]; c.rs += rs || 0; if (r[6] === "half") c.half++; if (!c.name && r[3]) c.name = r[3];
+    }
+  });
+  return { by: by, tot: tot, days: days, cases: Object.keys(cases).map(function (k) { return cases[k]; }) };
+}
+function viewCosts() {
+  const C = S.costs || {};
+  const per = costPeriod();
+  const rows = (C.rows || []).filter(function (r) { return r[0].slice(0, 10) >= per.from && r[0].slice(0, 10) < per.to; });
+  const U = costSumUp(rows);
+  const priced = U.tot.priced && rows.length;
+  const pick = function (k, t) { return `<button type="button" class="b${(C.period || "30") === k ? " on" : ""}" onclick="S.costs.period='${k}';render()">${t}</button>`; };
+  let h = `<div class="card costs"><h2>Gemini costs</h2>
+    <p class="hint">Every request to Gemini, from Google's own token count: the inbox scanner's cases, the technicians' photos and bills, the daily model check, and scans made on a phone. ${C.since ? "Counted since " + esc2(String(C.since).slice(0, 10)) + " (pages read from 19 Nov taken from the scan log)." : ""} Google's bill (AI Studio → Billing) is the final word; costs show there after a few hours.</p>
+    <div class="btns">${pick("7", "7 days")}${pick("30", "30 days")}${pick("month", "This month")}${pick("last", "Last month")}
+      <button class="b" onclick="costLoad(true)" ${C.busy ? "disabled" : ""}>${C.busy ? "Loading…" : "Refresh"}</button>
+      <button class="b" onclick="costCsv()" ${rows.length ? "" : "disabled"}>Download CSV</button></div>`;
+  if (C.err) h += `<div class="warn err">${esc2(C.err)}</div>`;
+  h += costThinkHtml(rows);
+  if (!C.rows) return h + (C.busy ? `<p class="hint">Loading…</p>` : "") + `</div>`;
+  if (!U.tot.priced && rows.length) h += `<div class="warn">No price is set for ${esc2(costUnpriced(rows).join(", ") || "these models")} — the token counts are shown; set the prices below to see rupees.</div>`;
+  // headline
+  const cagC = U.cases.filter(function (c) { return c.what === "CAG case"; }), ptC = U.cases.filter(function (c) { return c.what === "PTCA case"; });
+  const avg = function (list, f) { const l = list.filter(f); return l.length ? l.reduce(function (a, c) { return a + c.rs; }, 0) / l.length : null; };
+  const isHalf = function (c) { return c.half === c.req; }, isFull = function (c) { return c.half === 0; };
+  h += `<div class="costtiles">
+    <div><b>${priced ? costRs(U.tot.rs) : costK(U.tot.inT + U.tot.outT) + " tok"}</b><span>${esc2(per.word)} · ${U.tot.req} requests</span></div>
+    <div><b>${U.cases.length}</b><span>cases read (${cagC.length} CAG, ${ptC.length} PTCA)</span></div>
+    <div><b>${U.tot.req ? Math.round(U.tot.half * 100 / U.tot.req) : 0}%</b><span>of requests at half price (night queue)</span></div>
+    <div><b>${costK(U.tot.outT)}</b><span>tokens out (answer + thinking) · ${costK(U.tot.inT)} in</span></div></div>`;
+  // batch saving per report
+  if (priced) {
+    const line = function (word, list) {
+      const f = avg(list, isFull), hf = avg(list, isHalf), all = avg(list, function () { return true; });
+      return `<tr><td>${word}</td><td>${list.length}</td><td>${costRs(all)}</td><td>${costRs(f)} <span class="hint">(${list.filter(isFull).length})</span></td><td>${costRs(hf)} <span class="hint">(${list.filter(isHalf).length})</span></td><td>${f != null && hf != null ? Math.round((1 - hf / f) * 100) + "% less" : "—"}</td></tr>`;
+    };
+    h += `<h3>Per report</h3><div class="tblwrap"><table class="costtbl"><tr><th>Report</th><th>Cases</th><th>Average</th><th>Read at once (full price)</th><th>Night queue (half price)</th><th>Saving</th></tr>
+      ${line("CAG", cagC)}${line("PTCA", ptC)}</table></div>
+      <p class="hint">A case's cost depends mostly on the model's thinking, which changes from case to case; the half price itself is exactly half.</p>`;
+  }
+  // by kind of work
+  h += `<h3>By kind of work</h3><div class="tblwrap"><table class="costtbl"><tr><th>What</th><th>Items</th><th>Requests</th><th>Tokens in / out per item</th><th>Each</th><th>Total</th></tr>` +
+    COST_ORDER.filter(function (w) { return U.by[w]; }).map(function (w) {
+      const b = U.by[w], n = Object.keys(b.ids).length;
+      return `<tr><td>${esc2(w)}${b.half ? ` <span class="hint">· ${Math.round(b.half * 100 / b.req)}% half price</span>` : ""}</td><td>${n}</td><td>${b.req}</td><td>${costK(b.inT / n)} / ${costK(b.outT / n)}</td><td>${priced ? costRs(b.rs / n) : "—"}</td><td>${priced ? costRs(b.rs) : costK(b.inT + b.outT) + " tok"}</td></tr>`;
+    }).join("") + `</table></div>`;
+  // per day
+  const dkeys = Object.keys(U.days).sort().reverse();
+  h += `<h3>By day</h3><div class="tblwrap"><table class="costtbl"><tr><th>Day</th><th>Cases</th><th>Requests</th><th>Half price</th><th>Cost</th></tr>` +
+    dkeys.map(function (d) { const x = U.days[d]; return `<tr><td>${esc2(techDate ? techDate(d) : d)}</td><td>${Object.keys(x.cases).length}</td><td>${x.req}</td><td>${x.half}</td><td>${priced ? costRs(x.rs) : "—"}</td></tr>`; }).join("") + `</table></div>`;
+  // cases
+  const cs = U.cases.sort(function (a, b) { return a.at < b.at ? 1 : -1; }).slice(0, 60);
+  h += `<h3>Cases</h3><div class="tblwrap"><table class="costtbl"><tr><th>Read</th><th>Patient</th><th>Report</th><th>Requests</th><th>Tokens in</th><th>Answer</th><th>Thinking</th><th>Price</th><th>Cost</th></tr>` +
+    cs.map(function (c) { return `<tr><td>${esc2(c.at.slice(0, 16))}</td><td>${esc2(c.name || c.id)}</td><td>${c.what.replace(" case", "")}</td><td>${c.req}</td><td>${costK(c.inT)}</td><td>${costK(c.ans)}</td><td>${costK(c.think)}</td><td>${c.half === c.req ? "half" : c.half ? "mixed" : "full"}</td><td>${priced ? costRs(c.rs) : "—"}</td></tr>`; }).join("") + `</table></div>`;
+  h += costPriceHtml(rows);
+  return h + `</div>`;
+}
+/* the thinking setting: one tap, no new version; the sheet and every phone
+   use it from the next request */
+function costThinkHtml(rows) {
+  const C = S.costs || {}, T = C.think;
+  const cur = T ? T.level : thinkLevelApp();
+  const reads = rows.filter(function (r) { return /case$|photo|bill/.test(r[1]); });
+  const avgThink = reads.length ? reads.reduce(function (a, r) { return a + (r[9] || 0); }, 0) / reads.length : 0;
+  const btn = function (k) { return `<button type="button" class="b${cur === k ? " on" : ""}" onclick="thinkSet('${k}')" ${C.thinkBusy || !T ? "disabled" : ""}>${esc2(THINK_WORD[k])}</button>`; };
+  return `<div class="thinkbox"><h3>Thinking</h3>
+    <p class="hint">How long the model reasons before it answers. Thinking is billed as output and was most of the bill at the model's own setting (high). <b>Low</b> is the default; if readings start coming back wrong, choose a higher level here — it applies from the next request, to the sheet's scans and to every phone, with no new version.</p>
+    <div class="btns">${["minimal", "low", "medium", "high", "auto"].map(btn).join("")}</div>
+    <p class="hint">Now: <b>${esc2(THINK_WORD[cur] || cur)}</b>${T && T.at ? " · set " + esc2(String(T.at).slice(0, 16)) + (T.by ? " by " + esc2(T.by) : "") : T ? " · the default" : " · loading…"}${reads.length ? " · " + costK(avgThink) + " thinking tokens per request in " + esc2(costPeriod().word) : ""}${T && T.refused && T.refused.length ? " · sent without it (the model refuses the setting): " + esc2(T.refused.join(", ")) : ""}.</p></div>`;
+}
+function costUnpriced(rows) { const o = []; rows.forEach(function (r) { const m = r[5] || "(not recorded)"; if (!costPriceOf(r[5]) && o.indexOf(m) < 0) o.push(m); }); return o; }
+function costPriceHtml(rows) {
+  const C = S.costs, P = C.prices || { models: {}, half: 0.5 };
+  const models = [];
+  rows.concat(C.rows || []).forEach(function (r) { if (r[5] && models.indexOf(r[5]) < 0 && r[1] !== "model check") models.push(r[5]); });
+  const E = C.edit = C.edit || { models: JSON.parse(JSON.stringify(P.models || {})), half: P.half || 0.5 };
+  const keys = ["*"].concat(models.filter(function (m) { return m !== "*"; }));
+  Object.keys(E.models).forEach(function (m) { if (keys.indexOf(m) < 0) keys.push(m); });
+  return `<h3>Prices</h3><p class="hint">₹ per million tokens, from Google's price list or your bill (Cloud Billing → Reports, grouped by SKU). Thinking is billed as output. “Any other model” prices a request whose model has no line of its own (the pages logged before 13.50 do not record the model).</p>
+    <div class="tblwrap"><table class="costtbl"><tr><th>Model</th><th>₹ / M tokens in</th><th>₹ / M tokens out</th></tr>` +
+    keys.map(function (m) { const x = E.models[m] || {}; return `<tr><td>${m === "*" ? "Any other model" : esc2(m)}</td>
+      <td><input type="number" min="0" step="0.01" value="${x.in != null ? esc2(String(x.in)) : ""}" oninput="costEdit('${esc2(m)}','in',this.value)"></td>
+      <td><input type="number" min="0" step="0.01" value="${x.out != null ? esc2(String(x.out)) : ""}" oninput="costEdit('${esc2(m)}','out',this.value)"></td></tr>`; }).join("") +
+    `</table></div><label class="fld"><span>Night queue price (share of full)</span><input type="number" min="0.05" max="1" step="0.05" value="${esc2(String(E.half))}" oninput="S.costs.edit.half=Number(this.value)||0.5"></label>
+    <div class="btns"><button class="b p" onclick="costPricesSave()">Save prices</button></div>${P.at ? `<p class="hint">Last set ${esc2(String(P.at).slice(0, 16))}${P.by ? " by " + esc2(P.by) : ""}.</p>` : ""}`;
+}
+function costEdit(m, k, v) { const E = S.costs.edit; E.models[m] = E.models[m] || {}; E.models[m][k] = v === "" ? null : Number(v); }
+async function costPricesSave() {
+  const E = S.costs.edit, models = {};
+  Object.keys(E.models).forEach(function (m) { const x = E.models[m]; if (x && (Number(x.in) || Number(x.out))) models[m] = { in: Number(x.in) || 0, out: Number(x.out) || 0 }; });
+  try {
+    const r = await sheetApi("costPricesSet", { prices: { models: models, half: E.half }, by: S.cfg.userName || "" });
+    S.costs.prices = r.prices; S.costs.edit = null; flash("ok", "Prices saved."); render();
+  } catch (e) { flash("err", "Could not save the prices: " + (e.message || e)); }
+}
+function costCsv() {
+  const per = costPeriod();
+  const rows = (S.costs.rows || []).filter(function (r) { return r[0].slice(0, 10) >= per.from && r[0].slice(0, 10) < per.to; });
+  const q = function (v) { const t = String(v == null ? "" : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const lines = [["Time", "What", "Case / photo id", "Name", "Step", "Model", "Price", "Tokens in", "Answer", "Thinking", "Cost (Rs)"].join(",")].concat(rows.map(function (r) {
+    const rs = costRupees(r); return r.slice(0, 10).concat([rs == null ? "" : rs.toFixed(3)]).map(q).join(",");
+  }));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  a.download = "gemini-costs-" + per.from + ".csv"; document.body.appendChild(a); a.click(); a.remove();
 }
 
 /* 13.47 — Settings: the sections are one scrolling page; the tabs (left on a
@@ -11027,7 +11319,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.49", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.50", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -12488,6 +12780,7 @@ function navOn() {
   return true;
 }
 const NAV_ICON = {
+  cost: "M4 20V11M10 20V5M16 20v-6M21 20H3",
   inbox: "M4 13h4l2 3h4l2-3h4M4 13l2-8h12l2 8v6H4z",
   cam: "M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 100-8 4 4 0 000 8z",
   list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
@@ -12514,6 +12807,7 @@ function navItems() {
   ];
   if (techOn()) out.push({ k: "box", t: "Stents & inventory", s: "Stents", on: step === "tech", go: "navGo('tech')" });
   if (sheetWeb) out.push({ k: "sheet", t: "Registry sheet", s: "Sheet", href: sheetWeb });
+  if (S.cfg.editKey && S.cfg.sheetUrl) out.push({ k: "cost", t: "Gemini costs", s: "Costs", on: step === "costs", go: "navGo('costs')" });
   out.push({ k: "gear", t: "Settings", s: "Settings", on: step === "settings" || step === "logs", go: "navGo('settings')" });
   return out;
 }
@@ -12523,6 +12817,7 @@ function navGo(where) {
   else if (where === "registry") openRegistry();
   else if (where === "ot") openOt();
   else if (where === "tech") openTech();
+  else if (where === "costs") openCosts();
   else { S.step = where; render(); }
   try { window.scrollTo(0, 0); } catch (e) {}
 }
@@ -13030,10 +13325,25 @@ function stLoose(s) { return stCode(s).replace(/[OQD]/g, "0").replace(/[IL]/g, "
 function stGtin(s) { const d = String(s == null ? "" : s).replace(/\D/g, ""); return d.length === 13 ? "0" + d : d.length === 14 ? d : ""; }
 
 /* ---------------- the page ---------------- */
+/* 13.50: every technicians' photo is read at night at half price — said at the top whenever one waits */
+function techNightWin() {
+  const sc = (S.tech.status && S.tech.status.stents && S.tech.status.stents.schedule) || {};
+  return sc.window || "20:00–04:00";
+}
+function techNightNote(short) {
+  return short ? "read tonight (" + techNightWin() + ") at half price" : "Photos are read tonight (" + techNightWin() + ") through Google's half-price queue — the result is here by the next morning. Needed now? Press Read now: read at once, at the full price.";
+}
+function techNightBanner() {
+  const st = (S.tech.status && S.tech.status.stents) || {};
+  const n = (st.waiting || 0) + (st.invWaiting || 0);
+  if (!n) return "";
+  return `<div class="nightbar"><span><b>${n} photo${n === 1 ? "" : "s"} waiting</b> — ${esc2(techNightNote(true))}${st.inQueue ? " · " + st.inQueue + " already in Google's queue" : ""}.</span>
+    <span class="hint">Needed now? <b>Read now</b> reads at once, at the full price.</span></div>`;
+}
 function viewTech() {
   const T = S.tech, st = T.status;
   let h = `<div class="cardhead pad"><b>Stents &amp; inventory</b>
-    <div class="btns"><button class="b primary" onclick="S.tech.tab='photos';techScanNow()" ${T.scanning ? "disabled" : ""} title="Reads only the photos in the Used stents upload folder">${T.scanning ? "Scanning…" : "Scan used stents inbox"}</button>
+    <div class="btns"><button class="b primary" onclick="S.tech.tab='photos';techScanNow()" ${T.scanning ? "disabled" : ""} title="Reads the photos in the Used stents upload folder at once (full price)">${T.scanning ? "Reading…" : "Read used-stent photos now"}</button>
     <button class="b" onclick="techLoad(true)" ${T.loading ? "disabled" : ""}>${T.loading ? "Loading…" : "Refresh"}</button>
     ${S.cfg.editKey ? `<button class="b" onclick="openBatch()">Inbox scans</button>` : ""}
     <button class="b" onclick="openRegistry()">View cases</button>
@@ -13050,15 +13360,18 @@ function viewTech() {
   h += techReviewHtml();
   const neg = T.inv ? (T.inv.items || []).filter(function (x) { return x.tracked && x.stock < 0; }).length : 0;
   const s2 = st.stents || {};
-  const badge = { inv: neg ? `<span class="n bad">${neg} below 0</span>` : "",
+  const expN = T.inv ? techExpiryList().filter(function (b) { return b.status === "in stock"; }).length : 0;
+  const badge = { inv: (neg ? `<span class="n bad">${neg} below 0</span>` : "") + (expN ? `<span class="n" style="background:#fde68a;color:#7a4b00">${expN} expiring</span>` : ""),
     stents: T.stents ? `<span class="n">${T.stents.length}</span>` : "",
     photos: s2.waiting || s2.failed ? `<span class="n${s2.failed ? " bad" : ""}">${[s2.waiting ? s2.waiting + " waiting" : "", s2.failed ? s2.failed + " failed" : ""].filter(Boolean).join(", ")}</span>` : "" };
+  h += techNightBanner();
   h += `<div class="tabs">` + TECH_TABS.map(function (t) {
     return `<button class="tab${T.tab === t[0] ? " on" : ""}" onclick="techTab('${t[0]}')">${t[1]}${badge[t[0]] || ""}</button>`;
   }).join("") + `</div>`;
   if (T.tab === "inv" || T.tab === "stents") h += techInvHtml();
   else if (T.tab === "bill") h += techBillHtml();
   else h += techPhotosHtml();
+  h += techBoxShowHtml();
   return h;
 }
 
@@ -13066,7 +13379,8 @@ function viewTech() {
 function techInvTake(j) {
   const T = S.tech;
   T.inv = { items: j.items || [], start: j.start || "", moves: j.moves || [], moveCount: j.moveCount || 0, pending: j.pending || [],
-    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null };
+    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null, stockPhotos: j.stockPhotos || [],
+    dayLast: j.dayLast || "", weeklyLast: j.weeklyLast || "", dayPhotos: j.dayPhotos || [], weeklyResult: j.weeklyResult || null, ptcaToday: !!j.ptcaToday };
   T.invAt = Date.now();
   // 13.45: new stent stickers (or the first opening) — the sheet brings the inventory in line
   if (j.needSync && !T.saving && (!T.syncAt || Date.now() - T.syncAt > 60000)) {
@@ -13097,16 +13411,19 @@ function techInvHtml() {
   }));
   return `<div class="card invcard">
     <div class="cardhead"><div><b>Inventory</b><p class="hint">${items.length} item${items.length === 1 ? "" : "s"} · stents from their stickers, everything else from saved utilization sheets · PTCAs from ${esc2(techDate(inv.start))}</p></div>
-      <div class="btns" style="margin:0"><button class="b primary" onclick="techInvAdd()">Add stock</button></div></div>
+      <div class="btns" style="margin:0"><button class="b primary" onclick="techInvAdd()">Add stock by count</button></div></div>
     <div class="invtiles">
       <button class="invtile${neg ? " bad" : ""}" onclick="S.tech.invShow='neg';S.tech.invKind='all';render()"><b>${neg}</b><span>below zero</span></button>
       <button class="invtile${low ? " amber" : ""}" onclick="S.tech.invShow='low';S.tech.invKind='all';render()"><b>${low}</b><span>low or out</span></button>
       <button class="invtile${toCheck ? " amber" : ""}" onclick="var e=document.getElementById('techReview');if(e)e.scrollIntoView({block:'start'})"><b>${toCheck}</b><span>stent${toCheck === 1 ? "" : "s"} to check</span></button>
     </div>
     ${T.invForm ? techInvFormHtml() : ""}
+    ${techRemindHtml()}
+    ${rvWide() ? "" : techExpiryBarHtml()}
+    ${techDayHtml()}
     ${techInvPhotosHtml()}
     ${techInvPendingHtml()}
-    <div class="invlay">
+    <div class="invlay${rvWide() && techExpiryList().length ? " hasexp" : ""}">
       <nav class="invkinds" aria-label="Kinds of equipment">${kinds.map(function (k) {
         return `<button class="invk${kind === k[0] ? " on" : ""}" onclick="S.tech.invKind='${k[0]}';S.tech.invOpen='';render()"${k[2] ? ` style="--kc:${k[2]}"` : ""}>` +
           `${k[2] ? `<i style="background:${k[2]}"></i>` : ""}${esc2(k[1])}<span class="n${k[4] ? " bad" : ""}">${k[4] ? k[4] + " below 0" : k[3]}</span></button>`;
@@ -13116,6 +13433,7 @@ function techInvHtml() {
         <div class="tabs small">${shows.map(function (s) { return `<button class="tab${(T.invShow || "all") === s[0] ? " on" : ""}" onclick="S.tech.invShow='${s[0]}';render()">${s[1]}</button>`; }).join("")}</div>
         <div id="invList">${techInvListHtml()}</div>
       </div>
+      ${rvWide() ? techExpiryHtml() : ""}
     </div>
     ${techInvRecentHtml()}
     <details class="invhelp"><summary>How the stock is kept</summary>
@@ -13140,14 +13458,16 @@ function techInvPhotosHtml() {
   const rep = bx.filter(function (b) { return b.status === "repeat" && !techBoxToConfirm(b); });
   const conf = bx.filter(techBoxToConfirm);
   const used = inStock.filter(function (b) { return b.usedBy; }).length;
+  const bgs = bx.filter(function (b) { return b.status === "background"; });
   let h = `<div class="invphotos"><div><b>Stock received, from photos</b>
       <p class="hint">Photograph the boxes on the shelf (spines to the camera, the size and the LOT readable). Every box is kept with its LOT, REF and expiry; a box seen on two photos is counted once. ${esc2([(st.invWaiting || 0) + " photo" + (st.invWaiting === 1 ? "" : "s") + " waiting", (st.invFailed || 0) + " failed", (st.invScanned || 0) + " read"].join(" · "))}</p>
       ${bx.length ? `<p class="hint"><b>${inStock.length}</b> box${inStock.length === 1 ? "" : "es"} counted${used ? " (" + used + " since used)" : ""} · <b class="${rep.length ? "a" : ""}">${rep.length}</b> repeat${rep.length === 1 ? "" : "s"} not counted · <b class="${chk.length ? "r" : ""}">${chk.length}</b> to check</p>` : ""}</div>
+    <label class="fld" style="flex:0 1 190px;margin:0"><span>What the photo is of</span><select id="invUpKind" onchange="S.tech.upKind=this.value"><option value="">Let the app decide</option>${INV_KINDS.map(function (k) { return `<option value="${k.kind}"${S.tech.upKind === k.kind ? " selected" : ""}>${esc2(k.label)}</option>`; }).join("")}</select></label>
     <input type="file" accept="image/*" capture="environment" id="invcam" hidden onchange="techUpload(this,'stock')">
     <input type="file" accept="image/*,application/pdf,.pdf" multiple id="invfile" hidden onchange="techUpload(this,'stock')">
     <div class="btns" style="margin:0"><button class="b" onclick="document.getElementById('invcam').click()" ${T.uploading ? "disabled" : ""}>Take a photo</button>
       <button class="b" onclick="document.getElementById('invfile').click()" ${T.uploading ? "disabled" : ""}>Upload photos</button>
-      <button class="b" onclick="techInvScanNow()" ${T.invScanning ? "disabled" : ""}>${T.invScanning ? "Reading…" : "Read inventory photos now"}</button>
+      <button class="b" onclick="techInvScanNow()" ${T.invScanning ? "disabled" : ""} title="Reads the waiting stock, weekly and used-instruments photos at once, at the full price">${T.invScanning ? "Reading…" : "Read now (full price)"}</button>
       ${st.invInUrl ? `<a class="b" href="${esc2(st.invInUrl)}" target="_blank" rel="noopener">${esc2(st.invInName || "Inventory uploads")} folder</a>` : ""}</div>
     ${T.invSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.invSaid)}</p>` : ""}
     ${techBoxFixHtml()}`;
@@ -13167,27 +13487,37 @@ function techInvPhotosHtml() {
   if (rep.length) h += `<details class="boxlist rep"${T.repOpen ? " open" : ""} ontoggle="S.tech.repOpen=this.open"><summary><b>Repeats, not counted (${rep.length})</b> <span class="hint">the same LOT and size already in stock from another photo</span></summary>
       <p class="hint">Photos of one shelf overlap, so a box seen again is counted once. If it really is another box (more of that LOT came in), press <b>Another box — count it</b>.</p>
       ${rep.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','in stock')" ${T.saving ? "disabled" : ""}>Another box — count it</button>`); }).join("")}</details>`;
+  if (bgs.length) h += `<details class="boxlist"><summary><b>In the background, not counted (${bgs.length})</b> <span class="hint">boxes behind the ones photographed — photograph them on their own to count them</span></summary>
+      ${bgs.map(function (b) { return techBoxRowHtml(b, ""); }).join("")}</details>`;
+  h += techStockPhotosHtml();
   if (bx.length || (st.invScanned || 0)) h += `<details class="boxlist"><summary class="hint">Read every stock photo again</summary>
       <p class="hint">Clears the boxes read so far (and the stock they added) and reads every stock photo again, box by box, with repeats removed. Use it once for the photos read before this version.</p>
       <button class="b danger" onclick="techInvReread()" ${T.saving ? "disabled" : ""}>Read all stock photos again</button></details>`;
   return h + `</div>`;
 }
 function techBoxUnit(b) { const m = /\(91\)\s*([0-9A-Za-z]+)/.exec(String(b.codes || "")); return m ? m[1] : ""; }
-function techBoxSize(b) { return b.dia && b.len ? stentNum(b.dia) + " × " + stentNum(b.len) : b.dia ? stentNum(b.dia) + " × ?" : "size ?"; }
+function techBoxSize(b) {
+  if (b.kind && !INV_SIZED[b.kind]) return b.size || "";
+  return b.dia && b.len ? stentNum(b.dia) + " × " + stentNum(b.len) : b.dia ? stentNum(b.dia) + " × ?" : "size ?";
+}
 function techBoxRowHtml(b, btns) {
-  const used = b.usedBy ? `<span class="bxused">used · ${esc2([b.usedBy.ptcaNo ? "PTCA " + b.usedBy.ptcaNo : "", b.usedBy.patient, b.usedBy.date ? techDate(b.usedBy.date) : ""].filter(Boolean).join(" · "))}</span>` : "";
-  return `<div class="bxrow"><div class="bxmain"><b>${esc2((b.brand || "?") + " " + techBoxSize(b))}</b>
-      <span>${esc2(["LOT " + (b.lot || "?"), b.ref ? "REF " + b.ref : "", b.expiry ? "exp " + b.expiry : "", techBoxUnit(b) ? "(91) " + techBoxUnit(b) : ""].filter(Boolean).join(" · "))}</span>
-      <span class="m">${b.url ? `<a href="${esc2(b.url)}" target="_blank" rel="noopener">${esc2(b.photo || "photo")}</a>` : esc2(b.photo || "")}${b.place ? " · " + esc2(b.place) : ""}</span>
-      ${b.why ? `<span class="why">${esc2(b.why)}</span>` : ""}${used}</div>${btns ? `<div class="btns" style="margin:0">${btns}</div>` : ""}</div>`;
+  const usedIn = b.usedIn ? `<span class="bxused">used in · ${esc2(b.usedIn)}</span>` : "";
+  const used = b.usedBy ? `<span class="bxused">used · ${esc2([b.usedBy.ptcaNo ? "PTCA " + b.usedBy.ptcaNo : "", b.usedBy.patient, b.usedBy.date ? techDate(b.usedBy.date) : "", b.usedBy.how === "size" ? "taken as any box of this size" : ""].filter(Boolean).join(" · "))}</span>` : "";
+  return `<div class="bxrow" data-bx="${esc2(b.id || "")}"><div class="bxmain"><b>${esc2(b.status === "background" ? (b.brand || "?") : (b.brand || "?") + " " + techBoxSize(b))}</b>
+      <span>${b.status === "background" ? esc2(techKindOne(b.kind || "stent")) : esc2([b.kind && b.kind !== "stent" ? techKindOne(b.kind) : "", b.lot ? "LOT " + b.lot : b.serial ? "No. " + b.serial : "LOT ?", b.ref ? "REF " + b.ref : "", b.expiry ? "exp " + b.expiry : "", techBoxUnit(b) ? "(91) " + techBoxUnit(b) : ""].filter(Boolean).join(" · "))}</span>
+      <span class="m">${b.id && b.fileId ? `<button type="button" class="linkbtn" onclick="techBoxShow('${esc2(b.id)}')">Show in photo</button> · ` : ""}${b.url ? `<a href="${esc2(b.url)}" target="_blank" rel="noopener">${esc2(b.photo || "photo")}</a>` : esc2(b.photo || "")}${b.place ? " · " + esc2(b.place) : ""}</span>
+      ${b.why ? `<span class="why">${esc2(b.why)}</span>` : ""}${used}${usedIn}</div>${btns ? `<div class="btns" style="margin:0">${btns}</div>` : ""}</div>`;
 }
 function techBoxCheckHtml(b) {
   const T = S.tech;
   if (T.boxEdit !== b.id) return techBoxRowHtml(b, `<button class="b primary" onclick="S.tech.boxEdit='${esc2(b.id)}';render()">Fix &amp; add…</button>
     <button class="b" onclick="techBoxSave('${esc2(b.id)}','discarded')" ${T.saving ? "disabled" : ""}>Discard</button>`);
   const f = function (k, label, w) { return `<label class="fld" style="flex:${w}"><span>${label}</span><input id="bx_${k}" value="${esc2(b[k] || "")}"></label>`; };
+  const sized = !b.kind || INV_SIZED[b.kind];
   return `<div class="bxrow open">${techBoxRowHtml(b, "")}
-    <div class="row alignend">${f("brand", "Brand", "2 1 150px")}${f("dia", "Diameter (mm)", "1 1 80px")}${f("len", "Length (mm)", "1 1 80px")}${f("lot", "LOT", "1 1 110px")}${f("ref", "REF", "1 1 110px")}${f("expiry", "Expiry", "1 1 100px")}</div>
+    <div class="row alignend"><label class="fld" style="flex:1 1 140px"><span>Type</span><select id="bx_kind">${invKindOptions(b.kind || "stent")}</select></label>${f("brand", "Brand", "2 1 150px")}
+      ${sized ? f("dia", "Diameter (mm)", "1 1 80px") + f("len", "Length (mm)", "1 1 80px") : f("size", "Size", "1 1 120px")}
+      ${f("lot", "LOT", "1 1 110px")}${f("serial", "or its own No. (no LOT)", "1 1 150px")}${f("ref", "REF", "1 1 110px")}${f("expiry", "Expiry", "1 1 100px")}</div>
     <div class="btns"><button class="b live" onclick="techBoxSave('${esc2(b.id)}','in stock',true)" ${T.saving ? "disabled" : ""}>Add to stock</button>
       <button class="b" onclick="S.tech.boxEdit='';render()">Cancel</button>
       <button class="b danger" onclick="techBoxSave('${esc2(b.id)}','discarded')" ${T.saving ? "disabled" : ""}>Not a box — discard</button></div></div>`;
@@ -13195,7 +13525,7 @@ function techBoxCheckHtml(b) {
 async function techBoxSave(id, status, withFields) {
   const T = S.tech;
   const fields = {};
-  if (withFields) ["brand", "dia", "len", "lot", "ref", "expiry"].forEach(function (k) { const el = document.getElementById("bx_" + k); if (el) fields[k] = el.value.trim(); });
+  if (withFields) ["kind", "brand", "dia", "len", "size", "lot", "serial", "ref", "expiry"].forEach(function (k) { const el = document.getElementById("bx_" + k); if (el) fields[k] = el.value.trim(); });
   if (status === "discarded" && !confirm("Discard this box? It will not be counted.")) return;
   T.saving = true; render();
   try { const r = await sheetApi("boxSave", { id: id, status: status, fields: fields, by: S.cfg.userName || "" }, 60000); T.invSaid = r.said || "Saved."; T.boxEdit = ""; }
@@ -13265,15 +13595,117 @@ async function techInvReread() {
   T.saving = false;
   await techInvScanNow();
 }
+function techKindOne(k) { const x = INV_KINDS.filter(function (y) { return y.kind === k; })[0]; return x ? x.one : k; }
+/* 13.50: the stock photos read lately — what each showed, where it was filed,
+   and a photo put in the wrong instrument's folder said so */
+function techStockPhotosHtml() {
+  const ph = (S.tech.inv && S.tech.inv.stockPhotos) || [];
+  if (!ph.length) return "";
+  const wrong = ph.filter(function (p) { return p.result && p.result.note; });
+  return `<details class="boxlist"${wrong.length ? " open" : ""}><summary><b>Stock photos read (${ph.length})</b>${wrong.length ? ` <span class="hint" style="color:#8a4b00">${wrong.length} in the wrong folder — read as what they show</span>` : ""}</summary>
+    ${ph.map(function (p) {
+      const r = p.result || {};
+      const kinds = Object.keys(r.kinds || {}).map(function (k) { return r.kinds[k] + " " + techKindOne(k).toLowerCase() + (r.kinds[k] === 1 ? "" : "s"); }).join(", ");
+      return `<div class="bxrow"><div class="bxmain"><b>${p.url ? `<a href="${esc2(p.url)}" target="_blank" rel="noopener">${esc2(p.file)}</a>` : esc2(p.file)}</b>
+        <span>${esc2([p.status === "scanned" ? (kinds || "nothing read in the foreground") : p.status === "failed" ? "could not be read: " + (p.error || "") : (p.result && p.result._job ? "in Google's half-price queue — collected automatically" : "waiting — " + techNightNote(true)),
+          p.status === "scanned" ? (r.added || 0) + " added, " + (r.repeat || 0) + " repeats, " + (r.check || 0) + " to check" + (r.background ? ", " + r.background + " in the background" : "") : ""].filter(Boolean).join(" · "))}</span>
+        <span class="m">${esc2(["uploaded " + techDate(String(p.uploaded || "").slice(0, 10)), p.folder ? "to " + p.folder : "", r.movedTo ? "filed in " + r.movedTo : ""].filter(Boolean).join(" · "))}</span>
+        ${r.note ? `<span class="why">${esc2(r.note)}</span>` : ""}</div></div>`;
+    }).join("")}</details>`;
+}
+/* 13.50: a box shown on its photo — the photo with the box ringed in red,
+   and the box itself enlarged beside it */
+const BOX_PHOTO_CACHE = {};
+async function techBoxShow(id) {
+  const T = S.tech;
+  T.boxShow = { id: id, loading: true }; render();
+  try {
+    const b = ((T.inv && T.inv.boxes) || []).filter(function (x) { return x.id === id; })[0] || {};
+    let ph = BOX_PHOTO_CACHE[b.fileId];
+    if (!ph) { ph = await sheetApi("boxPhoto", { id: id }, 90000); BOX_PHOTO_CACHE[b.fileId] = ph; }
+    if (!T.boxShow || T.boxShow.id !== id) return;
+    T.boxShow = { id: id, box: b, src: "data:" + (ph.mime || "image/jpeg") + ";base64," + ph.b64 };
+  } catch (e) { T.boxShow = { id: id, err: e.message || String(e) }; }
+  render();
+  setTimeout(techBoxDraw, 30);
+}
+function techBoxShowHtml() {
+  const v = S.tech.boxShow;
+  if (!v) return "";
+  const b = v.box || {};
+  if (v.src) setTimeout(techBoxDraw, 0);     // a redraw of the page empties the canvases
+  return `<div class="boxshow" onclick="if(event.target===this){S.tech.boxShow=null;render()}"><div class="boxshowin">
+    <div class="row" style="justify-content:space-between;align-items:center"><b>${esc2(((b.brand || "?") + " " + techBoxSize(b)).trim())}${b.lot || b.serial ? " · " + esc2(b.lot ? "LOT " + b.lot : "No. " + b.serial) : ""}</b>
+      <button class="b" onclick="S.tech.boxShow=null;render()">Close</button></div>
+    ${b.why ? `<p class="hint" style="color:#8a4b00;margin:2px 0">${esc2(b.why)}</p>` : ""}
+    ${v.loading ? `<p class="hint">Fetching the photo…</p>` : v.err ? `<p class="hint" style="color:#b42318">Could not fetch the photo: ${esc2(v.err)}</p>` : `
+    ${b.area ? "" : `<p class="hint">This box was read before 13.50, so its exact spot is not known — it is ${esc2(b.place || "on the photo")}.</p>`}
+    <div class="boxshowpics"><canvas id="bxZoom" class="${b.area ? "" : "hide"}"></canvas><canvas id="bxFull"></canvas></div>`}
+  </div></div>`;
+}
+function techBoxDraw() {
+  const v = S.tech.boxShow; if (!v || !v.src) return;
+  const full = document.getElementById("bxFull"), zoom = document.getElementById("bxZoom");
+  if (!full) return;
+  const img = new Image();
+  img.onload = function () {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    const maxW = Math.min(1100, (full.parentElement.clientWidth || 900));
+    const k = Math.min(1, maxW / W);
+    full.width = Math.round(W * k); full.height = Math.round(H * k);
+    const g = full.getContext("2d"); g.drawImage(img, 0, 0, full.width, full.height);
+    const a = String((v.box || {}).area || "").split(",").map(Number);
+    if (a.length === 4 && a[2] > a[0]) {
+      const x0 = a[1] / 1000 * full.width, y0 = a[0] / 1000 * full.height, x1 = a[3] / 1000 * full.width, y1 = a[2] / 1000 * full.height;
+      g.fillStyle = "rgba(0,0,0,.35)";
+      g.fillRect(0, 0, full.width, y0); g.fillRect(0, y1, full.width, full.height - y1); g.fillRect(0, y0, x0, y1 - y0); g.fillRect(x1, y0, full.width - x1, y1 - y0);
+      g.strokeStyle = "#e11d48"; g.lineWidth = Math.max(3, full.width / 250); g.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      if (zoom) {
+        // the box enlarged, with a little of its neighbours
+        const px = (a[3] - a[1]) * 0.08, py = (a[2] - a[0]) * 0.35;
+        const sx = Math.max(0, (a[1] - px) / 1000 * W), sy = Math.max(0, (a[0] - py) / 1000 * H);
+        const sw = Math.min(W - sx, (a[3] - a[1] + 2 * px) / 1000 * W), sh = Math.min(H - sy, (a[2] - a[0] + 2 * py) / 1000 * H);
+        const zk = Math.min(maxW / sw, 360 / sh, 3);
+        zoom.width = Math.round(sw * zk); zoom.height = Math.round(sh * zk);
+        zoom.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, zoom.width, zoom.height);
+      }
+    }
+  };
+  img.src = v.src;
+}
+/* 13.50: the day an item's uses start being taken off */
+function techFromHtml(x) {
+  const T = S.tech;
+  const said = x.from ? "Uses taken off from " + techDate(x.from) + (x.fromAuto ? " (the day after its first stock photo)" : "") : "Uses taken off from the inventory start (" + techDate((T.inv && T.inv.start) || "") + ")";
+  return `<div class="row alignend"><label class="fld" style="flex:0 1 170px"><span>Count uses from</span><input type="date" id="invFrom_${x.id}" value="${esc2(x.from || "")}"></label>
+    <button class="b" onclick="techInvFrom(['${x.id}'],'invFrom_${x.id}')" ${T.saving ? "disabled" : ""}>Set</button>
+    <button class="b" onclick="techInvFromBrand('${x.id}')" ${T.saving ? "disabled" : ""}>Set for all ${esc2(x.brand)}</button></div>
+    <p class="hint">${esc2(said)}${x.before ? " · " + x.before + " used before that, not taken off" : ""}. Clear the date to go back to the inventory start.</p>`;
+}
+async function techInvFrom(ids, inputId) {
+  const el = document.getElementById(inputId), d = el ? el.value : "";
+  const T = S.tech; T.saving = true; render();
+  try { const j = await sheetApi("invSave", { op: { op: "from", ids: ids, from: d }, by: S.cfg.userName || "" }, 60000); techInvTake(j); T.invSaid = j.said || "Saved."; }
+  catch (e) { T.invSaid = "Not saved: " + (e.message || e); }
+  T.saving = false; render();
+}
+function techInvFromBrand(id) {
+  const items = (S.tech.inv && S.tech.inv.items) || [], x = items.filter(function (y) { return y.id === id; })[0];
+  if (!x) return;
+  const ids = items.filter(function (y) { return y.kind === x.kind && hwNorm(y.brand) === hwNorm(x.brand); }).map(function (y) { return y.id; });
+  const el = document.getElementById("invFrom_" + id);
+  if (!confirm("Count uses of every " + x.brand + " size (" + ids.length + ") from " + (el && el.value ? el.value : "the inventory start") + "?")) return;
+  techInvFrom(ids, "invFrom_" + id);
+}
 /* the boxes of one size (stock photos), with their LOT and what became of them */
 function techSizeBoxesHtml(x) {
   const bx = ((S.tech.inv && S.tech.inv.boxes) || []).filter(function (b) {
-    if (b.status !== "in stock" || hwNorm(b.brand) !== hwNorm(x.brand)) return false;
+    if ((b.status !== "in stock" && b.status !== "used") || hwNorm(b.brand) !== hwNorm(x.brand) || (b.kind || "stent") !== x.kind) return false;
     const dl = stentDiaLen(x.size);
     return dl && Math.abs(Number(b.dia) - dl.d) < 0.01 && Math.abs(Number(b.len) - dl.l) < 0.01;
   });
   if (!bx.length) return `<p class="hint">No boxes of this size from stock photos yet.</p>`;
-  const left = bx.filter(function (b) { return !b.usedBy; }).length;
+  const left = bx.filter(function (b) { return !b.usedBy && b.status !== "used"; }).length;
   return `<details class="stsizest" open><summary>Boxes of this size from stock photos (${bx.length}${left !== bx.length ? ", " + left + " not yet used" : ""})</summary>${bx.map(function (b) { return techBoxRowHtml(b, ""); }).join("")}</details>`;
 }
 async function techInvScanNow() {
@@ -13284,7 +13716,7 @@ async function techInvScanNow() {
     const r = await sheetApi("invScanNow", {}, 330000);
     const v = r.inventory || {};
     T.invSaid = !r.ran ? "The scanner did not run: " + (r.why || "unknown reason") + "."
-      : (v.scanned || v.failed ? v.scanned + " photo" + (v.scanned === 1 ? "" : "s") + " read: " + (v.units || 0) + " box" + (v.units === 1 ? "" : "es") + " added to the stock, " + (v.repeats || 0) + " repeat" + (v.repeats === 1 ? "" : "s") + " not counted, " + (v.check || 0) + " to check" + (v.failed ? ", " + v.failed + " photo" + (v.failed === 1 ? "" : "s") + " failed" : "") + "." : "Nothing new in Inventory uploads (a photo is taken once it is 20 seconds old).") +
+      : (v.scanned || v.failed ? v.scanned + " photo" + (v.scanned === 1 ? "" : "s") + " read: " + (v.units || 0) + " box" + (v.units === 1 ? "" : "es") + " added to the stock, " + (v.repeats || 0) + " repeat" + (v.repeats === 1 ? "" : "s") + " not counted, " + (v.check || 0) + " to check" + (v.failed ? ", " + v.failed + " photo" + (v.failed === 1 ? "" : "s") + " failed" : "") + "." + (v.wrongFolder && v.wrongFolder.length ? " In the wrong folder: " + v.wrongFolder.join("; ") + "." : "") : "Nothing new in Inventory uploads (a photo is taken once it is 20 seconds old).") +
         (v.pending ? " " + v.pending + " still waiting — press again." : "") + (v.stopped ? " Stopped: " + v.why + "." : "");
   } catch (e) { T.invSaid = "Could not read the photos: " + (e.message || e); }
   T.invScanning = false; T.statusAt = 0; T.invAt = 0;
@@ -13401,7 +13833,7 @@ function techInvListHtml() {
     let h = `<div class="invtype" style="border-left-color:${k.color}">
       <div class="invth" style="background:${k.tint}" onclick="techInvFold('${k.kind}')"><b style="color:${k.color}">${esc2(k.label)}</b>
         <span class="n">${mine.length} item${mine.length === 1 ? "" : "s"}</span><span class="stk ${total < 0 ? "neg" : total === 0 ? "zero" : "ok"}" title="in stock, all sizes">${total}</span><span class="fold">${closed ? "▸" : "▾"}</span></div>`;
-    if (!closed && k.kind === "stent") h += techStentGroupsHtml(mine, words);
+    if (!closed && INV_SIZED[k.kind]) h += techStentGroupsHtml(mine, words);
     else if (!closed) {
       const brands = [];
       mine.forEach(function (x) { if (brands.indexOf(x.brand) < 0) brands.push(x.brand); });
@@ -13435,6 +13867,8 @@ function techDiaOpen(key) {
   return key in o ? o[key] : rvWide();
 }
 function techDiaFold(key) { const T = S.tech, o = T.diaOpen = T.diaOpen || {}; o[key] = !techDiaOpen(key); renderList("invList", techInvListHtml()); }
+/* 13.50: the kinds measured by diameter × length are all shown company → diameter → length */
+const INV_SIZED = { stent: 1, balloon: 1, dcb: 1, cutting: 1 };
 function techStentGroupsHtml(mine, words) {
   const T = S.tech, brands = [];
   mine.forEach(function (x) { if (brands.indexOf(x.brand) < 0) brands.push(x.brand); });
@@ -13460,8 +13894,9 @@ function techStentGroupsHtml(mine, words) {
       h += `<div class="sttiles">` + list.map(function (x) {
         const c = !x.tracked ? "off" : !invCounted(x) && x.stock === 0 ? "nc" : invStockClass(x);
         const dl = stentDiaLen(x.size);
-        return `<button type="button" class="sttile ${c}${T.invOpen === x.id ? " on" : ""}" onclick="techInvOpen('${x.id}')" title="${esc2(x.brand + " " + x.size)}">
-          <span class="sz">${esc2(stentNum(dl.d) + " × " + stentNum(dl.l))}</span><span class="stk ${c}">${c === "nc" ? "—" : x.stock}</span></button>`;
+        const ex = techItemExpiry(x.id);
+        return `<button type="button" id="tile_${x.id}" class="sttile ${c}${T.invOpen === x.id ? " on" : ""}${ex ? " exp-" + ex : ""}" onclick="techInvOpen('${x.id}')" title="${esc2(x.brand + " " + x.size + (ex === "gone" ? " — a box has expired" : ex === "soon" ? " — a box expires within 2 weeks" : ""))}">
+          <span class="sz">${esc2(stentNum(dl.d) + " × " + stentNum(dl.l))}</span><span class="stk ${c}">${c === "nc" ? "—" : x.stock}</span>${ex ? `<span class="expdot ${ex}">${ex === "gone" ? "expired" : "expiring"}</span>` : ""}</button>`;
       }).join("") + `</div>`;
       const op = list.filter(function (x) { return x.id === T.invOpen; })[0];
       if (op) h += `<div class="sttilepanel"><div class="stpt"><b>${esc2(op.brand + " " + op.size)}</b> <span class="hint">${esc2([op.used ? "used " + op.used : "", op.lastUsed ? "last " + techDate(op.lastUsed) : "", op.tracked ? "" : "not tracked"].filter(Boolean).join(" · "))}</span></div>${techInvPanelHtml(op)}${techSizeBoxesHtml(op)}${techSizeStickersHtml(op)}</div>`;
@@ -13496,7 +13931,11 @@ const STENT_COMPANIES = [[/xience|alpine|absorb/i, "Abbott", "#1f5fc2"], [/syner
   [/resolute|onyx|endeavor|frontier/i, "Medtronic", "#6d28d9"], [/ultimaster|tansei|nobori/i, "Terumo", "#15803d"],
   [/biomime|mozec|myval/i, "Meril", "#be185d"], [/yukon/i, "Translumina", "#c2410c"], [/orsiro|pro-?kinetic/i, "Biotronik", "#4d7c0f"],
   [/supraflex|tetriflex/i, "SMT", "#b45309"], [/firehawk|firebird/i, "MicroPort", "#9f1239"], [/everflex|eucatech/i, "Eucatech", "#0f766e"],
-  [/indolimus|coroflex/i, "B. Braun / Sahajanand", "#7c2d12"]];
+  [/indolimus|coroflex/i, "B. Braun / Sahajanand", "#7c2d12"],
+  // 13.50: balloon brands (grouped the same way)
+  [/\btrek\b|nc trek|mini trek/i, "Abbott", "#1f5fc2"], [/tanzor/i, "Veiva Scientific", "#c2410c"], [/rockstar/i, "Sanavascular", "#1e3a8a"],
+  [/lineage/i, "Meril", "#be185d"], [/quantum|emerge|apex/i, "Boston Scientific", "#0e7490"], [/apollo|aperi|brosmed/i, "Brosmed", "#15803d"],
+  [/sapphire/i, "OrbusNeich", "#7c3aed"], [/seguro/i, "Sahajanand", "#7c2d12"], [/euphora/i, "Medtronic", "#6d28d9"]];
 const STENT_SPARE = ["#1d4ed8", "#a21caf", "#047857", "#b91c1c", "#a16207", "#4338ca", "#0369a1", "#9d174d"];
 function stentCompanyOf(b) { const t = String(b || ""); for (let i = 0; i < STENT_COMPANIES.length; i++) if (STENT_COMPANIES[i][0].test(t)) return STENT_COMPANIES[i]; return null; }
 function stentCompany(b) { const c = stentCompanyOf(b); return c ? c[1] : (String(b || "").trim().split(/\s+/)[0] || "Other"); }
@@ -13505,14 +13944,171 @@ function stentCompanyColour(b) {
   const n = stentCompany(b).toLowerCase(); let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
   return STENT_SPARE[h % STENT_SPARE.length];
 }
+/* 13.50 — expiry alerts: every box known from stock photos (not yet used)
+   whose expiry has passed, or comes within EXPIRY_WARN_DAYS */
+const EXPIRY_WARN_DAYS = 14;
+function boxExpIso(e) {
+  const t = String(e || "").trim();
+  let m = /^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?$/.exec(t);
+  if (m) { const y = +m[1], mo = +m[2]; const d = m[3] ? +m[3] : new Date(Date.UTC(y, mo, 0)).getUTCDate(); return y + "-" + String(mo).padStart(2, "0") + "-" + String(d).padStart(2, "0"); }
+  m = /^(\d{1,2})[-\/.](\d{4})$/.exec(t);                                   // 06-2028: the end of that month
+  if (m) { const y = +m[2], mo = +m[1]; return y + "-" + String(mo).padStart(2, "0") + "-" + String(new Date(Date.UTC(y, mo, 0)).getUTCDate()).padStart(2, "0"); }
+  m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/.exec(t);                     // 23-03-2028
+  if (m) return m[3] + "-" + String(+m[2]).padStart(2, "0") + "-" + String(+m[1]).padStart(2, "0");
+  return "";
+}
+function boxExpDays(b) {
+  const iso = boxExpIso(b.expiry); if (!iso) return null;
+  const today = new Date(); const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((Date.parse(iso + "T00:00:00Z") - t0) / 86400000);
+}
+/* 13.50 — reminders: the day's used-instruments photo (from 3 pm, until one
+   is uploaded or "No PTCA today" is pressed) and the weekly shelf photos (due
+   7 days after the last) */
+function techTodayIso() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function techRemindHtml() {
+  const inv = S.tech.inv || {}, today = techTodayIso(), h = new Date().getHours();
+  let skip = ""; try { skip = localStorage.getItem("noUsedPhoto") || ""; } catch (e) {}
+  let out = "";
+  if (h >= 15 && inv.dayLast !== today && skip !== today)
+    out += `<div class="remind"><span><b>Today's used instruments not photographed yet.</b> One or two photos of the box flaps / labels of everything opened today.</span>
+      <span class="btns" style="margin:0"><button class="b primary" onclick="document.getElementById('daycam').click()">Take the photo</button>
+      <button class="b" onclick="try{localStorage.setItem('noUsedPhoto','${today}')}catch(e){};render()">No PTCA today</button></span></div>`;
+  const wl = inv.weeklyLast;
+  const due = !wl || (Date.parse(today) - Date.parse(wl)) / 86400000 >= 7;
+  if (due) out += `<div class="remind wk"><span><b>Weekly shelf photos due</b>${wl ? " (last " + esc2(techDate(wl)) + ")" : ""}: photograph every stack and row, front boxes readable.</span>
+      <span class="btns" style="margin:0"><button class="b" onclick="document.getElementById('wkcam').click()">Take photos</button>
+      <button class="b" onclick="document.getElementById('wkfile').click()">Upload photos</button></span></div>`;
+  return out;
+}
+/* the photos of the day's used instruments: each label matched to its box,
+   compared with that day's utilization sheets */
+function techDayHtml() {
+  const T = S.tech, inv = T.inv || {}, ph = inv.dayPhotos || [], wr = inv.weeklyResult;
+  const bx = inv.boxes || [];
+  const unseen = bx.filter(function (b) { return b.status === "unseen"; });
+  let h = `<div class="invphotos dayph"><div><b>Instruments used, from the day's photo</b>
+      <p class="hint">At the end of the day, one or two photos of the box flaps / labels of everything opened. Each is matched to its box on the shelf (by LOT), so the right box leaves the stock list and its expiry alert; the photo is checked against the day's utilization sheets. The counts themselves come from the sheets.</p></div>
+    <input type="file" accept="image/*" capture="environment" id="daycam" hidden onchange="techUpload(this,'day')">
+    <input type="file" accept="image/*" multiple id="dayfile" hidden onchange="techUpload(this,'day')">
+    <input type="file" accept="image/*" capture="environment" id="wkcam" hidden onchange="techUpload(this,'weekly')">
+    <input type="file" accept="image/*" multiple id="wkfile" hidden onchange="techUpload(this,'weekly')">
+    <div class="btns" style="margin:0"><button class="b" onclick="document.getElementById('daycam').click()" ${T.uploading ? "disabled" : ""}>Photo of today's used</button>
+      <button class="b" onclick="document.getElementById('dayfile').click()" ${T.uploading ? "disabled" : ""}>Upload</button>
+      <button class="b" onclick="document.getElementById('wkfile').click()" ${T.uploading ? "disabled" : ""}>Weekly shelf photos</button></div>`;
+  const last = ph.filter(function (p) { return p.status === "scanned"; }).slice(0, 3);
+  last.forEach(function (p) {
+    const r = p.result || {};
+    h += `<div class="boxlist"><b>${esc2(techDate(r.day || String(p.uploaded).slice(0, 10)))}</b> <span class="hint">${p.url ? `<a href="${esc2(p.url)}" target="_blank" rel="noopener">${esc2(p.file)}</a>` : esc2(p.file)} · ${r.matched || 0} matched to their box${(r.noBox || []).length ? " · " + r.noBox.length + " with no stock box" : ""}</span>
+      ${(r.differs || []).length ? `<div class="daydiff"><b>Photo and utilization sheets differ:</b>${r.differs.map(function (d) { return `<div>${esc2(d.what)} — sheets ${d.sheets}, photo ${d.photo}</div>`; }).join("")}<span class="hint">Check the day's sheets: a device missing from a sheet is not taken off the stock.</span></div>` : `<div class="hint" style="color:var(--live)">Matches the day's utilization sheets.</div>`}
+      ${(r.noBox || []).length ? `<div class="hint">No stock box (bought before the stock photos, or not photographed): ${esc2(r.noBox.join("; "))}</div>` : ""}</div>`;
+  });
+  ph.filter(function (p) { return p.status === "queued"; }).slice(0, 1).forEach(function (p) { h += `<p class="hint" style="color:#8a6a12">${p.result && p.result._job ? "Today's photo is in Google's half-price queue — the result appears here when it is back." : "Today's photo is uploaded; it is " + esc2(techNightNote(true)) + " and checked against the day's sheets. Needed now? Read now (full price)."}</p>`; });
+  if (wr && ((wr.sizes || []).length || unseen.length)) {
+    h += `<details class="boxlist"${unseen.length || (wr.sizes || []).length ? " open" : ""}><summary><b>Weekly shelf check — ${esc2(techDate(wr.day))}</b> <span class="hint">${wr.photos} photo${wr.photos === 1 ? "" : "s"} · ${esc2((wr.brands || []).length + " brand" + ((wr.brands || []).length === 1 ? "" : "s"))}</span></summary>`;
+    if ((wr.sizes || []).length) h += `<div class="daydiff"><b>Shelf and list differ:</b>${wr.sizes.map(function (z) {
+      return `<div class="row alignend" style="justify-content:space-between"><span>${esc2(z.what)} — photo ${z.photo}, list ${z.stock}</span>${z.item ? `<button class="b" onclick="techWeeklySet('${esc2(z.item)}',${z.photo})" ${T.saving ? "disabled" : ""}>Set the count to ${z.photo}</button>` : ""}</div>`; }).join("")}
+      <span class="hint">A box hidden behind another, or on a shelf not photographed, also shows here — set the count only once you have looked.</span></div>`;
+    if (unseen.length) h += `<p class="hint" style="margin-top:6px"><b>Not on this week's photos (${unseen.length})</b> — most likely used; left out of the expiry alerts:</p>` +
+      unseen.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','back')" ${T.saving ? "disabled" : ""}>Still on the shelf</button>`); }).join("");
+    h += `</details>`;
+  }
+  return h + `</div>`;
+}
+async function techWeeklySet(id, n) {
+  if (!confirm("Set the count of this size to " + n + " (what the weekly photos show)?")) return;
+  const T = S.tech; T.saving = true; render();
+  try { const j = await sheetApi("invSave", { op: { op: "count", id: id, counted: n, note: "weekly shelf photos" }, by: S.cfg.userName || "" }, 60000); techInvTake(j); T.invSaid = j.said || "Saved."; }
+  catch (e) { T.invSaid = "Not saved: " + (e.message || e); }
+  T.saving = false; render();
+}
+/* a box's item has fewer in stock than boxes photographed (balloons, wires…
+   are taken off by the utilization sheet, which does not say which box): the
+   boxes that expire first are taken as the ones used — first to expire, first
+   out, as the shelf is meant to be used */
+function techPresumedUsed() {
+  const inv = S.tech.inv || {}, out = {};
+  const stock = {}; (inv.items || []).forEach(function (x) { stock[x.id] = x.stock; });
+  const by = {};
+  (inv.boxes || []).forEach(function (b) { if (b.status === "in stock" && !b.usedBy && b.item) (by[b.item] = by[b.item] || []).push(b); });
+  Object.keys(by).forEach(function (id) {
+    const list = by[id], n = Math.max(0, stock[id] == null ? list.length : stock[id]);
+    if (list.length <= n) return;
+    list.slice().sort(function (a, c) { return (boxExpIso(a.expiry) || "9999") < (boxExpIso(c.expiry) || "9999") ? -1 : 1; })
+      .slice(0, list.length - n).forEach(function (b) { out[b.id] = 1; });
+  });
+  return out;
+}
+function techExpiryList() {
+  const gone = techPresumedUsed();
+  const bx = ((S.tech.inv && S.tech.inv.boxes) || []).filter(function (b) {
+    if (b.usedBy || gone[b.id] || !(b.status === "in stock" || b.status === "check")) return false;
+    const d = boxExpDays(b); return d != null && d <= EXPIRY_WARN_DAYS;
+  });
+  return bx.map(function (b) { return Object.assign({ _d: boxExpDays(b) }, b); }).sort(function (a, c) { return a._d - c._d; });
+}
+/* phone: one bar at the top; each tap goes to the next box (and its size) */
+function techExpiryBarHtml() {
+  const list = techExpiryList(); if (!list.length) return "";
+  const gone = list.filter(function (b) { return b._d < 0; }).length, soon = list.length - gone;
+  const i = (S.tech.expIdx || 0) % list.length, b = list[i];
+  return `<button type="button" class="expbar${gone ? " gone" : ""}" onclick="techExpGo()">
+    <span><b>${[gone ? gone + " expired" : "", soon ? soon + " expiring in 2 weeks" : ""].filter(Boolean).join(" · ")}</b></span>
+    <span class="nx">${S.tech.expIdx != null ? esc2((i + 1) + "/" + list.length + " " + b.brand + " " + techBoxSize(b)) + " · next ›" : "tap to go to it ›"}</span></button>`;
+}
+/* go to the next expired / expiring box: its size opened on the list, or its row among the boxes to check */
+function techExpGo(id) {
+  const T = S.tech, list = techExpiryList(); if (!list.length) return;
+  let i;
+  if (id) { i = list.findIndex(function (b) { return b.id === id; }); if (i < 0) i = 0; }
+  else i = T.expIdx == null ? 0 : (T.expIdx + 1) % list.length;
+  T.expIdx = i;
+  const b = list[i], it = ((T.inv && T.inv.items) || []).filter(function (x) { return x.id === b.item; })[0];
+  let sel;
+  if (it && b.status === "in stock") {
+    T.invKind = it.kind; T.invShow = "all"; T.invQ = ""; T.invOpen = it.id;
+    (T.invClosed || {})[it.kind] = false;
+    const dl = stentDiaLen(it.size);
+    if (dl) { T.diaOpen = T.diaOpen || {}; T.diaOpen[it.brand + "|" + stentNum(dl.d)] = true; }
+    sel = "#tile_" + it.id;
+  } else sel = '.invphotos [data-bx="' + b.id + '"]';
+  render();
+  setTimeout(function () {
+    const el = document.querySelector(sel); if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.classList.add("flash"); setTimeout(function () { el.classList.remove("flash"); }, 1600);
+  }, 60);
+}
+function techItemExpiry(itemId) {
+  if (!itemId) return "";
+  let w = "";
+  techExpiryList().forEach(function (b) { if (b.item === itemId && b.status === "in stock") w = b._d < 0 ? "gone" : (w || "soon"); });
+  return w;
+}
+function techExpiryHtml() {
+  const list = techExpiryList();
+  if (!list.length) return "";
+  const gone = list.filter(function (b) { return b._d < 0; }), soon = list.filter(function (b) { return b._d >= 0; });
+  const row = function (b) {
+    const when = b._d < 0 ? "expired " + techDate(boxExpIso(b.expiry)) : b._d === 0 ? "expires today" : "expires in " + b._d + " day" + (b._d === 1 ? "" : "s") + " (" + techDate(boxExpIso(b.expiry)) + ")";
+    return techBoxRowHtml(Object.assign({}, b, { why: when + (b.status === "check" ? " — not counted (to check)" : " — counted in stock") }),
+      `<button class="b" onclick="techExpGo('${esc2(b.id)}')">Go to it</button>` + (b.status === "in stock" && b._d < 0 ? `<button class="b" onclick="techBoxSave('${esc2(b.id)}','discarded')" ${S.tech.saving ? "disabled" : ""}>Taken off the shelf</button>` : ""));
+  };
+  return `<div class="expcard"><div class="exphead"><b>Expiry alerts</b>
+      <span class="hint">${gone.length ? `<b class="r">${gone.length} expired</b>` : ""}${gone.length && soon.length ? " · " : ""}${soon.length ? `<b class="a">${soon.length} expiring within 2 weeks</b> — use first` : ""}</span></div>
+    ${gone.length ? `<div class="expgrp gone">${gone.map(row).join("")}</div>` : ""}
+    ${soon.length ? `<div class="expgrp soon">${soon.map(row).join("")}</div>` : ""}
+    <p class="hint">From the boxes on the stock photos. A box used for a PTCA is left out — for balloons and other devices the sheet does not say which box, so the ones expiring first are taken as used. An expired box taken off the shelf: press <b>Taken off the shelf</b>.</p></div>`;
+}
 function techInvRowHtml(x) {
   const T = S.tech, open = T.invOpen === x.id;
   const nc = !invCounted(x);
   const unit = (INV_KIND_BY[x.kind] || {}).unit;
   const meta = [x.used ? "used " + x.used : "", x.reused ? "reused " + x.reused : "", x.onSheet ? "on sheets " + x.onSheet : "", x.lastUsed ? "last " + techDate(x.lastUsed) : "",
     x.tracked ? (nc && x.stock < 0 ? "no stock entered yet" : "") : "not tracked", unit ? unit : ""].filter(Boolean).join(" · ");
-  const badge = nc && x.stock === 0 ? `<span class="stk nc">not counted yet</span>` : `<span class="stk ${invStockClass(x)}">${x.stock}</span>`;
-  return `<div class="invrow${open ? " open" : ""}${x.tracked ? "" : " off"}" onclick="techInvOpen('${x.id}')">
+  const ex = techItemExpiry(x.id);
+  const badge = (ex ? `<span class="expdot ${ex}">${ex === "gone" ? "expired" : "expiring"}</span>` : "") + (nc && x.stock === 0 ? `<span class="stk nc">not counted yet</span>` : `<span class="stk ${invStockClass(x)}">${x.stock}</span>`);
+  return `<div id="tile_${x.id}" class="invrow${open ? " open" : ""}${x.tracked ? "" : " off"}${ex ? " exp-" + ex : ""}" onclick="techInvOpen('${x.id}')">
       <span class="sz">${esc2(x.size || "—")}</span><span class="meta">${esc2(meta)}</span>
       ${badge}</div>` + (open ? techInvPanelHtml(x) : "");
 }
@@ -13522,6 +14118,7 @@ function techInvPanelHtml(x) {
     (x.adjusted ? (x.adjusted > 0 ? " + " : " − ") + Math.abs(x.adjusted) + " counted / corrected" : "") + "." +
     (x.reused ? " " + x.reused + " reused (ox), not taken off." : "") +
     (x.early ? " " + x.early + " in PTCAs before the start date, not taken off." : "") +
+    (x.before ? " " + x.before + " used before " + techDate(x.from) + " (this item's start), not taken off." : "") +
     (x.onSheet ? " " + x.onSheet + " written on utilization sheets (stents are taken off from their stickers)." : "") +
     (x.low != null ? " Low at " + x.low + "." : "") + (x.notes ? " " + x.notes : "");
   const useRow = `<div class="row alignend">
@@ -13530,26 +14127,29 @@ function techInvPanelHtml(x) {
       <button class="b danger" onclick="techInvDo('use','${x.id}')" ${T.saving ? "disabled" : ""}>Take off</button></div>`;
   return `<div class="invpanel">
     ${x.kind === "contrast" ? useRow : ""}
+    ${x.kind === "stent" ? `<p class="hint">Stents come into stock from a stock photo, each box with its LOT and number for the bills — not as a number typed here.</p>` : `<div class="row alignend">
+      <label class="fld" style="flex:0 1 110px"><span>How many came in</span><input id="invRecv" type="number" min="1" step="1" inputmode="numeric" placeholder="0" oninput="techInvPanelLive(${x.stock},this.value,'invRecvLive','+')"></label>
+      <button class="b live" onclick="techInvDo('receive','${x.id}')" ${T.saving ? "disabled" : ""}>Add to stock</button>
+      <span id="invRecvLive" class="invlivei">${x.stock} in stock</span></div>
     <div class="row alignend">
-      <label class="fld" style="flex:0 1 90px"><span>Received</span><input id="invRecv" type="number" min="1" step="1" inputmode="numeric" placeholder="0"></label>
-      <button class="b live" onclick="techInvDo('receive','${x.id}')" ${T.saving ? "disabled" : ""}>Add to stock</button></div>
-    <div class="row alignend">
-      <label class="fld" style="flex:0 1 110px"><span>On the shelf now</span><input id="invCount" type="number" min="0" step="1" inputmode="numeric" placeholder="${x.stock < 0 ? 0 : x.stock}"></label>
-      <button class="b" onclick="techInvDo('count','${x.id}')" ${T.saving ? "disabled" : ""}>Set the count</button></div>
+      <label class="fld" style="flex:0 1 110px"><span>On the shelf now</span><input id="invCount" type="number" min="0" step="1" inputmode="numeric" placeholder="${x.stock < 0 ? 0 : x.stock}" oninput="techInvPanelLive(${x.stock},this.value,'invCountLive','=')"></label>
+      <button class="b" onclick="techInvDo('count','${x.id}')" ${T.saving ? "disabled" : ""}>Set the count</button>
+      <span id="invCountLive" class="invlivei"></span></div>`}
     <div class="row alignend">
       <label class="fld" style="flex:0 1 90px"><span>Correct by ±</span><input id="invCorr" type="number" step="1" inputmode="numeric" placeholder="-1"></label>
       <label class="fld" style="flex:1 1 140px"><span>Why</span><input id="invCorrNote" placeholder="damaged, returned, expired…"></label>
       <button class="b" onclick="techInvDo('correct','${x.id}')" ${T.saving ? "disabled" : ""}>Correct</button></div>
     ${x.kind === "contrast" ? "" : useRow}
     <p class="hint">${esc2(sum)}</p>
+    ${techFromHtml(x)}
     <div class="btns"><button class="b" onclick="techInvHist('${x.id}')">${T.hist && T.hist.item === x.id ? "Hide history" : "History"}</button>
       <button class="b" onclick="techInvEdit('${x.id}')">${T.invEdit === x.id ? "Close edit" : "Edit"}</button></div>
     ${T.invEdit === x.id ? techInvEditHtml(x) : ""}
     ${T.hist && T.hist.item === x.id ? techInvHistHtml(x) : ""}
   </div>`;
 }
-function invKindOptions(sel) {
-  return INV_KINDS.map(function (k) { return `<option value="${k.kind}"${k.kind === sel ? " selected" : ""}>${esc2(k.one)}</option>`; }).join("");
+function invKindOptions(sel, noStent) {
+  return INV_KINDS.filter(function (k) { return !(noStent && k.kind === "stent"); }).map(function (k) { return `<option value="${k.kind}"${k.kind === sel ? " selected" : ""}>${esc2(k.one)}</option>`; }).join("");
 }
 function techInvEditHtml(x) {
   const items = (S.tech.inv.items || []).filter(function (y) { return y.id !== x.id; })
@@ -13684,6 +14284,13 @@ function techInvDo(kind, id) {
     techInvSave({ op: "correct", id: id, qty: Number(n), note: techVal("invCorrNote") });
   }
 }
+function techInvPanelLive(now, v, id, how) {
+  const el = document.getElementById(id); if (!el) return;
+  const n = String(v || "").trim() === "" ? null : Number(v);
+  if (n == null || !isFinite(n) || n < 0 || Math.round(n) !== n) { el.innerHTML = how === "+" ? now + " in stock" : ""; return; }
+  el.innerHTML = how === "+" ? now + " + " + n + " = <b>" + (now + n) + "</b> in stock"
+    : "list says " + now + " → <b>" + n + "</b> (" + (n - now >= 0 ? "+" : "−") + Math.abs(n - now) + ")";
+}
 function techInvEditSave(id) {
   const el = document.getElementById("ieTracked");
   techInvSave({ op: "edit", id: id, kind: techVal("ieKind"), brand: techVal("ieBrand"), size: techVal("ieSize"),
@@ -13713,8 +14320,9 @@ function techInvStart() {
 /* Add stock: an item already on the list gets the number added, a new one is added with it */
 function techInvAdd(kind) {
   const T = S.tech;
-  const k = kind || (T.invKind && T.invKind !== "all" ? T.invKind : "stent");
-  T.invForm = T.invForm && !kind ? null : { kind: k, brand: "", size: "", units: "", low: "", note: "" };
+  let k = kind || (T.invKind && T.invKind !== "all" ? T.invKind : "balloon");
+  if (k === "stent") k = "balloon";    // 13.50: stents only from a stock photo (LOT and number for billing)
+  T.invForm = T.invForm && !kind ? null : { kind: k, brand: "", size: "", units: "", low: "", note: "", id: "" };
   render();
 }
 function techInvFind(kind, brand, size) {
@@ -13729,36 +14337,91 @@ function invSizeKeyApp(s) {
     .replace(/(\d+\.\d*?)0+(?=\D|$)/g, "$1").replace(/\.(?=\D|$)/g, "")
     .replace(/[^0-9a-z.]/g, "");
 }
+/* 13.50 — Add stock by count: type, brand, size and how many came in — no
+   LOT, number or expiry. The item it goes to and the new total show as it is
+   typed ("2 in stock + 5 = 7"); a brand typed a little differently from the
+   list ("Tanzor" for "Tanzor NC") is offered as the item to add to. Not for
+   stents: they come in from a stock photo, each box with its LOT and number
+   for the bills. */
+function techInvFormItem() {
+  const f = S.tech.invForm;
+  if (f.id) { const x = (S.tech.inv.items || []).filter(function (y) { return y.id === f.id; })[0]; if (x) return x; f.id = ""; }
+  return f.brand ? techInvFind(f.kind, f.brand, f.size) : null;
+}
+/* items of this type that look like what is typed: same size, brand starting
+   or contained the one in the other — or, with no size yet, the brand's sizes */
+function techInvFormNear() {
+  const f = S.tech.invForm, kb = hwNorm(f.brand), ks = invSizeKeyApp(f.size);
+  if (!kb && !ks) return [];
+  return (S.tech.inv.items || []).filter(function (x) {
+    if (x.kind !== f.kind) return false;
+    const xb = hwNorm(x.brand), xs = invSizeKeyApp(x.size);
+    const bOk = !kb || xb.indexOf(kb) >= 0 || kb.indexOf(xb) >= 0;
+    const sOk = !ks || xs === ks;
+    return bOk && sOk && (kb || ks);
+  }).sort(function (a, b) { return a.brand.localeCompare(b.brand) || invSizeSortApp(a.size, b.size); }).slice(0, 12);
+}
+function invSizeSortApp(a, b) {
+  const na = String(a || "").match(/\d+(?:\.\d+)?/g) || [], nb = String(b || "").match(/\d+(?:\.\d+)?/g) || [];
+  for (let i = 0; i < Math.max(na.length, nb.length); i++) { if (na[i] == null) return -1; if (nb[i] == null) return 1; const d = Number(na[i]) - Number(nb[i]); if (d) return d; }
+  return 0;
+}
+function techInvFormLiveHtml() {
+  const f = S.tech.invForm, have = techInvFormItem();
+  const n = String(f.units || "").trim() === "" ? null : Number(f.units);
+  const good = n != null && isFinite(n) && n >= 1 && Math.round(n) === n;
+  const one = (INV_KIND_BY[f.kind] || {}).one || "item";
+  if (have) {
+    const now = have.stock;
+    return `<div class="invlive ok"><span class="what">${esc2(j([have.brand, have.size], " "))}</span>
+      <span class="sum">${now} in stock${good ? ` + <b>${n}</b> = <b class="tot">${now + n}</b>` : ""}</span>
+      ${good ? "" : `<span class="hint">type how many came in</span>`}</div>`;
+  }
+  if (!String(f.brand || "").trim()) return `<div class="invlive"><span class="hint">Type the brand and size — the stock it adds to and the new total show here.</span></div>`;
+  const near = techInvFormNear();
+  return `<div class="invlive new"><span class="what">New on the list: ${esc2(j([f.brand, f.size], " "))} (${esc2(one.toLowerCase())})</span>
+      <span class="sum">0 in stock${good ? ` + <b>${n}</b> = <b class="tot">${n}</b>` : ""}</span></div>` +
+    (near.length ? `<p class="hint" style="margin:6px 0 2px">Already on the list — tap the one these are, if it is one of them:</p><div class="invnear">` +
+      near.map(function (x) { return `<button type="button" class="b" onclick="techInvFormPick('${x.id}')">${esc2(j([x.brand, x.size], " "))} <span class="hint">· ${x.stock} in stock</span></button>`; }).join("") + `</div>` : "");
+}
+function techInvFormLive() { const el = document.getElementById("ifLive"); if (el) el.innerHTML = techInvFormLiveHtml(); }
+function techInvFormPick(id) {
+  const f = S.tech.invForm, x = (S.tech.inv.items || []).filter(function (y) { return y.id === id; })[0];
+  if (!x) return;
+  f.id = id; f.brand = x.brand; f.size = x.size; f.kind = x.kind;
+  render();
+  setTimeout(function () { const el = document.getElementById("ifUnits"); if (el) el.focus(); }, 30);
+}
 function techInvFormHtml() {
   const f = S.tech.invForm;
   const names = [];
   activeHardware().forEach(function (e) { if (invKindOf(hwKind(e.role)) === f.kind && names.indexOf(e.name) < 0) names.push(e.name); });
   (S.tech.inv.items || []).forEach(function (x) { if (x.kind === f.kind && names.indexOf(x.brand) < 0) names.push(x.brand); });
-  const have = f.brand ? techInvFind(f.kind, f.brand, f.size) : null;
-  const set = function (k) { return `oninput="S.tech.invForm.${k}=this.value"`; };
+  const set = function (k) { return `oninput="S.tech.invForm.${k}=this.value;S.tech.invForm.id='';techInvFormLive()"`; };
+  const isC = f.kind === "contrast";
   return `<div class="invform">
+    <p class="hint" style="margin-top:0"><b>Add stock by count</b> — type, brand, size and how many came in; no LOT, number or expiry needed. Stents are not added here: they come in from a stock photo, each box with its LOT and number for the bills.</p>
     <div class="row">
-      <label class="fld" style="flex:1 1 140px"><span>Type</span><select onchange="S.tech.invForm.kind=this.value;render()">${invKindOptions(f.kind)}</select></label>
-      <label class="fld" style="flex:2 1 170px"><span>Brand (the device's name)</span><input list="ifBrands" value="${esc2(f.brand)}" ${set("brand")} onchange="render()"><datalist id="ifBrands">${names.map(function (n) { return `<option value="${esc2(n)}">`; }).join("")}</datalist></label>
-      <label class="fld" style="flex:1 1 100px"><span>${f.kind === "contrast" ? "Bottle size" : "Size"}</span><input value="${esc2(f.size)}" placeholder="${f.kind === "contrast" ? "100 ml" : "3.0×38, 6F, 1.5"}" ${set("size")} onchange="render()"></label></div>
-    <div class="row">
-      <label class="fld" style="flex:0 1 100px"><span>${f.kind === "contrast" ? "Bottles received" : "Received"}</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.units)}" ${set("units")}></label>
-      <label class="fld" style="flex:0 1 100px"><span>Low at</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.low)}" ${set("low")} ${have ? "disabled" : ""}></label></div>
-    <p class="hint">${have ? "On the list already: " + esc2(j([have.brand, have.size], " ")) + ", " + have.stock + " in stock — the number received is added to it." : "Not on the list yet: it is added, with the number received (0 just adds the item)."}</p>
-    <div class="btns"><button class="b primary" onclick="techInvAddSave()" ${S.tech.saving ? "disabled" : ""}>Save</button><button class="b" onclick="S.tech.invForm=null;render()">Cancel</button></div>
+      <label class="fld" style="flex:1 1 140px"><span>Type</span><select onchange="S.tech.invForm.kind=this.value;S.tech.invForm.id='';render()">${invKindOptions(f.kind, true)}</select></label>
+      <label class="fld" style="flex:2 1 170px"><span>Brand (the device's name)</span><input list="ifBrands" value="${esc2(f.brand)}" ${set("brand")}><datalist id="ifBrands">${names.map(function (n) { return `<option value="${esc2(n)}">`; }).join("")}</datalist></label>
+      <label class="fld" style="flex:1 1 100px"><span>${isC ? "Bottle size" : "Size"}</span><input value="${esc2(f.size)}" placeholder="${isC ? "100 ml" : "2.5×15, 6F, 0.014"}" ${set("size")}></label></div>
+    <div class="row alignend">
+      <label class="fld" style="flex:0 1 120px"><span>${isC ? "Bottles came in" : "How many came in"}</span><input id="ifUnits" type="number" min="1" step="1" inputmode="numeric" value="${esc2(f.units)}" oninput="S.tech.invForm.units=this.value;techInvFormLive()"></label>
+      <label class="fld" style="flex:0 1 100px"><span>Low at</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.low)}" oninput="S.tech.invForm.low=this.value"></label></div>
+    <div id="ifLive">${techInvFormLiveHtml()}</div>
+    <div class="btns"><button class="b primary" onclick="techInvAddSave()" ${S.tech.saving ? "disabled" : ""}>Add to stock</button><button class="b" onclick="S.tech.invForm=null;render()">Cancel</button></div>
   </div>`;
 }
 function techInvAddSave() {
   const f = S.tech.invForm;
+  if (f.kind === "stent") { techSay("Stents are added from a stock photo, so each box has its LOT and number for billing.", true); return; }
   const brand = String(f.brand || "").trim(), size = String(f.size || "").trim();
   if (!brand) { techSay("Type the device's name (brand).", true); return; }
   const units = String(f.units || "").trim() === "" ? 0 : Number(f.units);
-  const have = techInvFind(f.kind, brand, size);
-  let op;
-  if (have) {
-    if (!(units >= 1)) { techSay(j([have.brand, have.size], " ") + " is on the list already — type how many came in.", true); return; }
-    op = { op: "receive", id: have.id, units: units, note: f.note || "" };
-  } else op = { op: "add", kind: f.kind, brand: brand, size: size, units: units, low: f.low, note: f.note || "" };
+  if (!(units >= 1) || Math.round(units) !== units) { techSay("Type how many came in (a whole number).", true); return; }
+  const have = techInvFormItem();
+  const op = have ? { op: "receive", id: have.id, units: units, note: "added by count" }
+    : { op: "add", kind: f.kind, brand: brand, size: size, units: units, low: f.low, note: "added by count" };
   techInvSave(op).then(function (ok) { if (ok) { S.tech.invForm = null; render(); } });
 }
 
@@ -14289,7 +14952,7 @@ function techPhotosHtml() {
     "read automatically at night (" + (p.window || "20:00–04:00") + ")" + (p.mode === "closed" && p.next ? ", next from " + p.next : "");
   return `<div class="card"><div class="cardhead"><div><b>Used-stent photos</b>
       <p class="hint">${esc2([(st.waiting || 0) + " waiting", (st.failed || 0) + " failed", (st.scanned || 0) + " read", (st.inDone || 0) + " photo" + (st.inDone === 1 ? "" : "s") + " kept (the newest " + (st.keep || 200) + ")", auto].join(" · "))}</p></div>
-      <div class="btns" style="margin:0"><button class="b primary" onclick="techScanNow()" ${T.scanning ? "disabled" : ""}>${T.scanning ? "Reading…" : "Read the new photos now"}</button></div></div>
+      <div class="btns" style="margin:0"><button class="b primary" onclick="techScanNow()" ${T.scanning ? "disabled" : ""}>${T.scanning ? "Reading…" : "Read now (full price)"}</button></div></div>
     ${T.scanSaid ? `<div class="warn blue">${esc2(T.scanSaid)}</div>` : ""}
     <p class="hint">One photo per patient: write the patient's name and PTCA / Cath number on a sheet, stick that patient's stent labels beside them, and photograph it flat and close, every label sharp. Put it in the Drive folder <b>${esc2(st.inName || "Used stents upload")}</b> — or upload it here. After reading, the photo moves to <b>${esc2(st.doneName || "Used stents processed")}</b>; only the newest ${st.keep || 200} photos are kept there, and what was read stays in the sheet's Stents tab.</p>
     <input type="file" accept="image/*" capture="environment" id="stcam" hidden onchange="techUpload(this)">
@@ -14301,7 +14964,7 @@ function techPhotosHtml() {
     ${T.upSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.upSaid)}</p>` : ""}
     <div class="uplist" id="upList">${techUploadsListHtml()}</div></div>`;
 }
-const UP_TAG = { queued: ["WAITING", "#d9a400"], scanned: ["READ", "#1c7a55"], failed: ["FAILED", "#c00000"], dismissed: ["DISMISSED", "#9a9ea8"] };
+const UP_TAG = { queued: ["WAITING · TONIGHT", "#d9a400"], scanned: ["READ", "#1c7a55"], failed: ["FAILED", "#c00000"], dismissed: ["DISMISSED", "#9a9ea8"] };
 function techUploadsListHtml() {
   const T = S.tech;
   if (!T.uploads) return T.loading ? `<p class="hint">Loading…</p>` : "";
@@ -14314,9 +14977,10 @@ function techUploadsListHtml() {
   return bulk + T.uploads.slice(0, 80).map(function (u) {
     const tag = u.purpose === "stock" ? ["STOCK", "#0e7490"] : (UP_TAG[u.status] || [String(u.status || "").toUpperCase(), "#5f6470"]);
     const errs = (u.errors || []).map(function (e) { return typeof e === "string" ? e : (e.reason || ""); }).filter(Boolean);
+    if (u.status === "queued") errs.unshift(u.inQueue ? "In Google's half-price queue since " + new Date(u.queuedAt).toTimeString().slice(0, 5) + " — the answer is collected automatically" : "Will be " + techNightNote(true) + ". Press Read now for it at once (full price).");
     return `<div class="pick"><div class="who"><b>${esc2(u.patient || u.file || u.id)} <span class="tag" style="background:${tag[1]}">${tag[0]}</span></b>
       <span>${esc2([u.number ? "PTCA " + u.number : "", u.stickers ? u.stickers + " sticker" + (u.stickers === 1 ? "" : "s") : "", u.uploaded ? "uploaded " + u.uploaded : "", u.scannedAt ? "read " + u.scannedAt : "", u.photoGone ? "photo deleted " + u.photoGone : ""].filter(Boolean).join(" · "))}</span>
-      ${errs.length ? `<span style="color:#c00000">${esc2(errs.join("; "))}</span>` : ""}
+      ${errs.length ? `<span style="color:${u.status === "queued" ? "#8a6a12" : "#c00000"}">${esc2(errs.join("; "))}</span>` : ""}
       <span>${esc2(u.file || "")}${u.by ? " · uploaded by " + esc2(u.by) : ""}</span></div>
       <div class="btns" style="margin:0">
         ${u.fileId && !u.photoGone ? `<button class="b" onclick="techPhoto('${esc2(u.fileId)}')">Photo</button>` : ""}
@@ -14337,16 +15001,20 @@ async function techUpload(input, purpose) {
     T.upSaid = "Uploading " + (i + 1) + " of " + files.length + "…"; render();
     try {
       const im = await techImageFrom(files[i], 2400);
-      await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "", purpose: purpose || "" }, 120000);
+      await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "", purpose: purpose || "", kind: purpose === "stock" ? (S.tech.upKind || "") : "" }, 120000);
       ok++;
     } catch (e) { bad = e.message || String(e); break; }
   }
   T.uploading = false;
-  if (purpose === "stock") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Inventory uploads" + (bad ? "; then: " + bad : "") + (ok ? " — read at the next scan, or press “Read inventory photos now”." : "");
+  if (purpose === "day" || purpose === "weekly") {
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Instruments used upload" : "Weekly shelf photos") + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
-  T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" + (bad ? "; then: " + bad : "") + (ok ? " — read at the next scan, or press “Scan used stents inbox”." : "");
+  if (purpose === "stock") {
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Inventory uploads" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
+    T.statusAt = 0; await techLoad(true); return;
+  }
+  T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read used-stent photos now (full price)." : "");
   T.upAt = 0; T.statusAt = 0;
   await techLoad(true);
 }
@@ -14381,7 +15049,7 @@ async function techScanNow() {
 }
 async function techUpRetry(id) {
   if (!confirm("Read this photo again from the start? Its stickers are read afresh at the next scan.")) return;
-  try { await sheetApi("stentRetry", { id: id, by: S.cfg.userName || "" }, 40000); S.tech.upAt = 0; S.tech.statusAt = 0; techSay("Queued — it is read at the next scan."); techLoad(true); }
+  try { await sheetApi("stentRetry", { id: id, by: S.cfg.userName || "" }, 40000); S.tech.upAt = 0; S.tech.statusAt = 0; techSay("Queued — " + techNightNote(true) + ", or press Read now (full price)."); techLoad(true); }
   catch (e) { techSay(e.message || String(e), true); }
 }
 async function techUpDismiss(id) {
@@ -14440,6 +15108,7 @@ function render() {
   else if (S.step === "ot") body = viewOt();
   else if (S.step === "batch") body = viewBatch();
   else if (S.step === "tech") body = viewTech();
+  else if (S.step === "costs") body = viewCosts();
   else body = viewCapture();
   const banners = (S.err ? `<div class="warn err">${esc2(S.err)}</div>` : "") +
     (S.ok ? `<div class="warn okmsg">${esc2(S.ok)}</div>` : "");
