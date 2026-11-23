@@ -1415,7 +1415,7 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); invImport23NovB_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -5548,6 +5548,69 @@ function invImport23Nov_(runId) {
   return true;
 }
 
+
+/* 13.50 — once: more stock of 23 Nov 2026 (Dr Yadav's photos, read by Claude):
+   6 Ultima PC (Translumina; each box with REF, LOT, serial and use-by) and a
+   stack of 13 Yukon Choice Swift 3.00 mm. Counted as found on the shelf: a box
+   already in stock from an earlier photo (the 3.00×32 of LOT SAAX110726 on the
+   20 Nov photo, which had no serial) is taken as the same box and given its
+   serial, not counted twice.
+   [photo, kind, brand, maker, diameter, length, LOT, serial, REF, expiry, place] */
+var IMPORT_23NOV_B = [
+  ["Ultima PC box 1", "stent", "Ultima PC", "Translumina", 3, 18, "UAWD210226", "UAWD21284", "UAPC3018", "01-2028", "box label"],
+  ["Ultima PC box 2", "stent", "Ultima PC", "Translumina", 3, 21, "UAWE240226", "UAWE24273", "UAPC3021", "01-2028", "box label"],
+  ["Ultima PC box 3", "stent", "Ultima PC", "Translumina", 3, 18, "UAVK261225", "UAVK26311", "UAPC3018", "11-2027", "box label"],
+  ["Ultima PC box 4", "stent", "Ultima PC", "Translumina", 3, 28, "UAWJ170326", "UAWJ17857", "UAPC3028", "02-2028", "box label"],
+  ["Ultima PC box 5", "stent", "Ultima PC", "Translumina", 3, 28, "UAWA160226", "UAWA16859", "UAPC3028", "01-2028", "box label"],
+  ["Ultima PC box 6", "stent", "Ultima PC", "Translumina", 3, 40, "UAWI110326", "UAWI11970", "UAPC3040", "02-2028", "box label"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 32, "SAAY050826", "SAAY051550", "", "", "stack, box 1 from the top"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 32, "SAAX110726", "SAAX111715", "", "", "stack, box 2"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 44, "SABA070926", "SABA071740", "", "", "stack, box 3"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 21, "SAAX110726", "SAAX110813", "", "", "stack, box 4"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 21, "SAAX110726", "SAAX110820", "", "", "stack, box 5"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 24, "SAAX110726", "SAAX111128", "", "", "stack, box 6"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 24, "SAAX110726", "SAAX111129", "", "", "stack, box 7"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 28, "SAAX110726", "SAAX111527", "", "", "stack, box 8"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 36, "SAAW060726", "SAAW060308", "", "", "stack, box 9"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 36, "SAAW060726", "SAAW060305", "", "", "stack, box 10"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 40, "SAAY050826", "SAAY051752", "", "", "stack, box 11"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 48, "SAAW060726", "SAAW060456", "", "", "stack, box 12"],
+  ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 48, "SAAW060726", "SAAW060460", "", "", "stack, box 13"],
+];
+function invImport23NovB_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_IMPORT_23NOV_B")) return false;
+  pr.setProperty("INV_IMPORT_23NOV_B", "started " + cathNow_());
+  var who = "Claude (photos of 23 Nov, Ultima PC and Yukon 3.00)";
+  var boxes = boxRowsAll_(), photos = [], byPhoto = {}, tot = { added: 0, same: 0, check: 0 };
+  IMPORT_23NOV_B.forEach(function (x) { if (!byPhoto[x[0]]) { byPhoto[x[0]] = []; photos.push(x[0]); } byPhoto[x[0]].push(x); });
+  photos.forEach(function (ph, i) {
+    var up = { id: "CLAUDE-23NOVB-" + (i + 1), file: ph + " (photo sent 23 Nov, read by Claude)", fileId: "" };
+    var list = byPhoto[ph].map(function (x) {
+      return { device: "Stent", brand: x[2], manufacturer: x[3], diameter: String(x[4]), length: String(x[5]),
+        lot: x[6], serial: x[7], ref: x[8], expiry: x[9], codes: [], place: x[10] };
+    });
+    boxTakePhoto_(up, list, who, "Claude", boxes, []);
+  });
+  var all = boxRowsAll_(), byId = {};
+  all.forEach(function (b) { byId[b.id] = b; });
+  all.filter(function (b) { return String(b.up).indexOf("CLAUDE-23NOVB-") === 0; }).forEach(function (b) {
+    var changed = false;
+    if (String(b.readAt).slice(0, 10) !== IMPORT_23NOV_DAY) { b.readAt = IMPORT_23NOV_DAY + " 13:30"; changed = true; }
+    if (b.status === "repeat") {
+      // the same box as one already counted: the older row gets this one's serial
+      var old = b.same ? byId[b.same] : null;
+      if (old && !old.serial && b.serial) { old.serial = b.serial; old.why = cathStr_((old.why ? old.why + "; " : "") + "serial " + b.serial + " from the photo of 23 Nov", 300); boxWrite_(old); }
+      tot.same++;
+    } else if (b.status === "in stock") tot.added++; else tot.check++;
+    if (changed) boxWrite_(b);
+  });
+  boxSyncMoves_(who);
+  pr.setProperty("INV_IMPORT_23NOV_B", JSON.stringify({ at: cathNow_(), boxes: IMPORT_23NOV_B.length, added: tot.added, same: tot.same, check: tot.check }));
+  batchLogRow_(runId, "", "", "more stock of 23 Nov (read by Claude)", tot.check ? "partly written" : "written",
+    IMPORT_23NOV_B.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock from an earlier photo" : "") + (tot.check ? ", " + tot.check + " to check" : "") + " (6 Ultima PC, 13 Yukon Choice Swift 3.00)");
+  return true;
+}
 
 /* ==== 13.50 — what each Gemini request cost ====
    Every answer from Google carries its own count of tokens (usageMetadata):
