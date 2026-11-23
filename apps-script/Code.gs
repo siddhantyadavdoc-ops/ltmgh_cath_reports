@@ -5525,6 +5525,8 @@ function costPrices_() {
   if (!d || typeof d !== "object") d = {};
   if (!d.models || typeof d.models !== "object") d.models = {};
   if (!(Number(d.half) > 0)) d.half = 0.5;
+  /* default from the Google bill of 17-20 Nov 2026 (Gemini 3.8 Flash): input ₹71.4, output incl. thinking ₹357 per million tokens */
+  if (!Object.keys(d.models).length) d.models["*"] = { "in": 71.4, out: 357 };
   return d;
 }
 function costPricesSet_(req) {
