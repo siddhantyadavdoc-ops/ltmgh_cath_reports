@@ -317,6 +317,11 @@ fieldset.otlock:disabled{opacity:.55}
 .invpanel{padding:10px 12px 12px 22px;background:#fafbfc;border-top:1px dashed var(--hair);border-bottom:1px dashed var(--hair)}
 .invpanel .row{gap:8px;margin-bottom:6px}
 .invform,.stedit,.billform{border:1px solid var(--hair);border-radius:9px;background:var(--paper);padding:10px 12px;margin:10px 0}
+.invlive{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:8px 0 4px;padding:8px 12px;border-radius:8px;background:#f4f4f2;border:1px solid var(--hair)}
+.invlive.ok{background:#e9f6ec;border-color:#9fd3ac}.invlive.new{background:#fff6e0;border-color:#f0cf7a}
+.invlive .what{font-weight:600}.invlive .sum{font-size:18px}.invlive .tot{font-size:24px;color:#0b6b2a}
+.invnear{display:flex;flex-wrap:wrap;gap:6px}.invnear .b{font-size:13px}
+.invlivei{align-self:center;font-size:15px;padding-bottom:6px}.invlivei b{font-size:20px;color:#0b6b2a}
 .billitem{border-top:1px dashed var(--hair);margin-top:8px;padding-top:4px}
 .ckline{display:flex;gap:7px;align-items:center;font-size:13px;margin:4px 0 2px}
 .ckline input{width:17px;height:17px;accent-color:var(--wine)}
@@ -632,6 +637,7 @@ body.hasnav #appnav{display:flex}
 .costtbl th{font-weight:600;color:#444;background:#f6f6f6}
 .costtbl input{width:110px}
 .costs .btns .b.on{background:#111;color:#fff}
+.thinkbox{border:1px solid #ddd;border-radius:8px;padding:6px 12px 2px;margin:10px 0 4px}
 </style>
 </head>
 <body>
@@ -8535,6 +8541,37 @@ async function callGemini(b64, prompt, label, opts) {
 const TEMPERATURE_REFUSED = /temperature|top_?p\b|top_?k\b|topP|topK|sampling param/i;
 function noTemperature(model) { return !!(S.cfg.noTemp && typeof S.cfg.noTemp === "object" && S.cfg.noTemp[model]); }
 
+/* 13.50 — how much the model thinks (the sheet's THINKING setting, changed
+   on the Gemini costs page; remembered on this phone). A model that refuses
+   the setting is remembered and sent without it. */
+const THINK_WORD = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", auto: "Model's own (high)" };
+function thinkLevelApp() { const v = String(S.cfg.think || "low"); return THINK_WORD[v] ? v : "low"; }
+function thinkConfigApp(model) {
+  let lv = thinkLevelApp();
+  if (lv === "auto" || (S.cfg.noThink && S.cfg.noThink[model])) return null;
+  if (/pro/i.test(String(model || ""))) lv = lv === "minimal" ? "low" : lv === "medium" ? "high" : lv;
+  return { thinkingLevel: lv };
+}
+function thinkTake(t) {
+  if (!t || !t.level || !THINK_WORD[t.level]) return;
+  if (S.cfg.think !== t.level) { S.cfg.think = t.level; saveCfg(); }
+}
+async function thinkSync() {
+  if (!S.cfg.sheetUrl || sheetUrlProblem(S.cfg.sheetUrl)) return;
+  try { thinkTake((await sheetApi("thinkGet", {}, 20000)).think); } catch (e) {}
+}
+setTimeout(thinkSync, 6000);
+async function thinkSet(level) {
+  const C = S.costs = S.costs || {};
+  if (C.thinkBusy) return;
+  C.thinkBusy = true; render();
+  try {
+    const r = await sheetApi("thinkSet", { level: level, by: S.cfg.userName || "" });
+    C.think = r.think; thinkTake(r.think); flash("ok", r.said || "Saved.");
+  } catch (e) { flash("err", "Not saved: " + (/unknown action/i.test(String(e && e.message)) ? "the shared sheet's script is older than 13.50" : (e.message || e))); }
+  C.thinkBusy = false; render();
+}
+
 async function geminiRequest(b64, prompt, label, opts, ctrl) {
   const quiet = !!opts.quiet;
   const isCancelled = opts.isCancelled || function () { return S.cancelled; };
@@ -8554,9 +8591,10 @@ async function geminiRequest(b64, prompt, label, opts, ctrl) {
           { inlineData: { mimeType: "image/jpeg", data: b64 } }
         ]
       }],
-      generationConfig: noTemperature(model)
+      generationConfig: Object.assign(noTemperature(model)
         ? { responseMimeType: "application/json", maxOutputTokens: 8192 }
-        : { responseMimeType: "application/json", maxOutputTokens: 8192, temperature: 0.1 }
+        : { responseMimeType: "application/json", maxOutputTokens: 8192, temperature: 0.1 },
+        thinkConfigApp(model) ? { thinkingConfig: thinkConfigApp(model) } : {})
     })
   };
 
@@ -8573,6 +8611,13 @@ async function geminiRequest(b64, prompt, label, opts, ctrl) {
       S.cfg.noTemp[model] = new Date().toISOString();
       saveCfg();
       addLog("Notice", label, model + " no longer accepts the temperature setting \u2014 sent again without it, and from now on", errText);
+      return geminiRequest(b64, prompt, label, opts, ctrl);
+    }
+    if (res.status === 400 && thinkConfigApp(model) && /think/i.test(errText) && !mcKeyProblem(errText)) {
+      if (!S.cfg.noThink || typeof S.cfg.noThink !== "object") S.cfg.noThink = {};
+      S.cfg.noThink[model] = new Date().toISOString();
+      saveCfg();
+      addLog("Notice", label, model + " does not take the thinking setting \u2014 sent again without it, and from now on", errText);
       return geminiRequest(b64, prompt, label, opts, ctrl);
     }
     addLog("Error", label, "HTTP " + res.status, errText);
@@ -10983,6 +11028,7 @@ async function costLoad(force) {
   try {
     const r = await sheetApi("costList", { days: 95 }, 60000);
     C.rows = r.rows || []; C.prices = r.prices || { models: {}, half: 0.5 }; C.since = r.since || ""; C.at = Date.now();
+    if (r.think) { C.think = r.think; thinkTake(r.think); }
     C.edit = null;
   } catch (e) {
     C.err = /unknown action/i.test(String(e && e.message)) ? "The shared sheet's script is older than this app — the Costs page needs Code 13.50." : String(e.message || e);
@@ -11045,6 +11091,7 @@ function viewCosts() {
       <button class="b" onclick="costLoad(true)" ${C.busy ? "disabled" : ""}>${C.busy ? "Loading…" : "Refresh"}</button>
       <button class="b" onclick="costCsv()" ${rows.length ? "" : "disabled"}>Download CSV</button></div>`;
   if (C.err) h += `<div class="warn err">${esc2(C.err)}</div>`;
+  h += costThinkHtml(rows);
   if (!C.rows) return h + (C.busy ? `<p class="hint">Loading…</p>` : "") + `</div>`;
   if (!U.tot.priced && rows.length) h += `<div class="warn">No price is set for ${esc2(costUnpriced(rows).join(", ") || "these models")} — the token counts are shown; set the prices below to see rupees.</div>`;
   // headline
@@ -11082,6 +11129,19 @@ function viewCosts() {
     cs.map(function (c) { return `<tr><td>${esc2(c.at.slice(0, 16))}</td><td>${esc2(c.name || c.id)}</td><td>${c.what.replace(" case", "")}</td><td>${c.req}</td><td>${costK(c.inT)}</td><td>${costK(c.ans)}</td><td>${costK(c.think)}</td><td>${c.half === c.req ? "half" : c.half ? "mixed" : "full"}</td><td>${priced ? costRs(c.rs) : "—"}</td></tr>`; }).join("") + `</table></div>`;
   h += costPriceHtml(rows);
   return h + `</div>`;
+}
+/* the thinking setting: one tap, no new version; the sheet and every phone
+   use it from the next request */
+function costThinkHtml(rows) {
+  const C = S.costs || {}, T = C.think;
+  const cur = T ? T.level : thinkLevelApp();
+  const reads = rows.filter(function (r) { return /case$|photo|bill/.test(r[1]); });
+  const avgThink = reads.length ? reads.reduce(function (a, r) { return a + (r[9] || 0); }, 0) / reads.length : 0;
+  const btn = function (k) { return `<button type="button" class="b${cur === k ? " on" : ""}" onclick="thinkSet('${k}')" ${C.thinkBusy || !T ? "disabled" : ""}>${esc2(THINK_WORD[k])}</button>`; };
+  return `<div class="thinkbox"><h3>Thinking</h3>
+    <p class="hint">How long the model reasons before it answers. Thinking is billed as output and was most of the bill at the model's own setting (high). <b>Low</b> is the default; if readings start coming back wrong, choose a higher level here — it applies from the next request, to the sheet's scans and to every phone, with no new version.</p>
+    <div class="btns">${["minimal", "low", "medium", "high", "auto"].map(btn).join("")}</div>
+    <p class="hint">Now: <b>${esc2(THINK_WORD[cur] || cur)}</b>${T && T.at ? " · set " + esc2(String(T.at).slice(0, 16)) + (T.by ? " by " + esc2(T.by) : "") : T ? " · the default" : " · loading…"}${reads.length ? " · " + costK(avgThink) + " thinking tokens per request in " + esc2(costPeriod().word) : ""}${T && T.refused && T.refused.length ? " · sent without it (the model refuses the setting): " + esc2(T.refused.join(", ")) : ""}.</p></div>`;
 }
 function costUnpriced(rows) { const o = []; rows.forEach(function (r) { const m = r[5] || "(not recorded)"; if (!costPriceOf(r[5]) && o.indexOf(m) < 0) o.push(m); }); return o; }
 function costPriceHtml(rows) {
@@ -13351,7 +13411,7 @@ function techInvHtml() {
   }));
   return `<div class="card invcard">
     <div class="cardhead"><div><b>Inventory</b><p class="hint">${items.length} item${items.length === 1 ? "" : "s"} · stents from their stickers, everything else from saved utilization sheets · PTCAs from ${esc2(techDate(inv.start))}</p></div>
-      <div class="btns" style="margin:0"><button class="b primary" onclick="techInvAdd()">Add stock</button></div></div>
+      <div class="btns" style="margin:0"><button class="b primary" onclick="techInvAdd()">Add stock by count</button></div></div>
     <div class="invtiles">
       <button class="invtile${neg ? " bad" : ""}" onclick="S.tech.invShow='neg';S.tech.invKind='all';render()"><b>${neg}</b><span>below zero</span></button>
       <button class="invtile${low ? " amber" : ""}" onclick="S.tech.invShow='low';S.tech.invKind='all';render()"><b>${low}</b><span>low or out</span></button>
@@ -14066,12 +14126,14 @@ function techInvPanelHtml(x) {
       <button class="b danger" onclick="techInvDo('use','${x.id}')" ${T.saving ? "disabled" : ""}>Take off</button></div>`;
   return `<div class="invpanel">
     ${x.kind === "contrast" ? useRow : ""}
+    ${x.kind === "stent" ? `<p class="hint">Stents come into stock from a stock photo, each box with its LOT and number for the bills — not as a number typed here.</p>` : `<div class="row alignend">
+      <label class="fld" style="flex:0 1 110px"><span>How many came in</span><input id="invRecv" type="number" min="1" step="1" inputmode="numeric" placeholder="0" oninput="techInvPanelLive(${x.stock},this.value,'invRecvLive','+')"></label>
+      <button class="b live" onclick="techInvDo('receive','${x.id}')" ${T.saving ? "disabled" : ""}>Add to stock</button>
+      <span id="invRecvLive" class="invlivei">${x.stock} in stock</span></div>
     <div class="row alignend">
-      <label class="fld" style="flex:0 1 90px"><span>Received</span><input id="invRecv" type="number" min="1" step="1" inputmode="numeric" placeholder="0"></label>
-      <button class="b live" onclick="techInvDo('receive','${x.id}')" ${T.saving ? "disabled" : ""}>Add to stock</button></div>
-    <div class="row alignend">
-      <label class="fld" style="flex:0 1 110px"><span>On the shelf now</span><input id="invCount" type="number" min="0" step="1" inputmode="numeric" placeholder="${x.stock < 0 ? 0 : x.stock}"></label>
-      <button class="b" onclick="techInvDo('count','${x.id}')" ${T.saving ? "disabled" : ""}>Set the count</button></div>
+      <label class="fld" style="flex:0 1 110px"><span>On the shelf now</span><input id="invCount" type="number" min="0" step="1" inputmode="numeric" placeholder="${x.stock < 0 ? 0 : x.stock}" oninput="techInvPanelLive(${x.stock},this.value,'invCountLive','=')"></label>
+      <button class="b" onclick="techInvDo('count','${x.id}')" ${T.saving ? "disabled" : ""}>Set the count</button>
+      <span id="invCountLive" class="invlivei"></span></div>`}
     <div class="row alignend">
       <label class="fld" style="flex:0 1 90px"><span>Correct by ±</span><input id="invCorr" type="number" step="1" inputmode="numeric" placeholder="-1"></label>
       <label class="fld" style="flex:1 1 140px"><span>Why</span><input id="invCorrNote" placeholder="damaged, returned, expired…"></label>
@@ -14085,8 +14147,8 @@ function techInvPanelHtml(x) {
     ${T.hist && T.hist.item === x.id ? techInvHistHtml(x) : ""}
   </div>`;
 }
-function invKindOptions(sel) {
-  return INV_KINDS.map(function (k) { return `<option value="${k.kind}"${k.kind === sel ? " selected" : ""}>${esc2(k.one)}</option>`; }).join("");
+function invKindOptions(sel, noStent) {
+  return INV_KINDS.filter(function (k) { return !(noStent && k.kind === "stent"); }).map(function (k) { return `<option value="${k.kind}"${k.kind === sel ? " selected" : ""}>${esc2(k.one)}</option>`; }).join("");
 }
 function techInvEditHtml(x) {
   const items = (S.tech.inv.items || []).filter(function (y) { return y.id !== x.id; })
@@ -14221,6 +14283,13 @@ function techInvDo(kind, id) {
     techInvSave({ op: "correct", id: id, qty: Number(n), note: techVal("invCorrNote") });
   }
 }
+function techInvPanelLive(now, v, id, how) {
+  const el = document.getElementById(id); if (!el) return;
+  const n = String(v || "").trim() === "" ? null : Number(v);
+  if (n == null || !isFinite(n) || n < 0 || Math.round(n) !== n) { el.innerHTML = how === "+" ? now + " in stock" : ""; return; }
+  el.innerHTML = how === "+" ? now + " + " + n + " = <b>" + (now + n) + "</b> in stock"
+    : "list says " + now + " → <b>" + n + "</b> (" + (n - now >= 0 ? "+" : "−") + Math.abs(n - now) + ")";
+}
 function techInvEditSave(id) {
   const el = document.getElementById("ieTracked");
   techInvSave({ op: "edit", id: id, kind: techVal("ieKind"), brand: techVal("ieBrand"), size: techVal("ieSize"),
@@ -14250,8 +14319,9 @@ function techInvStart() {
 /* Add stock: an item already on the list gets the number added, a new one is added with it */
 function techInvAdd(kind) {
   const T = S.tech;
-  const k = kind || (T.invKind && T.invKind !== "all" ? T.invKind : "stent");
-  T.invForm = T.invForm && !kind ? null : { kind: k, brand: "", size: "", units: "", low: "", note: "" };
+  let k = kind || (T.invKind && T.invKind !== "all" ? T.invKind : "balloon");
+  if (k === "stent") k = "balloon";    // 13.50: stents only from a stock photo (LOT and number for billing)
+  T.invForm = T.invForm && !kind ? null : { kind: k, brand: "", size: "", units: "", low: "", note: "", id: "" };
   render();
 }
 function techInvFind(kind, brand, size) {
@@ -14266,36 +14336,91 @@ function invSizeKeyApp(s) {
     .replace(/(\d+\.\d*?)0+(?=\D|$)/g, "$1").replace(/\.(?=\D|$)/g, "")
     .replace(/[^0-9a-z.]/g, "");
 }
+/* 13.50 — Add stock by count: type, brand, size and how many came in — no
+   LOT, number or expiry. The item it goes to and the new total show as it is
+   typed ("2 in stock + 5 = 7"); a brand typed a little differently from the
+   list ("Tanzor" for "Tanzor NC") is offered as the item to add to. Not for
+   stents: they come in from a stock photo, each box with its LOT and number
+   for the bills. */
+function techInvFormItem() {
+  const f = S.tech.invForm;
+  if (f.id) { const x = (S.tech.inv.items || []).filter(function (y) { return y.id === f.id; })[0]; if (x) return x; f.id = ""; }
+  return f.brand ? techInvFind(f.kind, f.brand, f.size) : null;
+}
+/* items of this type that look like what is typed: same size, brand starting
+   or contained the one in the other — or, with no size yet, the brand's sizes */
+function techInvFormNear() {
+  const f = S.tech.invForm, kb = hwNorm(f.brand), ks = invSizeKeyApp(f.size);
+  if (!kb && !ks) return [];
+  return (S.tech.inv.items || []).filter(function (x) {
+    if (x.kind !== f.kind) return false;
+    const xb = hwNorm(x.brand), xs = invSizeKeyApp(x.size);
+    const bOk = !kb || xb.indexOf(kb) >= 0 || kb.indexOf(xb) >= 0;
+    const sOk = !ks || xs === ks;
+    return bOk && sOk && (kb || ks);
+  }).sort(function (a, b) { return a.brand.localeCompare(b.brand) || invSizeSortApp(a.size, b.size); }).slice(0, 12);
+}
+function invSizeSortApp(a, b) {
+  const na = String(a || "").match(/\d+(?:\.\d+)?/g) || [], nb = String(b || "").match(/\d+(?:\.\d+)?/g) || [];
+  for (let i = 0; i < Math.max(na.length, nb.length); i++) { if (na[i] == null) return -1; if (nb[i] == null) return 1; const d = Number(na[i]) - Number(nb[i]); if (d) return d; }
+  return 0;
+}
+function techInvFormLiveHtml() {
+  const f = S.tech.invForm, have = techInvFormItem();
+  const n = String(f.units || "").trim() === "" ? null : Number(f.units);
+  const good = n != null && isFinite(n) && n >= 1 && Math.round(n) === n;
+  const one = (INV_KIND_BY[f.kind] || {}).one || "item";
+  if (have) {
+    const now = have.stock;
+    return `<div class="invlive ok"><span class="what">${esc2(j([have.brand, have.size], " "))}</span>
+      <span class="sum">${now} in stock${good ? ` + <b>${n}</b> = <b class="tot">${now + n}</b>` : ""}</span>
+      ${good ? "" : `<span class="hint">type how many came in</span>`}</div>`;
+  }
+  if (!String(f.brand || "").trim()) return `<div class="invlive"><span class="hint">Type the brand and size — the stock it adds to and the new total show here.</span></div>`;
+  const near = techInvFormNear();
+  return `<div class="invlive new"><span class="what">New on the list: ${esc2(j([f.brand, f.size], " "))} (${esc2(one.toLowerCase())})</span>
+      <span class="sum">0 in stock${good ? ` + <b>${n}</b> = <b class="tot">${n}</b>` : ""}</span></div>` +
+    (near.length ? `<p class="hint" style="margin:6px 0 2px">Already on the list — tap the one these are, if it is one of them:</p><div class="invnear">` +
+      near.map(function (x) { return `<button type="button" class="b" onclick="techInvFormPick('${x.id}')">${esc2(j([x.brand, x.size], " "))} <span class="hint">· ${x.stock} in stock</span></button>`; }).join("") + `</div>` : "");
+}
+function techInvFormLive() { const el = document.getElementById("ifLive"); if (el) el.innerHTML = techInvFormLiveHtml(); }
+function techInvFormPick(id) {
+  const f = S.tech.invForm, x = (S.tech.inv.items || []).filter(function (y) { return y.id === id; })[0];
+  if (!x) return;
+  f.id = id; f.brand = x.brand; f.size = x.size; f.kind = x.kind;
+  render();
+  setTimeout(function () { const el = document.getElementById("ifUnits"); if (el) el.focus(); }, 30);
+}
 function techInvFormHtml() {
   const f = S.tech.invForm;
   const names = [];
   activeHardware().forEach(function (e) { if (invKindOf(hwKind(e.role)) === f.kind && names.indexOf(e.name) < 0) names.push(e.name); });
   (S.tech.inv.items || []).forEach(function (x) { if (x.kind === f.kind && names.indexOf(x.brand) < 0) names.push(x.brand); });
-  const have = f.brand ? techInvFind(f.kind, f.brand, f.size) : null;
-  const set = function (k) { return `oninput="S.tech.invForm.${k}=this.value"`; };
+  const set = function (k) { return `oninput="S.tech.invForm.${k}=this.value;S.tech.invForm.id='';techInvFormLive()"`; };
+  const isC = f.kind === "contrast";
   return `<div class="invform">
+    <p class="hint" style="margin-top:0"><b>Add stock by count</b> — type, brand, size and how many came in; no LOT, number or expiry needed. Stents are not added here: they come in from a stock photo, each box with its LOT and number for the bills.</p>
     <div class="row">
-      <label class="fld" style="flex:1 1 140px"><span>Type</span><select onchange="S.tech.invForm.kind=this.value;render()">${invKindOptions(f.kind)}</select></label>
-      <label class="fld" style="flex:2 1 170px"><span>Brand (the device's name)</span><input list="ifBrands" value="${esc2(f.brand)}" ${set("brand")} onchange="render()"><datalist id="ifBrands">${names.map(function (n) { return `<option value="${esc2(n)}">`; }).join("")}</datalist></label>
-      <label class="fld" style="flex:1 1 100px"><span>${f.kind === "contrast" ? "Bottle size" : "Size"}</span><input value="${esc2(f.size)}" placeholder="${f.kind === "contrast" ? "100 ml" : "3.0×38, 6F, 1.5"}" ${set("size")} onchange="render()"></label></div>
-    <div class="row">
-      <label class="fld" style="flex:0 1 100px"><span>${f.kind === "contrast" ? "Bottles received" : "Received"}</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.units)}" ${set("units")}></label>
-      <label class="fld" style="flex:0 1 100px"><span>Low at</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.low)}" ${set("low")} ${have ? "disabled" : ""}></label></div>
-    <p class="hint">${have ? "On the list already: " + esc2(j([have.brand, have.size], " ")) + ", " + have.stock + " in stock — the number received is added to it." : "Not on the list yet: it is added, with the number received (0 just adds the item)."}</p>
-    <div class="btns"><button class="b primary" onclick="techInvAddSave()" ${S.tech.saving ? "disabled" : ""}>Save</button><button class="b" onclick="S.tech.invForm=null;render()">Cancel</button></div>
+      <label class="fld" style="flex:1 1 140px"><span>Type</span><select onchange="S.tech.invForm.kind=this.value;S.tech.invForm.id='';render()">${invKindOptions(f.kind, true)}</select></label>
+      <label class="fld" style="flex:2 1 170px"><span>Brand (the device's name)</span><input list="ifBrands" value="${esc2(f.brand)}" ${set("brand")}><datalist id="ifBrands">${names.map(function (n) { return `<option value="${esc2(n)}">`; }).join("")}</datalist></label>
+      <label class="fld" style="flex:1 1 100px"><span>${isC ? "Bottle size" : "Size"}</span><input value="${esc2(f.size)}" placeholder="${isC ? "100 ml" : "2.5×15, 6F, 0.014"}" ${set("size")}></label></div>
+    <div class="row alignend">
+      <label class="fld" style="flex:0 1 120px"><span>${isC ? "Bottles came in" : "How many came in"}</span><input id="ifUnits" type="number" min="1" step="1" inputmode="numeric" value="${esc2(f.units)}" oninput="S.tech.invForm.units=this.value;techInvFormLive()"></label>
+      <label class="fld" style="flex:0 1 100px"><span>Low at</span><input type="number" min="0" step="1" inputmode="numeric" value="${esc2(f.low)}" oninput="S.tech.invForm.low=this.value"></label></div>
+    <div id="ifLive">${techInvFormLiveHtml()}</div>
+    <div class="btns"><button class="b primary" onclick="techInvAddSave()" ${S.tech.saving ? "disabled" : ""}>Add to stock</button><button class="b" onclick="S.tech.invForm=null;render()">Cancel</button></div>
   </div>`;
 }
 function techInvAddSave() {
   const f = S.tech.invForm;
+  if (f.kind === "stent") { techSay("Stents are added from a stock photo, so each box has its LOT and number for billing.", true); return; }
   const brand = String(f.brand || "").trim(), size = String(f.size || "").trim();
   if (!brand) { techSay("Type the device's name (brand).", true); return; }
   const units = String(f.units || "").trim() === "" ? 0 : Number(f.units);
-  const have = techInvFind(f.kind, brand, size);
-  let op;
-  if (have) {
-    if (!(units >= 1)) { techSay(j([have.brand, have.size], " ") + " is on the list already — type how many came in.", true); return; }
-    op = { op: "receive", id: have.id, units: units, note: f.note || "" };
-  } else op = { op: "add", kind: f.kind, brand: brand, size: size, units: units, low: f.low, note: f.note || "" };
+  if (!(units >= 1) || Math.round(units) !== units) { techSay("Type how many came in (a whole number).", true); return; }
+  const have = techInvFormItem();
+  const op = have ? { op: "receive", id: have.id, units: units, note: "added by count" }
+    : { op: "add", kind: f.kind, brand: brand, size: size, units: units, low: f.low, note: "added by count" };
   techInvSave(op).then(function (ok) { if (ok) { S.tech.invForm = null; render(); } });
 }
 

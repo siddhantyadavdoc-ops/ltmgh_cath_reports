@@ -84,6 +84,11 @@
  * (edit key). "whoami" replies v: 13 and says whether the scanner is set up.
  *
  * What changed in 13.50 — every instrument from stock photos, start dates, photos
+ *   - Thinking: every request asks the model to think "low" (script property
+ *     THINKING: minimal / low / medium / high / auto), set from the app's
+ *     Gemini costs page with no new version (action thinkSet).
+ *   - Stock by count: anything but stents can be added as type, brand, size and
+ *     a number (no LOT, number or expiry); stents only from a stock photo.
  *   - Stock photos are read for every kind of equipment (balloons, wires,
  *     guides… not only stents), foreground boxes only; boxes behind are
  *     listed as "background", not counted. Each box keeps its place in the
@@ -340,6 +345,8 @@ function handle(e) {
       return out(Object.assign({ ok: true, canEdit: editAllowed(req.key), v: SCRIPT_VERSION }, r0));
     } catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
   }
+  // 13.50: the thinking level, read by every phone without waiting for the lock
+  if (action === "thinkGet") return out({ ok: true, v: SCRIPT_VERSION, think: thinkInfo_() });
   var lock = LockService.getScriptLock();
   try {
     // a batch run can hold the lock for up to 5 minutes; a phone saving a
@@ -353,12 +360,13 @@ function handle(e) {
     if (needTech[action] && !techAllowed(req.tkey)) return out({ ok: false, error: techRefused_(), canTech: false });
     // 13.50 — costs: a phone's scans are logged with either key; the list and the prices need the edit key
     if (action === "costLog" && !canEdit && !techAllowed(req.tkey)) return out({ ok: false, error: "no key to log costs" });
-    if ((action === "costList" || action === "costPricesSet") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
+    if ((action === "costList" || action === "costPricesSet" || action === "thinkSet") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
     switch (action) {
       case "costLog": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, costLog_(req)));
       case "costList": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, costList_(req)));
+      case "thinkSet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, thinkSet_(req)));
       case "costPricesSet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, costPricesSet_(req)));
-      case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_(), canTech: techAllowed(req.tkey), techSet: techKeyIsSet_() });
+      case "whoami": return out({ ok: true, canEdit: canEdit, v: SCRIPT_VERSION, modelCheck: modelsSummary_(), batch: batchStatus_(), canTech: techAllowed(req.tkey), techSet: techKeyIsSet_(), think: thinkInfo_() });
       case "append": { var r = appendCase(req); return out({ ok: true, canEdit: true, diagramUrl: r.diagramUrl || "", utilUrl: r.utilUrl || "", utilError: r.utilError || "", replaced: !!r.replaced, inv: r.inv || null, v: SCRIPT_VERSION }); }
       case "list":   return out({ ok: true, canEdit: canEdit, cases: listCases() });
       case "lookup": return out(Object.assign({ ok: true, canEdit: canEdit }, lookupCase(String(req.q || ""))));
@@ -2374,6 +2382,49 @@ function batchPdfPages_(bytes) {
     try { return asJpeg(pnum) || asPdf(pnum); } catch (e) { return null; }
   });
 }
+/* 13.50 — how much the model thinks before it answers. Thinking is billed as
+   output (₹357 per million tokens on 3.8 Flash, half in the queue) and was most
+   of the bill at the model's own default (high). Kept in the script property
+   THINKING — "minimal", "low" (the default), "medium", "high" or "auto" (send
+   nothing: the model's own default) — and changed from the app's Gemini costs
+   page with no new version. A model that refuses the setting (Google answers
+   400 naming thinking) is remembered in THINK_REFUSED and sent without it. */
+var THINK_LEVELS = ["minimal", "low", "medium", "high", "auto"], THINK_DEFAULT = "low";
+function thinkLevel_() {
+  var v = String(PropertiesService.getScriptProperties().getProperty("THINKING") || "").trim().toLowerCase();
+  return THINK_LEVELS.indexOf(v) >= 0 ? v : THINK_DEFAULT;
+}
+function thinkInfo_() {
+  var pp = PropertiesService.getScriptProperties();
+  return { level: thinkLevel_(), levels: THINK_LEVELS, def: THINK_DEFAULT, at: pp.getProperty("THINKING_AT") || "", by: pp.getProperty("THINKING_BY") || "", refused: Object.keys(thinkRefused_()) };
+}
+function thinkSet_(req) {
+  var v = String(req.level || "").trim().toLowerCase();
+  if (THINK_LEVELS.indexOf(v) < 0) throw new Error("the thinking level must be one of " + THINK_LEVELS.join(", "));
+  var pp = PropertiesService.getScriptProperties();
+  pp.setProperty("THINKING", v); pp.setProperty("THINKING_AT", cathNow_()); pp.setProperty("THINKING_BY", cathStr_(req.by, 60));
+  return { think: thinkInfo_(), said: "Thinking set to " + v + " — from the next request on (phones and the sheet alike)." };
+}
+function thinkRefused_() {
+  try { var o = JSON.parse(PropertiesService.getScriptProperties().getProperty("THINK_REFUSED") || "{}"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; }
+}
+function thinkRefusedNote_(model, text) {
+  if (!model || !/think/i.test(String(text || ""))) return false;
+  var o = thinkRefused_();
+  if (o[model]) return false;
+  o[model] = cathNow_();
+  PropertiesService.getScriptProperties().setProperty("THINK_REFUSED", JSON.stringify(o));
+  return true;
+}
+/* the thinkingConfig for a model, or null (send none) */
+function thinkConfig_(model) {
+  var lv = thinkLevel_();
+  if (lv === "auto" || thinkRefused_()[model]) return null;
+  // the Pro models take only low and high
+  if (/pro/i.test(String(model || ""))) lv = lv === "minimal" ? "low" : lv === "medium" ? "high" : lv;
+  return { thinkingLevel: lv };
+}
+
 /* the request for one page: { body, asImage } or { ok:false, reason, retry } */
 function batchBody_(model, prompt, item, pdfPage) {
   // the file's bytes, read from Drive once per run
@@ -2389,6 +2440,8 @@ function batchBody_(model, prompt, item, pdfPage) {
     if (pi && pi.bytes && pi.bytes.length) { bytes = pi.bytes; mime = pi.mime; asImage = pi.how; prompt = prompt.replace(BATCH_PDF_WRAP_RE, ""); }
   }
   var gc = { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json" };
+  var tc = thinkConfig_(model);
+  if (tc) gc.thinkingConfig = tc;
   return { body: {
     contents: [{ role: "user", parts: [
       { inline_data: { mime_type: mime, data: Utilities.base64Encode(bytes) } },
@@ -2429,6 +2482,10 @@ function batchGemini_(key, model, prompt, item, pdfPage) {
   // limit, 429, has its own rest below)
   var late = code !== 200 && code !== 429 && took >= (limit - 2) * 1000;
   if ((code >= 500 && took >= BATCH_SLOW_MS) || late) batchRestSlow_(model, BATCH_SLOW_REST_MS, "answered " + code + " only after " + Math.round(took / 1000) + " s");
+  if (code === 400 && body.generationConfig && body.generationConfig.thinkingConfig && thinkRefusedNote_(model, text)) {
+    batchLogRow_("", "", item && item.name || "", "thinking", "refused", model + " does not take the thinking setting — sent again without it, and from now on");
+    return batchGemini_(key, model, prompt, item, pdfPage);
+  }
   if (code !== 200) {
     var cls = mcClassify(code, text, model);
     // either kind of 429 ends this run: a used-up limit resets later, a
@@ -2536,7 +2593,7 @@ function photoRead0_(r, prompt, item, models, key, runId, pause, timeLeft) {
       delete r.result._job;
       var it = st.state === "done" ? st.items[0] : null;
       var rp = st.state !== "done" ? { ok: false, reason: st.reason } : !it ? { ok: false, reason: "no answer came back" }
-        : it.error ? { ok: false, reason: "Google: " + String(it.error.message || it.error.code || "error").slice(0, 200) } : batchReply_(it.response || it);
+        : it.error ? (thinkRefusedNote_(job.model, it.error.message), { ok: false, reason: "Google: " + String(it.error.message || it.error.code || "error").slice(0, 200) }) : batchReply_(it.response || it);
       if (it && !it.error) batchTokAdd_((it.response || it).usageMetadata, job.model, true, r.file || "");
       if (rp.ok) {
         stentNote_(r, runId, "half-price queue", "ok", "answer back after " + mins + " min (half price)");
@@ -2582,7 +2639,10 @@ function batchJobSubmit_(key, model, reqs, label) {
       payload: JSON.stringify({ batch: { display_name: String(label || "cag-scanner").slice(0, 120), input_config: { requests: { requests: reqs } } } }) }, 90);
   } catch (e) { return { ok: false, reason: "the request to Google failed: " + String(e && e.message || e) }; }
   var code = resp.getResponseCode(), text = resp.getContentText();
-  if (code !== 200) return { ok: false, reason: "Google answered " + code + ": " + mcClassify(code, text, model).note };
+  if (code !== 200) {
+    if (code === 400) thinkRefusedNote_(model, text);
+    return { ok: false, reason: "Google answered " + code + ": " + mcClassify(code, text, model).note };
+  }
   var j = null; try { j = JSON.parse(text); } catch (e) {}
   var name = j && (j.name || (j.metadata && j.metadata.name) || (j.batch && j.batch.name));
   if (!name) return { ok: false, reason: "Google's answer named no batch job" };
@@ -2659,7 +2719,7 @@ function batchQueueStep_(c, items, prompts, models, key, runId) {
       for (var k = 0; k < st.items.length; k++) { var md = st.items[k] && st.items[k].metadata; if (md && md.key === sl.slot) { it = st.items[k]; break; } }
       if (!it) it = st.items[i];
       var rp = !it ? { ok: false, reason: "no answer came back" }
-        : it.error ? { ok: false, reason: "Google: " + String(it.error.message || it.error.code || "error").slice(0, 200) }
+        : it.error ? (thinkRefusedNote_(job.model, it.error.message), { ok: false, reason: "Google: " + String(it.error.message || it.error.code || "error").slice(0, 200) })
         : batchReply_(it.response || it);
       var um = it && !it.error ? (it.response || it).usageMetadata : null;
       batchTokAdd_(um, job.model, true, sl.label || "");
@@ -3997,6 +4057,9 @@ function invSave_(req) {
     return n;
   };
   var label = function (it) { return [it.brand, it.size].filter(Boolean).join(" ") + " (" + it.type + ")"; };
+  // 13.50: stents come into stock only from a stock photo (each box's LOT and
+  // number are needed to match the bills) — never as a bare number
+  var STENT_NO = "Stents are added from a stock photo, so each box has its LOT and number for billing — not as a number typed in";
   var kind, brand, size, it;
   switch (String(op.op || "")) {
     case "add":
@@ -4008,6 +4071,7 @@ function invSave_(req) {
       if (op.low != null && String(op.low).trim() !== "") it.low = whole(op.low, 0, 100000, "The low-stock level");
       items.push(it);
       if (op.units != null && String(op.units).trim() !== "" && Number(op.units) !== 0) {
+        if (kind === "stent") throw new Error(STENT_NO);
         invAppendMoves_([invMoveRow_({ item: it.id, kind: "received", units: whole(op.units, 1, 100000, "The number received"), qty: Number(op.units), by: by, note: note || "on adding the item" })]);
       }
       said = "Added " + label(it) + ".";
@@ -4065,9 +4129,11 @@ function invSave_(req) {
         it = invEnsure_(items, op.kind || op.type, brand, cathStr_(op.size, 60), by);
       }
       if (!it) throw new Error("that item is no longer on the list");
+      if (it.kind === "stent") throw new Error(STENT_NO);
       var nIn = whole(op.units, 1, 100000, "The number received");
-      invAppendMoves_([invMoveRow_({ item: it.id, kind: "received", units: nIn, qty: nIn, by: by, note: note })]);
-      said = nIn + " × " + label(it) + " received.";
+      var had0 = invTotals_(items, invMovesAll_())[it.id].stock;
+      invAppendMoves_([invMoveRow_({ item: it.id, kind: "received", units: nIn, qty: nIn, by: by, note: note || "added by count" })]);
+      said = nIn + " × " + label(it) + " added: " + had0 + " + " + nIn + " = " + (had0 + nIn) + " in stock.";
       break;
     case "from": {
       // 13.50: the day an item's uses start being taken off (one item, or several — a brand)
@@ -4083,6 +4149,7 @@ function invSave_(req) {
     }
     case "count":
       it = find(op.id); if (!it) throw new Error("that item is no longer on the list");
+      if (it.kind === "stent") throw new Error(STENT_NO);
       var counted = whole(op.counted, 0, 100000, "The count");
       var had = invTotals_(items, invMovesAll_())[it.id].stock;
       invAppendMoves_([invMoveRow_({ item: it.id, kind: "count", units: counted, qty: counted - had, by: by,
@@ -5553,7 +5620,7 @@ function costList_(req) {
       rows.push([t, String(r[1]), String(r[2]), String(r[3]), String(r[4]), String(r[5]), String(r[6]), Number(r[7]) || 0, Number(r[8]) || 0, Number(r[9]) || 0]);
     });
   }
-  return { rows: rows, prices: costPrices_(), since: costSince_() };
+  return { rows: rows, prices: costPrices_(), since: costSince_(), think: thinkInfo_() };
 }
 function costSince_() { return PropertiesService.getScriptProperties().getProperty("COST_SINCE") || ""; }
 /* once: the token counts the Batch log already holds (each page read since
