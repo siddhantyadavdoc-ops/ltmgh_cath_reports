@@ -1415,7 +1415,10 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); invImport23NovB_(runId); invImport23NovC_(runId); invReturn23Nov_(runId); invUsed23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); headFill_();
+    // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
+    invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -5815,6 +5818,77 @@ function invUsed23Nov_(runId) {
   batchLogRow_(runId, "", "", "balloons used 23 Nov (read by Claude)", "written",
     USED_23NOV.length + " balloon(s): " + r.matched + " marked used in stock" + (r.noBox.length ? ", " + r.noBox.length + " not on the stock list: " + r.noBox.join("; ") : ""));
   return true;
+}
+
+/* 13.50: the stent stickers of 23 Nov (four photos of the register, 15:15),
+   written to the Stents tab as if read from a photo, so each takes its stent
+   off, is linked to its box (by serial, or LOT) and can be matched to a bill.
+   The PTCA No is the registry's form ("2413AP-669") so the case's sheet finds
+   its stickers. These boxes were on the shelf photos of that same day, so they
+   were used after the photo: an item whose counting would start the next day
+   starts on the 23rd instead, or these stickers would not be taken off. */
+var STICKERS_23NOV_DAY = "2026-11-23";
+var STICKERS_23NOV = [
+  // [patient, PTCA No, payer, vessel, brand, mfr, dia, len, ref, lot, serial, expiry, barcode text]
+  ["Dhiraj Kori", "2411AP-668", "PBCF / self", "RCA", "Ultimaster Tansei", "Terumo", 3.5, 38, "DE-RQ3538KSM", "260310", "", "", ""],
+  ["Uttam Mahadik", "2412AP-671", "self / PBCF", "OM", "Xience Alpine", "Abbott", 2.75, 23, "1120275-23", "6052741", "", "", "(01)08717648205613"],
+  ["Shekh Abdul Mannan", "2413AP-669", "PMJAY", "LAD", "Yukon Choice Swift", "Translumina", 2.75, 36, "YCST2736", "SAAW060726", "SAAW060248", "2029-06",
+    "(01)18904271606338(17)290600(10)SAAW060726(21)SAAW060248"],
+  ["Satendra Sav", "2414AP-670", "PMJAY", "LAD mid", "Yukon Choice Swift", "Translumina", 2.75, 28, "YCST2728", "SAAX110726", "SAAX111437", "2028-06",
+    "(01)18904271606314(17)280600(10)SAAX110726(21)SAAX111437"],
+  ["Satendra Sav", "2414AP-670", "PMJAY", "LAD prox", "Yukon Choice Swift", "Translumina", 3, 24, "YCST3024", "SAAX110726", "SAAX111129", "2028-06",
+    "(01)18904271606420(17)280600(10)SAAX110726(21)SAAX111129"]
+];
+function invStickers23Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_STICKERS_23NOV")) return false;
+  pr.setProperty("INV_STICKERS_23NOV", "started " + cathNow_());
+  var who = "Claude (stent stickers of 23 Nov)", up = "CLAUDE-23NOVS";
+  var have = {}; stentRowsAll_().forEach(function (x) { have[x.id] = 1; });
+  var rows = [];
+  STICKERS_23NOV.forEach(function (x, i) {
+    var id = up + "-" + (i + 1);
+    if (have[id]) return;
+    var st = stentNormItem_({ device: "Stent", brand: x[4], manufacturer: x[5], diameter: String(x[6]), length: String(x[7]), ref: x[8], lot: x[9], serial: x[10],
+      expiry: x[11], codes: x[12] ? [x[12]] : [], other: x[3] });
+    var row = stentRowOf_(id, up, { name: x[0], ptcaNo: x[1], ipNo: "", date: "23/11/26" }, st, "", "", "Claude");
+    row[STENT_KEYS.indexOf("edited")] = "added by " + who + " " + cathNow_();
+    row[STENT_KEYS.indexOf("notes")] = x[3] + " · " + x[2] + (x[0] === "Satendra Sav" ? " · surname cut off at the page edge — check" : "");
+    rows.push(row);
+  });
+  stentWriteRows_(rows);
+  // the items of these stents count uses from the 23rd (see above)
+  var items = invItems_(), moved = [];
+  STICKERS_23NOV.forEach(function (x) {
+    var it = invFind_(items, "stent", x[4], stentNum_(x[6]) + "×" + stentNum_(x[7]));
+    if (it && it.from && it.from > STICKERS_23NOV_DAY && it.fromSetBy !== "hand") { it.from = STICKERS_23NOV_DAY; it.fromAuto = false; it.updated = cathNow_(); it.by = who; moved.push(x[4] + " " + x[6] + "×" + x[7]); }
+  });
+  if (moved.length) invWriteTab_(items);
+  invAfterSticker_(who);
+  pr.setProperty("INV_STICKERS_23NOV", JSON.stringify({ at: cathNow_(), stickers: rows.length, fromMoved: moved }));
+  batchLogRow_(runId, "", "", "stent stickers of 23 Nov (read by Claude)", "written",
+    rows.length + " sticker(s) for PTCA 2411–2414" + (moved.length ? "; counted from 23 Nov: " + uniq_(moved).join(", ") : ""));
+  return true;
+}
+
+/* 13.50: tabs made before a column was added keep a blank title over it.
+   Blank title cells are filled once per version; a title already there
+   (even one changed by hand) is left as it is. */
+function headFill_() {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("HEAD_FILL") === "13.50") return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  [[BOX_TAB, BOX_HEAD], [STENT_TAB, STENT_HEAD], [STENT_UP_TAB, STENT_UP_HEAD], [INV_TAB, INV_HEAD], [INV_MOVES, MOVE_HEAD]].forEach(function (t) {
+    try {
+      var sh = ss.getSheetByName(t[0]);
+      if (!sh || sh.getLastRow() < 1) return;
+      ensureCols(sh, t[1].length);
+      var r = sh.getRange(1, 1, 1, t[1].length), v = r.getValues()[0], ch = false;
+      t[1].forEach(function (h, i) { if (String(v[i] == null ? "" : v[i]).trim() === "") { v[i] = h; ch = true; } });
+      if (ch) r.setValues([v]);
+    } catch (e) {}
+  });
+  pr.setProperty("HEAD_FILL", "13.50");
 }
 
 /* ==== 13.50 — what each Gemini request cost ====
