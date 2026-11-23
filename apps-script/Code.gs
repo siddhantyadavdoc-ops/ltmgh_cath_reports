@@ -5550,7 +5550,7 @@ function invImport23Nov_(runId) {
 
 
 /* 13.50 — once: more stock of 23 Nov 2026 (Dr Yadav's photos, read by Claude):
-   8 Ultima PC (Translumina; each box with REF, LOT, serial and use-by), a
+   9 Ultima PC (Translumina; each box with REF, LOT, serial and use-by), a
    stack of 13 Yukon Choice Swift 3.00 mm and one of 8 Yukon Choice Swift 3.50 mm. Counted as found on the shelf: a box
    already in stock from an earlier photo (the 3.00×32 of LOT SAAX110726 on the
    20 Nov photo, which had no serial) is taken as the same box and given its
@@ -5565,6 +5565,7 @@ var IMPORT_23NOV_B = [
   ["Ultima PC box 6", "stent", "Ultima PC", "Translumina", 3, 40, "UAWI110326", "UAWI11970", "UAPC3040", "02-2028", "box label"],
   ["Ultima PC box 7", "stent", "Ultima PC", "Translumina", 3, 44, "UAXI020626", "UAXI021609", "UAPC3044", "05-2029", "box label"],
   ["Ultima PC box 8", "stent", "Ultima PC", "Translumina", 3.5, 44, "UAVJ251225", "UAVJ25806", "UAPC3544", "11-2028", "box label"],
+  ["Ultima PC box 9", "stent", "Ultima PC", "Translumina", 3.5, 36, "UAWW180426", "UAWW18554", "UAPC3536", "03-2029", "box label"],
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 32, "SAAY050826", "SAAY051550", "", "", "stack, box 1 from the top"],
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 32, "SAAX110726", "SAAX111715", "", "", "stack, box 2"],
   ["Yukon Choice Swift 3.00 stack", "stent", "Yukon Choice Swift", "Translumina", 3, 44, "SABA070926", "SABA071740", "", "", "stack, box 3"],
@@ -5618,7 +5619,7 @@ function invImport23NovB_(runId) {
   boxSyncMoves_(who);
   pr.setProperty("INV_IMPORT_23NOV_B", JSON.stringify({ at: cathNow_(), boxes: IMPORT_23NOV_B.length, added: tot.added, same: tot.same, check: tot.check }));
   batchLogRow_(runId, "", "", "more stock of 23 Nov (read by Claude)", tot.check ? "partly written" : "written",
-    IMPORT_23NOV_B.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock from an earlier photo" : "") + (tot.check ? ", " + tot.check + " to check" : "") + " (8 Ultima PC, 13 Yukon Choice Swift 3.00, 8 Yukon Choice Swift 3.50)");
+    IMPORT_23NOV_B.length + " box(es): " + tot.added + " counted" + (tot.same ? ", " + tot.same + " already in stock from an earlier photo" : "") + (tot.check ? ", " + tot.check + " to check" : "") + " (9 Ultima PC, 13 Yukon Choice Swift 3.00, 8 Yukon Choice Swift 3.50)");
   return true;
 }
 
