@@ -1415,7 +1415,7 @@ function batchTick(opts) {
   // 13.49: the one-time correction of the stock read before box-by-box
   // reading; while its photos wait, a run outside the window reads them (only them)
   var fixing = false;
-  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); invImport23NovB_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+  try { fixing = invAutoFix_(runId); invImport20Nov_(runId); invFix21Nov_(runId); invImport23Nov_(runId); invImport23NovB_(runId); invReturn23Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -5640,6 +5640,31 @@ function invImport23NovB_(runId) {
   return true;
 }
 
+/* 13.50: three Ultimaster Tansei boxes sent back to the company on 23 Nov
+   (message with photo, "Ultimater stock out — return to company"). Each is
+   taken off the stock: status "returned" is not counted, so its "received"
+   move goes and the shelf count drops by one. The row stays, with why. */
+var RETURN_23NOV = [["Ultimaster Tansei", 2.75, 24, "260205"], ["Ultimaster Tansei", 2.75, 28, "260119"], ["Ultimaster Tansei", 2.75, 38, "260108"]];
+function invReturn23Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_RETURN_23NOV")) return false;
+  var who = "Claude (returned to company, 23 Nov)", boxes = boxRowsAll_(), done = [], miss = [];
+  RETURN_23NOV.forEach(function (r) {
+    var hit = null;
+    boxes.forEach(function (b) {
+      if (!hit && b.status === "in stock" && invNorm_(b.brand) === invNorm_(r[0]) && Number(b.dia) === r[1] && Number(b.len) === r[2] && invNorm_(b.lot) === invNorm_(r[3])) hit = b;
+    });
+    if (!hit) { miss.push(r[0] + " " + r[1] + "×" + r[2] + " LOT " + r[3]); return; }
+    hit.status = "returned"; hit.why = "returned to the company on 23 Nov (stock out)"; hit.checkedBy = who; hit.checkedAt = cathNow_();
+    boxWrite_(hit); done.push(hit.id);
+  });
+  boxSyncMoves_(who);
+  pr.setProperty("INV_RETURN_23NOV", JSON.stringify({ at: cathNow_(), done: done, miss: miss }));
+  batchLogRow_(runId, "", "", "returned to company (Ultimaster Tansei)", miss.length ? "partly written" : "written",
+    done.length + " box(es) taken off the stock" + (miss.length ? "; not found in stock: " + miss.join(", ") : ""));
+  return true;
+}
+
 /* ==== 13.50 — what each Gemini request cost ====
    Every answer from Google carries its own count of tokens (usageMetadata):
    tokens in (the page and the prompt), the answer, and the model's thinking
@@ -5827,12 +5852,13 @@ function boxSave_(req) {
     if (b.status !== "unseen" && b.status !== "used") throw new Error("that box is already in stock");
     b.status = "in stock"; b.why = "back in stock — " + (cathStr_(req.note, 120) || "checked on the shelf");
   } else if (to === "discarded") { b.status = "discarded"; b.why = cathStr_(req.note, 200) || "discarded"; }
+  else if (to === "returned") { b.status = "returned"; b.why = cathStr_(req.note, 200) || "returned to the company"; }
   else if (to === "check") { b.status = "check"; b.why = cathStr_(req.note, 200) || "sent back to check"; }
   else throw new Error("unknown change");
   b.checkedBy = by; b.checkedAt = cathNow_();
   boxWrite_(b);
   boxSyncMoves_(by);
-  return { said: (b.brand + " " + boxSizeText_(b) + (b.lot ? " LOT " + b.lot : b.serial ? " No. " + b.serial : "")).trim() + ": " + (b.status === "in stock" ? "added to the stock" : b.status === "discarded" ? "discarded" : to === "same" ? "confirmed as the same box, not counted again" : "back to check") + "." };
+  return { said: (b.brand + " " + boxSizeText_(b) + (b.lot ? " LOT " + b.lot : b.serial ? " No. " + b.serial : "")).trim() + ": " + (b.status === "in stock" ? "added to the stock" : b.status === "discarded" ? "discarded" : b.status === "returned" ? "returned to the company, off the stock" : to === "same" ? "confirmed as the same box, not counted again" : "back to check") + "." };
 }
 /* a used stent with no matching box, accepted as it is (its box came before
    the stock photos, or was never photographed) */
