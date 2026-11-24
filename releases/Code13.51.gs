@@ -6185,17 +6185,14 @@ function invStickers23Nov_(runId) {
    2.75×28 LOT 260119 — 1 on the shelf: the box returned on 23 Nov is IMG_0055's
    ((93)001708), so the box standing in the 9:59 row is still here; Xience
    2.75×12 LOT 4112041 — none on the shelf and no use recorded since the count
-   of 20 Nov: kept to check, not counted. And the sticker of PTCA 2389 AP-664
+   of 20 Nov: left exactly as it is (Dr Yadav checks on 25 Nov). And the sticker of PTCA 2389 AP-664
    (Jamnaben Bharadwa, 3.0×15 Xience Alpine LOT 6051241), which answers the
    "Stents to check" entry for that case; her PTCA was before the count of
    20 Nov, so it takes nothing off the stock. */
 var SHELF_24NOV = [
   ["XMWOM9EFW3", { status: "in stock" }, "2 boxes of 2.25×38 LOT 260330 on the shelf (shelf check 24 Nov) — this is the second"],
   ["XMWOLZNLTV", { status: "in stock", scan: "", codes: "" }, "on the shelf (shelf check 24 Nov): the box returned on 23 Nov was IMG_0055's, (93)001708, not this one"],
-  ["XMWOM5Q61O", { status: "returned", same: "" }, "returned to the company on 23 Nov (stock out); its barcode number (93)001708 is the returned box's"],
-  ["XMWOJLS7QK", { status: "check" }, "not on the shelf on 24 Nov (Shraddha) and no use recorded since the count of 20 Nov — not counted; find out where it went"],
-  ["XMWOJN4VMR", { status: "check" }, "not on the shelf on 24 Nov (Shraddha) and no use recorded since the count of 20 Nov — not counted; find out where it went"],
-  ["XMWOJN4VOS", { status: "check" }, "not on the shelf on 24 Nov (Shraddha) and no use recorded since the count of 20 Nov — not counted; find out where it went"]
+  ["XMWOM5Q61O", { status: "returned", same: "" }, "returned to the company on 23 Nov (stock out); its barcode number (93)001708 is the returned box's"]
 ];
 function invShelf24Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
@@ -6221,7 +6218,7 @@ function invShelf24Nov_(runId) {
     invAfterSticker_(who);
   }
   pr.setProperty("INV_SHELF_24NOV", JSON.stringify({ at: cathNow_(), changed: changed, sticker: sticker, missed: missed }));
-  batchLogRow_(runId, "", "", "shelf check of 24 Nov", "written", changed + " box row(s) changed (2.25×38 +1, 2.75×28 LOT 260119 back on the shelf, Xience 2.75×12 ×3 kept to check); " + sticker + " sticker added (PTCA 2389 AP-664)" + (missed.length ? "; not found: " + missed.join(", ") : ""));
+  batchLogRow_(runId, "", "", "shelf check of 24 Nov", "written", changed + " box row(s) changed (2.25×38 +1, 2.75×28 LOT 260119 back on the shelf; Xience 2.75×12 left as it was, to be checked 25 Nov); " + sticker + " sticker added (PTCA 2389 AP-664)" + (missed.length ? "; not found: " + missed.join(", ") : ""));
   return true;
 }
 
