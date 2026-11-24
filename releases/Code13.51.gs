@@ -101,6 +101,9 @@
  *     that does not is kept to check, not counted.
  *   - A used-instruments label is matched to its box by the barcode's own
  *     number first.
+ *   - Drive folders renamed (their files and links stay): "Inventory uploads /
+ *     processed" → "Stock in upload / processed"; "Instruments used upload /
+ *     processed" → "Stock out upload / processed".
  *   - Once after deploying: the barcode check of 24 Nov (read by Claude, no
  *     Gemini) — one box read twice discarded, four boxes made repeats of boxes
  *     already counted, four boxes counted that were not (net +3 in stock), ten
@@ -1175,15 +1178,17 @@ function batchFolders_() {
     var b = inbox.getFoldersByName(old); if (b.hasNext()) { var fo = b.next(); try { fo.setName(now); } catch (e) {} return fo; }
     return inbox.createFolder(now);
   };
+  var invIn = renamed("INVUP_IN", INVUP_IN_DEFAULT, "Inventory uploads");
   // 13.44 — the technicians' stent photos: in, and once read; 13.48 — stock photos for the inventory
   return { inbox: inbox, cag: sub(BATCH_SUB_CAG), ptca: sub(BATCH_SUB_PTCA), done: sub(BATCH_DONE), fail: sub(BATCH_FAIL),
     stentsIn: renamed("STENT_IN", STENT_IN_DEFAULT, STENT_IN_OLD), stentsDone: renamed("STENT_DONE", STENT_DONE_DEFAULT, STENT_DONE_OLD),
-    invIn: sub(props.getProperty("INVUP_IN") || INVUP_IN_DEFAULT), invDone: sub(props.getProperty("INVUP_DONE") || INVUP_DONE_DEFAULT),
+    // 13.51: renamed "Stock in" (was Inventory uploads / processed) and "Stock out" (was Instruments used upload / processed)
+    invIn: invIn, invDone: renamed("INVUP_DONE", INVUP_DONE_DEFAULT, "Inventory processed"),
     // 13.50: the day's used instruments (box flaps), and the weekly shelf photos
-    usedIn: sub(USEDDAY_IN_DEFAULT), usedDone: sub(USEDDAY_DONE_DEFAULT),
-    weeklyIn: (function () { var p0 = sub(props.getProperty("INVUP_IN") || INVUP_IN_DEFAULT); var q = p0.getFoldersByName(WEEKLY_DEFAULT); return q.hasNext() ? q.next() : p0.createFolder(WEEKLY_DEFAULT); })() };
+    usedIn: renamed("", USEDDAY_IN_DEFAULT, "Instruments used upload"), usedDone: renamed("", USEDDAY_DONE_DEFAULT, "Instruments used processed"),
+    weeklyIn: (function () { var p0 = invIn; var q = p0.getFoldersByName(WEEKLY_DEFAULT); return q.hasNext() ? q.next() : p0.createFolder(WEEKLY_DEFAULT); })() };
 }
-var USEDDAY_IN_DEFAULT = "Instruments used upload", USEDDAY_DONE_DEFAULT = "Instruments used processed", WEEKLY_DEFAULT = "Weekly shelf photos";
+var USEDDAY_IN_DEFAULT = "Stock out upload", USEDDAY_DONE_DEFAULT = "Stock out processed", WEEKLY_DEFAULT = "Weekly shelf photos";
 
 /* 13.50 — one folder per kind of equipment inside "Inventory uploads", and its
    twin inside "Inventory processed": made on first need, their ids kept (so a
@@ -4246,7 +4251,7 @@ var STENT_IN_DEFAULT = "Used stents upload", STENT_DONE_DEFAULT = "Used stents p
 var STENT_IN_OLD = "Stents uploads", STENT_DONE_OLD = "Stents scanned";          // names before 13.48: renamed on the first run
 /* 13.48: photos of stock RECEIVED (stent boxes, other devices) go in their own
    folder; each sticker read there is added to the inventory, never taken off */
-var INVUP_IN_DEFAULT = "Inventory uploads", INVUP_DONE_DEFAULT = "Inventory processed";
+var INVUP_IN_DEFAULT = "Stock in upload", INVUP_DONE_DEFAULT = "Stock in processed";
 var STENT_KEEP_DEFAULT = 200;
 var STENT_HEAD = ["Sticker id", "Upload id", "Patient", "PTCA / Cath No", "IP No", "Date", "Device", "Brand", "Manufacturer", "Size",
   "Diameter (mm)", "Length (mm)", "REF", "LOT", "Serial No", "Expiry", "Mfg date", "GTIN", "Barcode / QR text", "Other",
@@ -5254,7 +5259,7 @@ function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
     r.status = "scanned"; r.stickers = c.added; r.errors = []; r.readBy = res.model || "";
     r.scannedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
     r.result = { kinds: c.kinds || {}, mostly: mostly, added: c.added, repeat: c.repeat, check: c.check, background: c.background || 0,
-      movedTo: mostly ? "Inventory processed / " + INV_KIND_FOLDER[mostly] : "Inventory processed",
+      movedTo: mostly ? INVUP_DONE_DEFAULT + " / " + INV_KIND_FOLDER[mostly] : INVUP_DONE_DEFAULT,
       note: wrongFolder ? "uploaded to the " + INV_KIND_FOLDER[r.folder] + " folder but shows " + kindsSaid + " — read as what it shows and filed under " + INV_KIND_FOLDER[mostly] : "" };
     stentNote_(r, runId, "reading", "ok", list.length + " box(es) read (" + (kindsSaid || "none in the foreground") + "): " + c.added + " added to the stock, " + c.repeat + " already counted from another photo, " +
       c.check + " to check, " + (c.background || 0) + " in the background not counted" + scanSaid + (r.result.note ? "; " + r.result.note : ""));

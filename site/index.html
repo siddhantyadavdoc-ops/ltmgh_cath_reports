@@ -13459,7 +13459,7 @@ function techInvPhotosHtml() {
   const conf = bx.filter(techBoxToConfirm);
   const used = inStock.filter(function (b) { return b.usedBy; }).length;
   const bgs = bx.filter(function (b) { return b.status === "background"; });
-  let h = `<div class="invphotos"><div><b>Stock received, from photos</b>
+  let h = `<div class="invphotos"><div><b>Stock in — photos of boxes received</b>
       <p class="hint">Photograph the boxes on the shelf (spines to the camera, the size and the LOT readable). Every box is kept with its LOT, REF and expiry; a box seen on two photos is counted once. The phone reads the boxes' barcodes before it uploads — a barcode gives the exact LOT and tells two boxes of one LOT apart; for it to be readable, photograph a few boxes at a time (a stack, or boxes held up) rather than a whole shelf. ${esc2([(st.invWaiting || 0) + " photo" + (st.invWaiting === 1 ? "" : "s") + " waiting", (st.invFailed || 0) + " failed", (st.invScanned || 0) + " read"].join(" · "))}</p>
       ${bx.length ? `<p class="hint"><b>${inStock.length}</b> box${inStock.length === 1 ? "" : "es"} counted${used ? " (" + used + " since used)" : ""} · <b class="${rep.length ? "a" : ""}">${rep.length}</b> repeat${rep.length === 1 ? "" : "s"} not counted · <b class="${chk.length ? "r" : ""}">${chk.length}</b> to check</p>` : ""}</div>
     <label class="fld" style="flex:0 1 190px;margin:0"><span>What the photo is of</span><select id="invUpKind" onchange="S.tech.upKind=this.value"><option value="">Let the app decide</option>${INV_KINDS.map(function (k) { return `<option value="${k.kind}"${S.tech.upKind === k.kind ? " selected" : ""}>${esc2(k.label)}</option>`; }).join("")}</select></label>
@@ -13468,7 +13468,7 @@ function techInvPhotosHtml() {
     <div class="btns" style="margin:0"><button class="b" onclick="document.getElementById('invcam').click()" ${T.uploading ? "disabled" : ""}>Take a photo</button>
       <button class="b" onclick="document.getElementById('invfile').click()" ${T.uploading ? "disabled" : ""}>Upload photos</button>
       <button class="b" onclick="techInvScanNow()" ${T.invScanning ? "disabled" : ""} title="Reads the waiting stock, weekly and used-instruments photos at once, at the full price">${T.invScanning ? "Reading…" : "Read now (full price)"}</button>
-      ${st.invInUrl ? `<a class="b" href="${esc2(st.invInUrl)}" target="_blank" rel="noopener">${esc2(st.invInName || "Inventory uploads")} folder</a>` : ""}</div>
+      ${st.invInUrl ? `<a class="b" href="${esc2(st.invInUrl)}" target="_blank" rel="noopener">${esc2(st.invInName || "Stock in upload")} folder</a>` : ""}</div>
     ${T.invSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.invSaid)}</p>` : ""}
     ${techBoxFixHtml()}`;
   if (chk.length) h += `<div class="boxlist chk"><div class="bxhead"><b>Boxes to check (${chk.length})</b><span class="hint">Not counted. Fix what was misread and add it, or discard it.</span></div>${chk.map(techBoxCheckHtml).join("")}</div>`;
@@ -13712,7 +13712,7 @@ function techSizeBoxesHtml(x) {
 async function techInvScanNow() {
   const T = S.tech;
   if (T.invScanning) return;
-  T.invScanning = true; T.invSaid = "Reading the photos in Inventory uploads — this can take a few minutes. Keep this screen open."; render();
+  T.invScanning = true; T.invSaid = "Reading the Stock in and Stock out photos — this can take a few minutes. Keep this screen open."; render();
   try {
     const r = await sheetApi("invScanNow", {}, 330000);
     const v = r.inventory || {};
@@ -13988,13 +13988,13 @@ function techDayHtml() {
   const T = S.tech, inv = T.inv || {}, ph = inv.dayPhotos || [], wr = inv.weeklyResult;
   const bx = inv.boxes || [];
   const unseen = bx.filter(function (b) { return b.status === "unseen"; });
-  let h = `<div class="invphotos dayph"><div><b>Instruments used, from the day's photo</b>
+  let h = `<div class="invphotos dayph"><div><b>Stock out — the day's photo of what was used</b>
       <p class="hint">At the end of the day, one or two photos of the box flaps / labels of everything opened. Each is matched to its box on the shelf (by LOT), so the right box leaves the stock list and its expiry alert; the photo is checked against the day's utilization sheets. The counts themselves come from the sheets.</p></div>
     <input type="file" accept="image/*" capture="environment" id="daycam" hidden onchange="techUpload(this,'day')">
     <input type="file" accept="image/*" multiple id="dayfile" hidden onchange="techUpload(this,'day')">
     <input type="file" accept="image/*" capture="environment" id="wkcam" hidden onchange="techUpload(this,'weekly')">
     <input type="file" accept="image/*" multiple id="wkfile" hidden onchange="techUpload(this,'weekly')">
-    <div class="btns" style="margin:0"><button class="b" onclick="document.getElementById('daycam').click()" ${T.uploading ? "disabled" : ""}>Photo of today's used</button>
+    <div class="btns" style="margin:0"><button class="b" onclick="document.getElementById('daycam').click()" ${T.uploading ? "disabled" : ""}>Stock out photo</button>
       <button class="b" onclick="document.getElementById('dayfile').click()" ${T.uploading ? "disabled" : ""}>Upload</button>
       <button class="b" onclick="document.getElementById('wkfile').click()" ${T.uploading ? "disabled" : ""}>Weekly shelf photos</button></div>`;
   const last = ph.filter(function (p) { return p.status === "scanned"; }).slice(0, 3);
@@ -15193,11 +15193,11 @@ async function techUpload(input, purpose) {
   const bc = !boxes || !ok ? "" : noReader ? " (" + noReader + ", so no barcodes were read on the phone — the boxes are read from the photo alone)"
     : " · " + (codes ? codes + " barcode" + (codes === 1 ? "" : "s") + " read on the phone" : "no barcodes readable on the phone — for a barcode to count, photograph a few boxes at a time with their barcodes in view");
   if (purpose === "day" || purpose === "weekly") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Instruments used upload" : "Weekly shelf photos") + bc + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Stock out upload" : "Weekly shelf photos") + bc + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
   if (purpose === "stock") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Inventory uploads" + bc + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Stock in upload" + bc + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
   T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read used-stent photos now (full price)." : "");
