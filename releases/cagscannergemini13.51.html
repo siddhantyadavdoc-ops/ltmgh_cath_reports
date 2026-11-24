@@ -13405,7 +13405,7 @@ function techAddPhotosHtml() {
 function techInvTake(j) {
   const T = S.tech;
   T.inv = { items: j.items || [], start: j.start || "", moves: j.moves || [], moveCount: j.moveCount || 0, pending: j.pending || [],
-    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null, stockPhotos: j.stockPhotos || [],
+    review: j.review || [], noSheet: j.noSheet || [], boxes: j.boxes || [], catalog: j.catalog || {}, boxNoMatch: j.boxNoMatch || [], boxFix: j.boxFix || null, stockPhotos: j.stockPhotos || [],
     dayLast: j.dayLast || "", weeklyLast: j.weeklyLast || "", dayPhotos: j.dayPhotos || [], weeklyResult: j.weeklyResult || null, ptcaToday: !!j.ptcaToday };
   T.invAt = Date.now();
   // 13.45: new stent stickers (or the first opening) — the sheet brings the inventory in line
@@ -14935,6 +14935,23 @@ function gs1Parse(text) {
   }
   return Object.keys(out).length ? out : null;
 }
+/* 13.51: what a barcode on a box is, from the products already counted
+   (the sheet's catalogue): {key, lot, exp, serial, what} or null */
+function techGtinOk(g) { if (!/^\d{14}$/.test(g)) return false; let s = 0; for (let i = 0; i < 13; i++) s += +g[12 - i] * (i % 2 ? 1 : 3); return (10 - s % 10) % 10 === +g[13]; }
+function techCodeProduct(t, cat) {
+  t = String(t || "");
+  const g = /^\(\d/.test(t) ? gs1Parse(t) : null;
+  let key = "", lot = "", exp = "", serial = "";
+  if (g && g["01"] && (g["10"] || g["21"])) {
+    if (!techGtinOk(g["01"])) return null;
+    key = "G:" + g["01"]; lot = g["10"] || ""; exp = g["17"] ? gs1Date(g["17"]) : ""; serial = g["21"] || "";
+  } else if (/^13\d{10}[A-Z]\d{6,8}$/.test(t)) { key = "R:" + t.slice(0, 4); serial = t; }
+  else return { device: false };
+  const v = (cat || {})[key];
+  if (!v) return { device: true, known: false };
+  const size = v.dia && v.len ? stentNum(v.dia) + "×" + stentNum(v.len) : (v.size || "");
+  return { device: true, known: true, what: v.brand + " " + size + (lot ? " · LOT " + lot : serial ? " · No. " + serial : "") };
+}
 function gs1Date(yymmdd) { const m = /^(\d{2})(\d{2})(\d{2})$/.exec(String(yymmdd || "")); return m ? "20" + m[1] + "-" + m[2] + (m[3] === "00" ? "" : "-" + m[3]) : ""; }
 async function techBillPick(input) {
   const f = input.files && input.files[0];
@@ -15191,7 +15208,7 @@ async function techUpload(input, purpose) {
   T.uploading = true;
   // 13.51: the barcodes of a stock, weekly or used-instruments photo are read here first, on the photo as taken
   const boxes = purpose === "stock" || purpose === "day" || purpose === "weekly";
-  let ok = 0, bad = "", codes = 0, noReader = "";
+  let ok = 0, bad = "", codes = 0, noReader = "", byCodeN = 0;
   const say = function (t) { if (boxes) T.invSaid = t; else T.upSaid = t; render(); };
   for (let i = 0; i < files.length; i++) {
     const of = files.length > 1 ? " " + (i + 1) + " of " + files.length : "";
@@ -15207,23 +15224,37 @@ async function techUpload(input, purpose) {
         codes += scan.length;
       } catch (e) { noReader = e.message || String(e); }
     }
+    // 13.51: every barcode a product already known → the technician says whether that is every box; yes = no Gemini
+    let allByCode = false;
+    if (boxes && scan.length) {
+      const cat = (T.inv && T.inv.catalog) || {};
+      const ps = scan.map(function (c) { return techCodeProduct(c.t, cat); }).filter(function (p) { return p && p.device; });
+      if (ps.length && ps.every(function (p) { return p.known; })) {
+        render();
+        allByCode = confirm("Photo" + of + ": the phone read " + ps.length + " box" + (ps.length === 1 ? "" : "es") + " by barcode —\n\n" +
+          ps.map(function (p) { return "• " + p.what; }).join("\n") +
+          "\n\nIs that EVERY box on the photo?\nOK = yes, add them now (no Gemini).\nCancel = there are more — the photo is read in full tonight.");
+      }
+    }
     say("Uploading" + (of ? " photo" + of : "") + "…");
     try {
       const im = await techImageFrom(files[i], 2400);
-      await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "", purpose: purpose || "", kind: purpose === "stock" ? (S.tech.upKind || "") : "",
-        scan: scan.map(function (c) { return { t: c.t, x: c.x, y: c.y }; }) }, 120000);
+      const up = await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "", purpose: purpose || "", kind: purpose === "stock" ? (S.tech.upKind || "") : "",
+        scan: scan.map(function (c) { return { t: c.t, x: c.x, y: c.y }; }), allByCode: allByCode }, 120000);
+      if (up && up.byCode && up.byCode.read) byCodeN++;
       ok++;
     } catch (e) { bad = e.message || String(e); break; }
   }
   T.uploading = false;
   const bc = !boxes || !ok ? "" : noReader ? " (" + noReader + ", so no barcodes were read on the phone — the boxes are read from the photo alone)"
-    : " · " + (codes ? codes + " barcode" + (codes === 1 ? "" : "s") + " read on the phone" : "no barcodes readable on the phone — for a barcode to count, photograph a few boxes at a time with their barcodes in view");
+    : " · " + (codes ? codes + " barcode" + (codes === 1 ? "" : "s") + " read on the phone" : "no barcodes readable on the phone — for a barcode to count, photograph a few boxes at a time with their barcodes in view") +
+      (byCodeN ? " · " + byCodeN + " photo" + (byCodeN === 1 ? "" : "s") + " done from the barcodes alone, no Gemini" : "");
   if (purpose === "day" || purpose === "weekly") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Stock out upload" : "Weekly shelf photos") + bc + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Stock out upload" : "Weekly shelf photos") + bc + (bad ? "; then: " + bad : "") + (ok > byCodeN ? " — " + (byCodeN ? "the others " : "") + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
   if (purpose === "stock") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Stock in upload" + bc + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Stock in upload" + bc + (bad ? "; then: " + bad : "") + (ok > byCodeN ? " — " + (byCodeN ? "the others " : "") + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
   T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read used-stent photos now (full price)." : "");

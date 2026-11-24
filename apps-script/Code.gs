@@ -94,6 +94,14 @@
  *     decides repeat or new: the same number as a counted box is that box;
  *     a number no counted box has is another box of the LOT. A barcode on a
  *     box whose counted twin had its LOT misread corrects that LOT.
+ *   - A photo read from its barcodes alone, with no Gemini request: when the
+ *     phone read a barcode on every box (the technician says so) and every
+ *     product is already known (GTIN, or an NC Rockstar's size code, from
+ *     boxes counted before — the catalogue goes to the app with the list),
+ *     the photo is read at once on upload and filed. Otherwise Gemini reads
+ *     it as before. A barcode whose own number is on a box already used or
+ *     returned is kept to check; two LOTs both read from barcodes are never
+ *     taken as a misread of one another.
  *   - A box read from a photo must have a LOT and an expiry that fit together
  *     (Terumo: the end of the month 23 months after the LOT's date; Xience:
  *     2–10 days short of 3 years after it; NC Trek / Mini Trek: the end of the
@@ -305,7 +313,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.51: the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -4072,6 +4080,7 @@ function invGet_(req) {
     o.ptcaToday = moves.some(function (m) { return m.caseDate === cathToday_() && (m.kind === "used" || m.kind === "sheet" || m.kind === "reused"); });
   } catch (e) {}
   try { var bl = boxList_(); o.boxes = bl.boxes; o.boxNoMatch = bl.noBox; } catch (e) { o.boxes = []; o.boxesError = String(e && e.message || e); }
+  try { o.catalog = boxCatalog_(o.boxes); } catch (e) { o.catalog = {}; }   // 13.51: product → kind, brand, size (barcode-only photos)
   // one item's whole history, for the item open on the page
   if (req.item) { o.item = String(req.item); o.itemMoves = moves.filter(function (m) { return m.item === String(req.item); }).reverse().map(invMoveOut_); }
   return o;
@@ -4505,7 +4514,7 @@ function stentNote_(r, runId, step, outcome, detail) {
 function stentPhotoUrl_(fileId) { return fileId ? "https://drive.google.com/file/d/" + fileId + "/view" : ""; }
 /* the photos waiting in Stents uploads become rows of the uploads tab */
 var UP_PURPOSES = { used: 1, stock: 1, day: 1, weekly: 1 };   // 13.50: day = instruments used that day; weekly = the weekly shelf photos
-function stentTakeNew_(f, tab, manual, purpose) {
+function stentTakeNew_(f, tab, manual, purpose, onlyFile) {
   var stock = purpose !== "used";
   var minAge = manual ? 20 * 1000 : BATCH_MIN_AGE_MS;
   var now = Date.now(), fresh = [];
@@ -4520,7 +4529,8 @@ function stentTakeNew_(f, tab, manual, purpose) {
       var mime = String(file.getMimeType() || "").toLowerCase();
       var ok = mime === "application/pdf" || /^image\/(jpeg|jpg|png|webp|heic|heif)$/.test(mime);
       if (!ok || tab.byFile[file.getId()]) continue;
-      if (now - file.getLastUpdated().getTime() < minAge) continue;
+      if (onlyFile && file.getId() !== onlyFile) continue;      // 13.51: one photo read from its barcodes at once
+      if (!onlyFile && now - file.getLastUpdated().getTime() < minAge) continue;
       fresh.push({ file: file, t: file.getDateCreated().getTime(), kind: src.kind });
     }
   });
@@ -4780,8 +4790,22 @@ function stentUpload_(req) {
   if (req.by) { try { file.setDescription("uploaded from the app by " + cathStr_(req.by, 60)); } catch (e) {} }
   // 13.51: the barcodes the phone read on the full-size photo, kept for when the photo is read
   var nScan = 0;
-  try { nScan = photoCodesSave_(file.getId(), nm, req.by, req.scan); } catch (e) {}
-  return { fileId: file.getId(), name: name, barcodes: nScan };
+  try { nScan = photoCodesSave_(file.getId(), nm, req.by, req.scan, req.allByCode === true); } catch (e) {}
+  // 13.51: every box read by barcode → the photo is read now from its barcodes, no Gemini
+  var byCode = null;
+  if (req.allByCode === true && nScan && (pu === "stock" || pu === "weekly" || pu === "day")) {
+    var lock = LockService.getScriptLock();
+    if (lock.tryLock(20000)) {
+      try {
+        var t0 = Date.now(), runId = "up-" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HHmmss");
+        var left = function () { return 240000 - (Date.now() - t0); }, nap = function () {};
+        var o = pu === "day" ? dayTick_(f, null, "", runId, true, nap, left, file.getId()) : invPhotoTick_(f, null, "", runId, true, nap, left, file.getId());
+        byCode = o && o.scanned ? (pu === "day" ? { read: true, matched: o.matched || 0, noBox: o.noBox || 0 } : { read: true, added: o.units || 0, repeats: o.repeats || 0, check: o.check || 0 }) : { read: false };
+      } catch (eB) { byCode = { read: false, error: String(eB && eB.message || eB) }; }
+      finally { lock.releaseLock(); }
+    }
+  }
+  return { fileId: file.getId(), name: name, barcodes: nScan, byCode: byCode };
 }
 /* a bill (or a sticker) photographed in the app: read now, with the
    scanner's models; nothing is written */
@@ -4914,6 +4938,8 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
       var xi = invNorm_(x.lot) || invNorm_(x.serial), bi = invNorm_(b.lot) || invNorm_(b.serial);
       return x.status === "in stock" && x.up !== up.id && (x.kind || "stent") === (b.kind || "stent") && invNorm_(x.brand) === invNorm_(b.brand) && invSizeKey_(boxSizeText_(x)) === invSizeKey_(boxSizeText_(b)) &&
         xi !== bi && boxEdit1_(xi, bi) && (!b.expiry || !x.expiry || boxYmd_(b.expiry) === boxYmd_(x.expiry)) &&
+        // 13.51: two LOTs both read from barcodes are exact — never a misread of one another
+        !(b.scan && x.scan) &&
         // the box's own number after (91), where both were read, must agree (to one character)
         (!boxUnit_(b) || !boxUnit_(x) || (boxUnit_(b).length === boxUnit_(x).length && boxDiff_(boxUnit_(b), boxUnit_(x)) <= 1));
     });
@@ -4924,6 +4950,16 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
     }
     return null;
   };
+  // 13.51: a barcode whose own number is on a box already used or returned:
+  // that very box is gone from the shelf — not counted, kept to check
+  Object.keys(groups).forEach(function (k) {
+    groups[k].forEach(function (b) {
+      var u = boxScanUnit_(b); if (!u || b.status) return;
+      var gone = boxes.filter(function (x) { return (x.status === "used" || x.status === "returned") && x.up !== up.id && boxScanUnit_(x) === u; })[0];
+      if (gone) { b.status = "check"; b.why = "its barcode's own number (" + u + ") is on a box marked " + gone.status + (gone.usedIn ? " (" + gone.usedIn + ")" : "") + " — check it is not that box"; counts.check++; }
+    });
+    groups[k] = groups[k].filter(function (b) { return !b.status; });
+  });
   Object.keys(groups).forEach(function (k) {
     var g = groups[k], have = boxHaveOf_(k, boxes, stickers, up.id);
     // 13.51: a box whose barcode was read on the phone carries its own number ((91) Abbott, (93) Terumo,
@@ -5062,9 +5098,10 @@ function boxRule_(b) {
    its own number — (91) on Abbott boxes, (93) on Terumo, (21) or the serial —
    tells two boxes of one LOT apart. ---- */
 var PHOTO_CODES_TAB = "Photo barcodes";
-var PHOTO_CODES_HEAD = ["File id", "File", "Saved", "By", "Barcodes"];
+var PHOTO_CODES_HEAD = ["File id", "File", "Saved", "By", "Barcodes", "Every box by barcode"];
+var PHOTO_CODES_ALL_ = null;
 var PHOTO_CODES_CACHE_ = null;
-function photoCodesSave_(fileId, name, by, scan) {
+function photoCodesSave_(fileId, name, by, scan, all) {
   if (!Array.isArray(scan) || !scan.length) return 0;
   var list = scan.slice(0, 150).map(function (c) {
     return { t: cathStr_(c && c.t, 200), x: Math.max(0, Math.min(1000, Math.round(Number(c && c.x) || 0))), y: Math.max(0, Math.min(1000, Math.round(Number(c && c.y) || 0))) };
@@ -5072,22 +5109,78 @@ function photoCodesSave_(fileId, name, by, scan) {
   if (!list.length) return 0;
   var sh = sheet(PHOTO_CODES_TAB, PHOTO_CODES_HEAD);
   ensureCols(sh, PHOTO_CODES_HEAD.length);
-  sh.appendRow([fileId, cathStr_(name, 120), cathNow_(), cathStr_(by, 60), JSON.stringify(list)]);
-  PHOTO_CODES_CACHE_ = null;
+  sh.appendRow([fileId, cathStr_(name, 120), cathNow_(), cathStr_(by, 60), JSON.stringify(list), all ? "yes" : ""]);
+  PHOTO_CODES_CACHE_ = null; PHOTO_CODES_ALL_ = null;
   return list.length;
 }
 function photoCodesOf_(fileId) {
   if (!fileId) return [];
   if (!PHOTO_CODES_CACHE_) {
-    PHOTO_CODES_CACHE_ = {};
+    PHOTO_CODES_CACHE_ = {}; PHOTO_CODES_ALL_ = {};
     var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PHOTO_CODES_TAB);
     if (sh && sh.getLastRow() > 1) {
       sh.getRange(2, 1, sh.getLastRow() - 1, PHOTO_CODES_HEAD.length).getValues().forEach(function (v) {
         try { PHOTO_CODES_CACHE_[String(v[0])] = JSON.parse(String(v[4] || "[]")) || []; } catch (e) {}
+        if (String(v[5] || "") === "yes") PHOTO_CODES_ALL_[String(v[0])] = true;
       });
     }
   }
   return PHOTO_CODES_CACHE_[String(fileId)] || [];
+}
+/* ---- 13.51: a photo read from its barcodes alone, with no Gemini ----
+   A barcode names the product: the GTIN in (01), or for NC Rockstar the first
+   four digits of its own number (size code). Every product already counted
+   from a photo is kept in a catalogue (product → kind, brand, size, REF); one
+   that two boxes disagree on is left out. When the technician says the phone
+   read every box on a photo, and every barcode is in the catalogue, the photo
+   is read from its barcodes — no Gemini request is made. Otherwise Gemini
+   reads it as before. */
+var BOX_RS_SN = /^13\d{10}[A-Z]\d{6,8}$/;   // e.g. 131029082026J0191153
+function boxProdKey_(t) {
+  var p = boxScanParse_(t);
+  if (!p) return "";
+  if (p.gtin) return "G:" + p.gtin;
+  if (BOX_RS_SN.test(String(p.serial || ""))) return "R:" + String(p.serial).slice(0, 4);   // NC Rockstar: 13 + size code
+  return "";
+}
+function boxCatalog_(boxes) {
+  var cat = {}, bad = {};
+  (boxes || []).forEach(function (b) {
+    if (!/^(in stock|repeat|used|returned|unseen)$/.test(String(b.status || "")) || !b.brand) return;
+    var sized = BOX_SIZED[b.kind || "stent"];
+    if (sized ? !(Number(b.dia) && Number(b.len)) : !b.size) return;
+    var keys = [];
+    String((b.scan || "") + "\n" + (b.codes || "")).split("\n").forEach(function (c) { var k = c ? boxProdKey_(c) : ""; if (k && keys.indexOf(k) < 0) keys.push(k); });
+    if (b.gtin && /^\d{14}$/.test(b.gtin) && keys.indexOf("G:" + b.gtin) < 0) keys.push("G:" + b.gtin);
+    if (BOX_RS_SN.test(String(b.serial || "")) && /rockstar/i.test(b.brand) && keys.indexOf("R:" + String(b.serial).slice(0, 4)) < 0) keys.push("R:" + String(b.serial).slice(0, 4));
+    var v = { kind: b.kind || "stent", brand: b.brand, mfr: b.mfr || "", dia: sized ? stentNum_(b.dia) : "", len: sized ? stentNum_(b.len) : "", size: sized ? "" : b.size, ref: b.ref || "" };
+    keys.forEach(function (k) {
+      if (bad[k]) return;
+      var o = cat[k];
+      if (!o) { cat[k] = v; return; }
+      if (invNorm_(o.brand) !== invNorm_(v.brand) || o.dia !== v.dia || o.len !== v.len || o.size !== v.size || o.kind !== v.kind) { bad[k] = 1; delete cat[k]; }
+      else if (!o.ref && v.ref) o.ref = v.ref;
+    });
+  });
+  return cat;
+}
+/* the boxes of a photo from its barcodes, or null (then Gemini reads it) */
+function photoCodesBoxes_(fileId, boxes) {
+  photoCodesOf_(fileId);
+  if (!PHOTO_CODES_ALL_ || !PHOTO_CODES_ALL_[String(fileId)]) return null;
+  var codes = photoCodesOf_(fileId);
+  if (!codes.length) return null;
+  var cat = boxCatalog_(boxes), out = [];
+  for (var i = 0; i < codes.length; i++) {
+    var c = codes[i], p = boxScanParse_(c.t), k = boxProdKey_(c.t), v = k ? cat[k] : null;
+    if (!p) continue;                       // not a device's barcode (a QR to a website…)
+    if (!v) return null;                    // a product never counted before: Gemini reads the photo
+    if (out.some(function (o) { return o.scan === c.t && Math.hypot(o._x - c.x, o._y - c.y) < 20; })) continue;
+    out.push({ device: v.kind, brand: v.brand, manufacturer: v.mfr, diameter: v.dia, length: v.len, size: v.size, ref: v.ref,
+      lot: p.lot, expiry: p.exp, serial: p.serial, gtin: p.gtin, codes: /^\(/.test(c.t) ? [c.t] : [], scan: c.t,
+      place: "barcode at " + Math.round(c.x / 10) + "% across, " + Math.round(c.y / 10) + "% down", _x: c.x, _y: c.y });
+  }
+  return out.length ? out : null;
 }
 function boxGtinOk_(g) {
   if (!/^\d{14}$/.test(String(g || ""))) return false;
@@ -5207,14 +5300,15 @@ function boxSyncMoves_(by) {
   invWriteTab_(items, after);
   return { added: add.length, removed: del.length, fromSet: Object.keys(fromSet).length };
 }
-function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
+function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft, codesOnly) {
   var out = { scanned: 0, failed: 0, units: 0, repeats: 0, check: 0, pending: 0, stopped: false, why: "" };
   var tab = stentUpRows_();
-  stentTakeNew_(f, tab, manual, "stock");
-  stentTakeNew_(f, tab, manual, "weekly");
-  var work = tab.rows.filter(function (r) { return r.status === "queued" && (r.purpose === "stock" || r.purpose === "weekly"); });
+  stentTakeNew_(f, tab, manual, "stock", codesOnly);
+  stentTakeNew_(f, tab, manual, "weekly", codesOnly);
+  var work = tab.rows.filter(function (r) { return r.status === "queued" && (r.purpose === "stock" || r.purpose === "weekly") && (!codesOnly || r.fileId === codesOnly); });
   var weeklyDays = {};
   if (!work.length) {
+    if (codesOnly) return out;
     // 13.50: the day's used-instruments photos are read even when no stock photo waits
     if (timeLeft() > 100000) { try { out.day = dayTick_(f, models, key, runId, manual, pause, timeLeft); } catch (e) { batchLogRow_(runId, "", "", "used instruments", "error", String(e && e.message || e)); } }
     return out;
@@ -5236,7 +5330,11 @@ function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
     if (!file) { r.status = "failed"; r.errors = [{ step: "file", reason: "the photo is no longer in Drive" }]; stentUpWrite_(r); out.failed++; continue; }
     var mime = String(file.getMimeType() || "").toLowerCase();
     var item = { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" };
-    var res = photoRead_(r, STOCK_PROMPT, item, models, key, runId, pause, timeLeft);
+    // 13.51: every box read by barcode on the phone, all known products → no Gemini
+    var byCode = null;
+    try { byCode = photoCodesBoxes_(r.fileId, boxes); } catch (eC) { byCode = null; }
+    if (codesOnly && !byCode) continue;
+    var res = byCode ? { ok: true, json: { boxes: byCode }, model: "barcodes (phone, no Gemini)" } : photoRead_(r, STOCK_PROMPT, item, models, key, runId, pause, timeLeft);
     if (res.waiting) { out.waiting = (out.waiting || 0) + 1; continue; }
     if (res.quota && !res.ok) { out.stopped = true; out.why = res.reason; stentNote_(r, runId, "reading", "stopped", res.reason); stentUpWrite_(r); break; }
     r.tries = (r.tries || 0) + 1;
@@ -5273,7 +5371,7 @@ function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft) {
   // 13.50: a day's weekly shelf photos, all read: what they did not show is noted
   Object.keys(weeklyDays).forEach(function (d) { try { out.weekly = weeklyCheck_(d); } catch (e) { batchLogRow_(runId, "", "", "weekly shelf check", "error", String(e && e.message || e)); } });
   // 13.50: the photos of the instruments used that day
-  if (timeLeft() > 100000 && !out.stopped) { try { out.day = dayTick_(f, models, key, runId, manual, pause, timeLeft); } catch (e) { batchLogRow_(runId, "", "", "used instruments", "error", String(e && e.message || e)); } }
+  if (timeLeft() > 100000 && !out.stopped && !codesOnly) { try { out.day = dayTick_(f, models, key, runId, manual, pause, timeLeft); } catch (e) { batchLogRow_(runId, "", "", "used instruments", "error", String(e && e.message || e)); } }
   return out;
 }
 
@@ -5284,11 +5382,11 @@ var DAY_PROMPT = "You are reading a photograph taken at the end of the day in th
   "laid out together. Read EVERY label in the photo the same way as a box on a shelf: one entry per label (two labels of the same device are two devices used).\n\n" +
   "How the labels look (as on the shelf boxes they came from):\n" +
   STOCK_PROMPT.split("\n\n").filter(function (p) { return p.indexOf("FOREGROUND ONLY") !== 0; }).join("\n\n").replace("For every foreground box", "For every label laid out");
-function dayTick_(f, models, key, runId, manual, pause, timeLeft) {
+function dayTick_(f, models, key, runId, manual, pause, timeLeft, codesOnly) {
   var out = { scanned: 0, failed: 0, matched: 0, noBox: 0 };
   var tab = stentUpRows_();
-  stentTakeNew_(f, tab, manual, "day");
-  var work = tab.rows.filter(function (r) { return r.status === "queued" && r.purpose === "day"; });
+  stentTakeNew_(f, tab, manual, "day", codesOnly);
+  var work = tab.rows.filter(function (r) { return r.status === "queued" && r.purpose === "day" && (!codesOnly || r.fileId === codesOnly); });
   if (!work.length) return out;
   var boxes = boxRowsAll_();
   for (var i = 0; i < work.length; i++) {
@@ -5297,7 +5395,10 @@ function dayTick_(f, models, key, runId, manual, pause, timeLeft) {
     try { file = DriveApp.getFileById(r.fileId); if (file.isTrashed()) file = null; } catch (e) { file = null; }
     if (!file) { r.status = "failed"; r.errors = [{ step: "file", reason: "the photo is no longer in Drive" }]; stentUpWrite_(r); out.failed++; continue; }
     var mime = String(file.getMimeType() || "").toLowerCase();
-    var res = photoRead_(r, DAY_PROMPT, { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" }, models, key, runId, pause, timeLeft);
+    var byCodeD = null;
+    try { byCodeD = photoCodesBoxes_(r.fileId, boxes); } catch (eC) { byCodeD = null; }
+    if (codesOnly && !byCodeD) continue;
+    var res = byCodeD ? { ok: true, json: { boxes: byCodeD }, model: "barcodes (phone, no Gemini)" } : photoRead_(r, DAY_PROMPT, { file: file, name: r.file, mime: mime === "image/jpg" ? "image/jpeg" : mime, isPdf: mime === "application/pdf" }, models, key, runId, pause, timeLeft);
     if (res.waiting) { out.waiting = (out.waiting || 0) + 1; continue; }
     if (res.quota && !res.ok) { stentNote_(r, runId, "reading", "stopped", res.reason); stentUpWrite_(r); break; }
     r.tries = (r.tries || 0) + 1;
