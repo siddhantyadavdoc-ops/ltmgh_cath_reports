@@ -1454,7 +1454,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -6177,6 +6177,51 @@ function invStickers23Nov_(runId) {
   pr.setProperty("INV_STICKERS_23NOV", JSON.stringify({ at: cathNow_(), stickers: rows.length, fromMoved: moved }));
   batchLogRow_(runId, "", "", "stent stickers of 23 Nov (read by Claude)", "written",
     rows.length + " sticker(s) for PTCA 2411–2414" + (moved.length ? "; counted from 23 Nov: " + uniq_(moved).join(", ") : ""));
+  return true;
+}
+
+/* 13.51 — the shelf check of 24 Nov (Shraddha, sent by Dr Yadav at 19:34),
+   once: 2.25×38 LOT 260330 — 2 on the shelf (the IMG_0056 box is the second);
+   2.75×28 LOT 260119 — 1 on the shelf: the box returned on 23 Nov is IMG_0055's
+   ((93)001708), so the box standing in the 9:59 row is still here; Xience
+   2.75×12 LOT 4112041 — none on the shelf and no use recorded since the count
+   of 20 Nov: kept to check, not counted. And the sticker of PTCA 2389 AP-664
+   (Jamnaben Bharadwa, 3.0×15 Xience Alpine LOT 6051241), which answers the
+   "Stents to check" entry for that case; her PTCA was before the count of
+   20 Nov, so it takes nothing off the stock. */
+var SHELF_24NOV = [
+  ["XMWOM9EFW3", { status: "in stock" }, "2 boxes of 2.25×38 LOT 260330 on the shelf (shelf check 24 Nov) — this is the second"],
+  ["XMWOLZNLTV", { status: "in stock", scan: "", codes: "" }, "on the shelf (shelf check 24 Nov): the box returned on 23 Nov was IMG_0055's, (93)001708, not this one"],
+  ["XMWOM5Q61O", { status: "returned", same: "" }, "returned to the company on 23 Nov (stock out); its barcode number (93)001708 is the returned box's"],
+  ["XMWOJLS7QK", { status: "check" }, "not on the shelf on 24 Nov (Shraddha) and no use recorded since the count of 20 Nov — not counted; find out where it went"],
+  ["XMWOJN4VMR", { status: "check" }, "not on the shelf on 24 Nov (Shraddha) and no use recorded since the count of 20 Nov — not counted; find out where it went"],
+  ["XMWOJN4VOS", { status: "check" }, "not on the shelf on 24 Nov (Shraddha) and no use recorded since the count of 20 Nov — not counted; find out where it went"]
+];
+function invShelf24Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("INV_SHELF_24NOV")) return false;
+  pr.setProperty("INV_SHELF_24NOV", "started " + cathNow_());
+  var who = "Claude (shelf check of 24 Nov)", boxes = boxRowsAll_(), byId = {}, changed = 0, missed = [];
+  boxes.forEach(function (b) { byId[b.id] = b; });
+  SHELF_24NOV.forEach(function (f) {
+    var b = byId[f[0]]; if (!b) { missed.push(f[0]); return; }
+    Object.keys(f[1]).forEach(function (k) { b[k] = f[1][k]; });
+    b.why = f[2]; b.checkedBy = who; b.checkedAt = cathNow_(); boxWrite_(b); changed++;
+  });
+  boxSyncMoves_(who);
+  // the sticker of PTCA 2389 AP-664
+  var id = "CLAUDE-24NOVS-1", sticker = 0;
+  if (!stentRowsAll_().some(function (x) { return x.id === id; })) {
+    var st = stentNormItem_({ device: "Stent", brand: "Xience Alpine", manufacturer: "Abbott", diameter: "3", length: "15", ref: "1120300-15", lot: "6051241", serial: "",
+      expiry: "", codes: ["(01)08717648205675"], other: "Osti. LAD" });
+    var row = stentRowOf_(id, "CLAUDE-24NOVS", { name: "Jamnaben Bharadwa", ptcaNo: "2389AP664", ipNo: "", date: "19/11/26" }, st, "", "", "Claude");
+    row[STENT_KEYS.indexOf("edited")] = "added by " + who + " " + cathNow_();
+    row[STENT_KEYS.indexOf("notes")] = "Osti. LAD · PMJAY · sticker page dated 19/11/26 (the utilization sheet says 17 Nov) · also on the page: Cordis 6F XB 3 guide, LOT 18007338";
+    stentWriteRows_([row]); sticker = 1;
+    invAfterSticker_(who);
+  }
+  pr.setProperty("INV_SHELF_24NOV", JSON.stringify({ at: cathNow_(), changed: changed, sticker: sticker, missed: missed }));
+  batchLogRow_(runId, "", "", "shelf check of 24 Nov", "written", changed + " box row(s) changed (2.25×38 +1, 2.75×28 LOT 260119 back on the shelf, Xience 2.75×12 ×3 kept to check); " + sticker + " sticker added (PTCA 2389 AP-664)" + (missed.length ? "; not found: " + missed.join(", ") : ""));
   return true;
 }
 
