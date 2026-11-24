@@ -6103,6 +6103,8 @@ function headFill_() {
    barcode decoded that day is kept on its box ("Scanned barcode"), so a later
    photo whose barcodes are read on the phone can be matched to the very box. */
 var FIX_24NOV = [
+  ["XMWOLZNLIL",{"status":"discarded"},"not counted: the 2.5 x 18 at the left edge of this photo is one of the two already counted (Dr Yadav, 24 Nov)"],
+  ["XMWOLZNLHK",{"status":"discarded"},"not counted: the box lying on top is the 2.25 x 24 LOT 260519 already counted from IMG_0056 (Dr Yadav, 24 Nov)"],
   ["XMWOJO0CU28",{"status":"discarded"},"not a box: \"box 29\" was box 27 (the second 4.0 x 33, LOT 5032841) read again (photo checked 24 Nov)"],
   ["XMWOJO0CO26",{"lot":"5032841","codes":""},"LOT read from the box label on the photo (24 Nov)"],
   ["XMWOJO09T1H",{"status":"repeat","same":"XMWOJN4W613","scan":"(01)08717648205644(17)290614(10)6061841(91)5909"},"same box as IMG_0034.JPG box 16: its barcode reads (10)6061841 (91)5909 on both photos (24 Nov)"],
