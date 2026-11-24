@@ -344,6 +344,9 @@ fieldset.otlock:disabled{opacity:.55}
 .casecard{border-color:#1f5fc2;background:#f4f8fe}
 .casecard .kv{font-size:13px;margin:4px 0}
 .casecard .kv b{color:var(--steel);font-weight:600}
+.techadd{padding:12px 14px;margin:8px 0}.techaddg{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-top:8px}
+.techaddr{display:flex;flex-direction:column;gap:8px;justify-content:space-between;border:1px solid var(--hair);border-left:5px solid var(--ac);border-radius:8px;padding:10px}
+.techaddr b{display:block}.techaddr .hint{display:block;margin:2px 0 0}
 #techview{position:fixed;top:0;right:0;bottom:0;left:0;z-index:90;display:flex;flex-direction:column;background:var(--paper);color:var(--ink)}
 #techview .uvbar{display:flex;gap:8px;align-items:center;padding:calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;border-bottom:1px solid var(--hair);background:var(--panel)}
 #techview .uvtitle{flex:1 1 140px;min-width:0;font-size:14px;font-weight:700}
@@ -13365,6 +13368,7 @@ function viewTech() {
     stents: T.stents ? `<span class="n">${T.stents.length}</span>` : "",
     photos: s2.waiting || s2.failed ? `<span class="n${s2.failed ? " bad" : ""}">${[s2.waiting ? s2.waiting + " waiting" : "", s2.failed ? s2.failed + " failed" : ""].filter(Boolean).join(", ")}</span>` : "" };
   h += techNightBanner();
+  h += techAddPhotosHtml();
   h += `<div class="tabs">` + TECH_TABS.map(function (t) {
     return `<button class="tab${T.tab === t[0] ? " on" : ""}" onclick="techTab('${t[0]}')">${t[1]}${badge[t[0]] || ""}</button>`;
   }).join("") + `</div>`;
@@ -13375,6 +13379,28 @@ function viewTech() {
   return h;
 }
 
+/* 13.51: the four kinds of photo the technicians send, at the top of their
+   page whatever tab is open — each with Take a photo (the camera) and Upload */
+const TECH_ADD = [
+  ["stock", "Stock in", "New boxes received — photograph a few boxes at a time, size, LOT and barcode in view.", "#1c7a55"],
+  ["day", "Stock out", "End of the day: the box flaps / labels of everything opened today.", "#b45309"],
+  ["", "Used stent stickers", "One photo per patient: name and PTCA / Cath no. on a sheet with that patient's stent stickers.", "#c00000"],
+  ["weekly", "Weekly shelf check", "Once a week: every stack and row on the shelf, front boxes readable.", "#0e7490"]
+];
+function techAddPhotosHtml() {
+  const T = S.tech, busy = T.uploading ? "disabled" : "";
+  const said = T.uploading ? (T.invSaid || T.upSaid || "Uploading…") : "";
+  return `<div class="card techadd"><b>Add photos</b>
+    <div class="techaddg">${TECH_ADD.map(function (a) {
+      const id = "qa_" + (a[0] || "used"), arg = a[0] ? `,'${a[0]}'` : "";
+      return `<div class="techaddr" style="--ac:${a[3]}"><div><b>${a[1]}</b><span class="hint">${esc2(a[2])}</span></div>
+        <input type="file" accept="image/*" capture="environment" id="${id}c" hidden onchange="techUpload(this${arg})">
+        <input type="file" accept="image/*${a[0] === "stock" || !a[0] ? ",application/pdf,.pdf" : ""}" multiple id="${id}f" hidden onchange="techUpload(this${arg})">
+        <div class="btns" style="margin:0"><button class="b primary" onclick="document.getElementById('${id}c').click()" ${busy}>Take a photo</button>
+          <button class="b" onclick="document.getElementById('${id}f').click()" ${busy}>Upload</button></div></div>`;
+    }).join("")}</div>
+    ${said ? `<p class="hint" style="color:var(--live)">${esc2(said)}</p>` : (T.invSaid || T.upSaid) ? `<p class="hint" style="color:var(--live)">${esc2(T.invSaid || T.upSaid)}</p>` : ""}</div>`;
+}
 /* ---------------- inventory ---------------- */
 function techInvTake(j) {
   const T = S.tech;
