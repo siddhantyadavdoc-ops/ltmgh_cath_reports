@@ -11319,7 +11319,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.50", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.51", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -13460,7 +13460,7 @@ function techInvPhotosHtml() {
   const used = inStock.filter(function (b) { return b.usedBy; }).length;
   const bgs = bx.filter(function (b) { return b.status === "background"; });
   let h = `<div class="invphotos"><div><b>Stock received, from photos</b>
-      <p class="hint">Photograph the boxes on the shelf (spines to the camera, the size and the LOT readable). Every box is kept with its LOT, REF and expiry; a box seen on two photos is counted once. ${esc2([(st.invWaiting || 0) + " photo" + (st.invWaiting === 1 ? "" : "s") + " waiting", (st.invFailed || 0) + " failed", (st.invScanned || 0) + " read"].join(" · "))}</p>
+      <p class="hint">Photograph the boxes on the shelf (spines to the camera, the size and the LOT readable). Every box is kept with its LOT, REF and expiry; a box seen on two photos is counted once. The phone reads the boxes' barcodes before it uploads — a barcode gives the exact LOT and tells two boxes of one LOT apart; for it to be readable, photograph a few boxes at a time (a stack, or boxes held up) rather than a whole shelf. ${esc2([(st.invWaiting || 0) + " photo" + (st.invWaiting === 1 ? "" : "s") + " waiting", (st.invFailed || 0) + " failed", (st.invScanned || 0) + " read"].join(" · "))}</p>
       ${bx.length ? `<p class="hint"><b>${inStock.length}</b> box${inStock.length === 1 ? "" : "es"} counted${used ? " (" + used + " since used)" : ""} · <b class="${rep.length ? "a" : ""}">${rep.length}</b> repeat${rep.length === 1 ? "" : "s"} not counted · <b class="${chk.length ? "r" : ""}">${chk.length}</b> to check</p>` : ""}</div>
     <label class="fld" style="flex:0 1 190px;margin:0"><span>What the photo is of</span><select id="invUpKind" onchange="S.tech.upKind=this.value"><option value="">Let the app decide</option>${INV_KINDS.map(function (k) { return `<option value="${k.kind}"${S.tech.upKind === k.kind ? " selected" : ""}>${esc2(k.label)}</option>`; }).join("")}</select></label>
     <input type="file" accept="image/*" capture="environment" id="invcam" hidden onchange="techUpload(this,'stock')">
@@ -13495,7 +13495,8 @@ function techInvPhotosHtml() {
       <button class="b danger" onclick="techInvReread()" ${T.saving ? "disabled" : ""}>Read all stock photos again</button></details>`;
   return h + `</div>`;
 }
-function techBoxUnit(b) { const m = /\(91\)\s*([0-9A-Za-z]+)/.exec(String(b.codes || "")); return m ? m[1] : ""; }
+/* the box's own number: (91) on Abbott boxes, (93) on Terumo — from the barcode read on the phone (13.51), else the printed line */
+function techBoxUnit(b) { const m = /\((9[13])\)\s*([0-9A-Za-z]+)/.exec(String(b.scan || "")) || /\((91)\)\s*([0-9A-Za-z]+)/.exec(String(b.codes || "")); return m ? "(" + m[1] + ") " + m[2] : ""; }
 function techBoxSize(b) {
   if (b.kind && !INV_SIZED[b.kind]) return b.size || "";
   return b.dia && b.len ? stentNum(b.dia) + " × " + stentNum(b.len) : b.dia ? stentNum(b.dia) + " × ?" : "size ?";
@@ -13504,7 +13505,7 @@ function techBoxRowHtml(b, btns) {
   const usedIn = b.usedIn ? `<span class="bxused">used in · ${esc2(b.usedIn)}</span>` : "";
   const used = b.usedBy ? `<span class="bxused">used · ${esc2([b.usedBy.ptcaNo ? "PTCA " + b.usedBy.ptcaNo : "", b.usedBy.patient, b.usedBy.date ? techDate(b.usedBy.date) : "", b.usedBy.how === "size" ? "taken as any box of this size" : ""].filter(Boolean).join(" · "))}</span>` : "";
   return `<div class="bxrow" data-bx="${esc2(b.id || "")}"><div class="bxmain"><b>${esc2(b.status === "background" ? (b.brand || "?") : (b.brand || "?") + " " + techBoxSize(b))}</b>
-      <span>${b.status === "background" ? esc2(techKindOne(b.kind || "stent")) : esc2([b.kind && b.kind !== "stent" ? techKindOne(b.kind) : "", b.lot ? "LOT " + b.lot : b.serial ? "No. " + b.serial : "LOT ?", b.ref ? "REF " + b.ref : "", b.expiry ? "exp " + b.expiry : "", techBoxUnit(b) ? "(91) " + techBoxUnit(b) : ""].filter(Boolean).join(" · "))}</span>
+      <span>${b.status === "background" ? esc2(techKindOne(b.kind || "stent")) : esc2([b.kind && b.kind !== "stent" ? techKindOne(b.kind) : "", b.lot ? "LOT " + b.lot : b.serial ? "No. " + b.serial : "LOT ?", b.ref ? "REF " + b.ref : "", b.expiry ? "exp " + b.expiry : "", techBoxUnit(b), b.scan ? "\u2713 barcode" : ""].filter(Boolean).join(" · "))}</span>
       <span class="m">${b.id && b.fileId ? `<button type="button" class="linkbtn" onclick="techBoxShow('${esc2(b.id)}')">Show in photo</button> · ` : ""}${b.url ? `<a href="${esc2(b.url)}" target="_blank" rel="noopener">${esc2(b.photo || "photo")}</a>` : esc2(b.photo || "")}${b.place ? " · " + esc2(b.place) : ""}</span>
       ${b.why ? `<span class="why">${esc2(b.why)}</span>` : ""}${used}${usedIn}</div>${btns ? `<div class="btns" style="margin:0">${btns}</div>` : ""}</div>`;
 }
@@ -13551,7 +13552,7 @@ function techBoxConfirmHtml(b) {
   const first = bx.filter(function (x) { return x.id === b.same; })[0];
   const lots = [b.lot, first && first.lot].filter(Boolean);
   return `<div class="bxrow open">${techBoxRowHtml(b, "")}
-    ${first ? `<p class="hint" style="margin:0 0 4px">Already counted: LOT <b>${esc2(first.lot)}</b> on ${esc2(first.photo || "")}${first.place ? " (" + esc2(first.place) + ")" : ""}${techBoxUnit(first) ? " · (91) " + esc2(techBoxUnit(first)) : ""}. This photo read LOT <b>${esc2(b.lot)}</b>${techBoxUnit(b) ? " · (91) " + esc2(techBoxUnit(b)) : ""}.</p>` : ""}
+    ${first ? `<p class="hint" style="margin:0 0 4px">Already counted: LOT <b>${esc2(first.lot)}</b> on ${esc2(first.photo || "")}${first.place ? " (" + esc2(first.place) + ")" : ""}${techBoxUnit(first) ? " · " + esc2(techBoxUnit(first)) : ""}. This photo read LOT <b>${esc2(b.lot)}</b>${techBoxUnit(b) ? " · " + esc2(techBoxUnit(b)) : ""}.</p>` : ""}
     <div class="row alignend"><label class="fld" style="flex:0 1 170px"><span>LOT printed on the box</span><input id="cf_${esc2(b.id)}" list="cfl_${esc2(b.id)}" placeholder="${esc2(lots[0] || "")}"></label>
       <datalist id="cfl_${esc2(b.id)}">${lots.map(function (l) { return `<option value="${esc2(l)}">`; }).join("")}</datalist>
       <button class="b live" onclick="techBoxConfirm('${esc2(b.id)}','same')" ${T.saving ? "disabled" : ""}>Same box — not counted again</button>
@@ -14713,6 +14714,172 @@ async function techBarcodes(img) {
     return out;
   } catch (e) { return []; }
 }
+/* ---- 13.51: the barcodes on a stock photo, read on the phone ----
+   A stock, weekly or used-instruments photo is made smaller (2400 px) before
+   it is sent, and at that size a box's barcode is too fine to read. So the app
+   first reads the barcodes on the photo as taken, with zxing (the reader used
+   for the desk check of 24 Nov), and sends what it read with the photo:
+   {t: the barcode's text, x, y: its middle, 0–1000 across and down}. The sheet
+   gives each barcode to the box whose label it lies on; the barcode settles the
+   box's LOT and expiry and, by the box's own number ((91) on Abbott boxes, (93)
+   on Terumo, or its serial), whether it was counted before. Stacks, boxes held
+   up and labels read well; the narrow ends of boxes standing in a row on a
+   shelf are too small in a photo of the whole shelf.
+   How: the photo at 2600 px, read whole; then six overlapping quarters made
+   half as big again — once smoothly (cubic, as OpenCV) and once as the browser
+   draws it, the two find different ones; then the whole photo turned 30° and
+   60°, and the quarters at 45°, while time is left. On the 44 stock photos of
+   20–23 Nov this found 131 of the 132 barcodes the slower full set found. */
+const ZX_DIST = ["https://fastly.jsdelivr.net/npm/zxing-wasm@3.1.7/dist/", "https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.7/dist/", "https://unpkg.com/zxing-wasm@3.1.7/dist/"];
+const ZX_OPTS = { formats: ["Code128", "DataMatrix", "QRCode"], tryHarder: true, tryRotate: true, tryInvert: false, tryDownscale: true, maxNumberOfSymbols: 255 };
+let zxWait = null;
+function zxScript(src) {
+  return new Promise(function (ok, no) {
+    const s = document.createElement("script");
+    s.src = src; s.async = true; s.crossOrigin = "anonymous";
+    s.onload = function () { ok(); };
+    s.onerror = function () { s.remove(); no(new Error("not loaded")); };
+    document.head.appendChild(s);
+  });
+}
+function zxReader() {
+  if (!zxWait) {
+    zxWait = (async function () {
+      for (let i = 0; i < ZX_DIST.length; i++) {
+        const base = ZX_DIST[i];
+        try {
+          if (!window.ZXingWASM) await zxScript(base + "iife/reader/index.js");
+          const Z = window.ZXingWASM;
+          if (!Z || typeof Z.readBarcodes !== "function") continue;
+          await Z.prepareZXingModule({ overrides: { locateFile: function (p, pre) { return /\.wasm$/.test(p) ? base + "reader/" + p : pre + p; } }, fireImmediately: true });
+          return Z;
+        } catch (e) { /* the next copy */ }
+      }
+      throw new Error("the barcode reader could not be loaded");
+    })();
+    zxWait.catch(function () { zxWait = null; });
+  }
+  return zxWait;
+}
+function zxGrey(cv) {
+  const d = cv.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, cv.width, cv.height).data, g = new Uint8Array(cv.width * cv.height);
+  for (let i = 0, j = 0; j < g.length; i += 4, j++) g[j] = (d[i] * 306 + d[i + 1] * 601 + d[i + 2] * 117) >> 10;
+  return g;
+}
+/* a part of the grey photo made k times bigger, cubic (Keys, a = −0.75, as
+   OpenCV's INTER_CUBIC) — sharper bar edges than the browser's own drawing */
+function zxCubic(grey, GW, sx, sy, sw, sh, k) {
+  const w = Math.max(1, Math.round(sw * k)), h = Math.max(1, Math.round(sh * k)), A = -0.75;
+  const taps = function (n, N, off) {
+    const idx = new Int32Array(n * 4), wt = new Float32Array(n * 4);
+    for (let o = 0; o < n; o++) {
+      const s = (o + 0.5) / k - 0.5, i0 = Math.floor(s), t = s - i0, u = 1 - t;
+      const w0 = ((A * (t + 1) - 5 * A) * (t + 1) + 8 * A) * (t + 1) - 4 * A, w1 = ((A + 2) * t - (A + 3)) * t * t + 1, w2 = ((A + 2) * u - (A + 3)) * u * u + 1;
+      const ws = [w0, w1, w2, 1 - w0 - w1 - w2];
+      for (let j = 0; j < 4; j++) { idx[o * 4 + j] = off + Math.max(0, Math.min(N - 1, i0 - 1 + j)); wt[o * 4 + j] = ws[j]; }
+    }
+    return [idx, wt];
+  };
+  const tx = taps(w, sw, sx), ty = taps(h, sh, sy), xi = tx[0], xw = tx[1];
+  const mid = new Float32Array(sh * w);
+  for (let r = 0; r < sh; r++) {
+    const row = (sy + r) * GW, out = r * w;
+    for (let o = 0, b = 0; o < w; o++, b += 4) mid[out + o] = grey[row + xi[b]] * xw[b] + grey[row + xi[b + 1]] * xw[b + 1] + grey[row + xi[b + 2]] * xw[b + 2] + grey[row + xi[b + 3]] * xw[b + 3];
+  }
+  const img = new ImageData(w, h), d = img.data;
+  for (let o = 0, b = 0; o < h; o++, b += 4) {
+    const r0 = (ty[0][b] - sy) * w, r1 = (ty[0][b + 1] - sy) * w, r2 = (ty[0][b + 2] - sy) * w, r3 = (ty[0][b + 3] - sy) * w;
+    const w0 = ty[1][b], w1 = ty[1][b + 1], w2 = ty[1][b + 2], w3 = ty[1][b + 3];
+    for (let x = 0, p = o * w * 4; x < w; x++, p += 4) {
+      const v = mid[r0 + x] * w0 + mid[r1 + x] * w1 + mid[r2 + x] * w2 + mid[r3 + x] * w3;
+      d[p] = d[p + 1] = d[p + 2] = v; d[p + 3] = 255;   // a Uint8ClampedArray keeps it within 0–255
+    }
+  }
+  return img;
+}
+/* one view for the reader: a part of src (sx, sy, sw, sh) made k times bigger
+   and turned by ang degrees; back() takes a point on the view to src */
+function zxView(src, sx, sy, sw, sh, k, ang) {
+  const r = ang * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
+  const w = sw * k, h = sh * k;
+  const cw = Math.max(1, Math.round(w * c + h * s)), ch = Math.max(1, Math.round(w * s + h * c));
+  const cv = document.createElement("canvas");
+  cv.width = cw; cv.height = ch;
+  const x = cv.getContext("2d", { willReadFrequently: true });
+  x.fillStyle = "#fff"; x.fillRect(0, 0, cw, ch);
+  try { x.imageSmoothingQuality = "high"; } catch (e) {}
+  x.translate(cw / 2, ch / 2); x.rotate(r);
+  x.drawImage(src, sx, sy, sw, sh, -w / 2, -h / 2, w, h);
+  const img = x.getImageData(0, 0, cw, ch);
+  cv.width = cv.height = 1;
+  return {
+    img: img,
+    back: function (mx, my) {
+      const dx = mx - cw / 2, dy = my - ch / 2;
+      return [sx + sw / 2 + (dx * Math.cos(r) + dy * Math.sin(r)) / k, sy + sh / 2 + (-dx * Math.sin(r) + dy * Math.cos(r)) / k];
+    }
+  };
+}
+/* the barcodes on a photo file: [{t, x, y}] (x, y 0–1000 on the photo as it is
+   uploaded — upright, the same shape). Stops after `limit` ms; said(done, of,
+   found) is told how far it has got. A PDF has none read. */
+async function techScanBarcodes(file, said, limit) {
+  const mime = String(file && file.type || "").toLowerCase();
+  if (!file || mime === "application/pdf" || /\.pdf$/i.test(file.name || "")) return [];
+  const t0 = Date.now();
+  limit = limit || 25000;
+  const Z = await zxReader();
+  const url = URL.createObjectURL(file);
+  let base;
+  try { base = drawScaled(await loadImg(url), 2600, 0); } finally { setTimeout(function () { URL.revokeObjectURL(url); }, 60000); }
+  const W = base.width, H = base.height;
+  let grey = null;
+  // [sx, sy, sw, sh, k, angle, cubic], the most useful first
+  const T = Math.floor(Math.max(W, H) / 2), st = Math.max(1, Math.floor(T / 2)), quarters = [];
+  for (let y0 = 0; y0 < Math.max(1, H - st); y0 += st)
+    for (let x0 = 0; x0 < Math.max(1, W - st); x0 += st) quarters.push([x0, y0, Math.min(T, W - x0), Math.min(T, H - y0)]);
+  const views = [[0, 0, W, H, 1, 0, false]]
+    .concat(quarters.map(function (q) { return q.concat([1.5, 0, true]); }))
+    .concat(quarters.map(function (q) { return q.concat([1.5, 0, false]); }))
+    .concat([[0, 0, W, H, 1, 30, false], [0, 0, W, H, 1, 60, false]])
+    .concat(quarters.map(function (q) { return q.concat([1.5, 45, true]); }));
+  const found = [];
+  for (let i = 0; i < views.length; i++) {
+    if (Date.now() - t0 > limit) break;
+    if (said) said(i, views.length, found.length);
+    await new Promise(function (r) { setTimeout(r, 0); });
+    const v = views[i];
+    let vw;
+    try {
+      if (v[6]) {
+        if (!grey) grey = zxGrey(base);
+        const up = zxCubic(grey, W, v[0], v[1], v[2], v[3], v[4]);
+        if (!v[5]) vw = { img: up, back: function (mx, my) { return [v[0] + mx / v[4], v[1] + my / v[4]]; } };
+        else {
+          const c0 = document.createElement("canvas");
+          c0.width = up.width; c0.height = up.height; c0.getContext("2d").putImageData(up, 0, 0);
+          const r = zxView(c0, 0, 0, up.width, up.height, 1, v[5]);
+          c0.width = c0.height = 1;
+          vw = { img: r.img, back: function (mx, my) { const q = r.back(mx, my); return [v[0] + q[0] / v[4], v[1] + q[1] / v[4]]; } };
+        }
+      } else vw = zxView(base, v[0], v[1], v[2], v[3], v[4], v[5]);
+    } catch (e) { continue; }   // out of memory on a small phone: the next view
+    let res = [];
+    try { res = await Z.readBarcodes(vw.img, ZX_OPTS); } catch (e) { res = []; }
+    (res || []).forEach(function (b) {
+      const t = String(b && b.text || "").trim();
+      if (!t || b.isValid === false || !b.position) return;
+      const p = b.position, q = vw.back((p.topLeft.x + p.topRight.x + p.bottomRight.x + p.bottomLeft.x) / 4, (p.topLeft.y + p.topRight.y + p.bottomRight.y + p.bottomLeft.y) / 4);
+      const x = Math.max(0, Math.min(1000, Math.round(q[0] / W * 1000))), y = Math.max(0, Math.min(1000, Math.round(q[1] / H * 1000)));
+      // the same barcode seen again in another view is one; one text in two places is two boxes
+      if (found.some(function (f) { return f.t === t && Math.hypot(f.x - x, f.y - y) < 20; })) return;
+      found.push({ t: t, x: x, y: y });
+    });
+  }
+  base.width = base.height = 1; grey = null;
+  if (said) said(views.length, views.length, found.length);
+  return found.slice(0, 150);
+}
 /* GS1 — the numbers in or under a medical device's barcode; the sheet's own reading (gs1Parse_) */
 const GS1_FIXED = { "00": 18, "01": 14, "02": 14, "11": 6, "12": 6, "13": 6, "15": 6, "16": 6, "17": 6, "20": 2 };
 const GS1_VAR = { "10": 20, "21": 20, "22": 20, "30": 8, "240": 30, "241": 30, "250": 30 };
@@ -14996,22 +15163,41 @@ async function techUpload(input, purpose) {
   if (!files.length) return;
   const T = S.tech;
   T.uploading = true;
-  let ok = 0, bad = "";
+  // 13.51: the barcodes of a stock, weekly or used-instruments photo are read here first, on the photo as taken
+  const boxes = purpose === "stock" || purpose === "day" || purpose === "weekly";
+  let ok = 0, bad = "", codes = 0, noReader = "";
+  const say = function (t) { if (boxes) T.invSaid = t; else T.upSaid = t; render(); };
   for (let i = 0; i < files.length; i++) {
-    T.upSaid = "Uploading " + (i + 1) + " of " + files.length + "…"; render();
+    const of = files.length > 1 ? " " + (i + 1) + " of " + files.length : "";
+    let scan = [];
+    if (boxes && !noReader) {
+      let at = 0;
+      say("Reading the barcodes on photo" + of + "…");
+      try {
+        scan = await techScanBarcodes(files[i], function (d, n, f) {
+          if (Date.now() - at < 800) return;
+          at = Date.now(); say("Reading the barcodes on photo" + of + "… " + Math.round(d / n * 100) + "%" + (f ? " · " + f + " found" : ""));
+        });
+        codes += scan.length;
+      } catch (e) { noReader = e.message || String(e); }
+    }
+    say("Uploading" + (of ? " photo" + of : "") + "…");
     try {
       const im = await techImageFrom(files[i], 2400);
-      await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "", purpose: purpose || "", kind: purpose === "stock" ? (S.tech.upKind || "") : "" }, 120000);
+      await sheetApi("stentUpload", { b64: im.b64, mime: im.mime, by: S.cfg.userName || "", label: "", purpose: purpose || "", kind: purpose === "stock" ? (S.tech.upKind || "") : "",
+        scan: scan.map(function (c) { return { t: c.t, x: c.x, y: c.y }; }) }, 120000);
       ok++;
     } catch (e) { bad = e.message || String(e); break; }
   }
   T.uploading = false;
+  const bc = !boxes || !ok ? "" : noReader ? " (" + noReader + ", so no barcodes were read on the phone — the boxes are read from the photo alone)"
+    : " · " + (codes ? codes + " barcode" + (codes === 1 ? "" : "s") + " read on the phone" : "no barcodes readable on the phone — for a barcode to count, photograph a few boxes at a time with their barcodes in view");
   if (purpose === "day" || purpose === "weekly") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Instruments used upload" : "Weekly shelf photos") + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in " + (purpose === "day" ? "Instruments used upload" : "Weekly shelf photos") + bc + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
   if (purpose === "stock") {
-    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Inventory uploads" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
+    T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Inventory uploads" + bc + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
   T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read used-stent photos now (full price)." : "");
