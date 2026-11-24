@@ -6325,7 +6325,8 @@ var NEW_24NOV = [
   ["balloon", "NC Rockstar", "Sanavascular", "2", "12", "NCP-2.00-12-RX", "", "130229080926J0179089", "2029-08-09", "Rockstar stack of 24 Nov, box 2 of 5"],
   ["balloon", "NC Rockstar", "Sanavascular", "3.5", "12", "NCP-3.50-12-RX", "", "132629082026J0187111", "2029-08-20", "Rockstar stack of 24 Nov, box 3 of 5"],
   ["balloon", "NC Rockstar", "Sanavascular", "2.75", "12", "NCP-2.75-12-RX", "", "131429060926G0095053", "2029-06-09", "Rockstar stack of 24 Nov, box 4 of 5"],
-  ["balloon", "NC Rockstar", "Sanavascular", "3.5", "12", "NCP-3.50-12-RX", "", "132629082026J0187110", "2029-08-20", "Rockstar stack of 24 Nov, box 5 of 5"]
+  ["balloon", "NC Rockstar", "Sanavascular", "3.5", "12", "NCP-3.50-12-RX", "", "132629082026J0187110", "2029-08-20", "Rockstar stack of 24 Nov, box 5 of 5"],
+  ["stent", "Xience Alpine", "Abbott", "2.75", "23", "1120275-23", "6071341", "", "2029-07-06", "Xience 2.75 x 23 (photo of 24 Nov, 13:01)", "(01)08717648205613(17)290706(10)6071341(91)5684"]
 ];
 function invFix24Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
@@ -6346,12 +6347,12 @@ function invFix24Nov_(runId) {
   });
   // the new boxes of 24 Nov (a serial already on the list is not added twice)
   var haveSn = {}, added = 0;
-  boxes.forEach(function (b) { if (b.serial) haveSn[invNorm_(b.serial)] = 1; });
+  boxes.forEach(function (b) { if (b.serial) haveSn[invNorm_(b.serial)] = 1; if (b.scan) haveSn["S" + b.scan] = 1; if (/\(91\)/.test(b.codes || "")) haveSn["S" + String(b.codes).split("\n")[0]] = 1; });
   var fresh = [];
   NEW_24NOV.forEach(function (n) {
-    if (haveSn[invNorm_(n[7])]) return;
+    if ((n[7] && haveSn[invNorm_(n[7])]) || (n[10] && haveSn["S" + n[10]])) return;
     fresh.push({ id: cathId_("X"), up: "CLAUDE-24NOV", photo: n[9] + ", read by Claude", fileId: "", status: "in stock", why: "added from the photo Dr Yadav sent on 24 Nov", kind: n[0], brand: n[1], mfr: n[2],
-      dia: n[3], len: n[4], ref: n[5], lot: n[6], serial: n[7], expiry: n[8], gtin: "", codes: "", place: "", item: "", same: "", readAt: cathNow_(), readBy: "Claude", checkedBy: who, checkedAt: cathNow_(), size: "", area: "", usedIn: "", scan: "" });
+      dia: n[3], len: n[4], ref: n[5], lot: n[6], serial: n[7], expiry: n[8], gtin: n[10] ? n[10].slice(4, 18) : "", codes: n[10] || "", place: "", item: "", same: "", readAt: cathNow_(), readBy: "Claude", checkedBy: who, checkedAt: cathNow_(), size: "", area: "", usedIn: "", scan: n[10] || "" });
     added++;
   });
   // one write for the whole tab (rows keep their places)
