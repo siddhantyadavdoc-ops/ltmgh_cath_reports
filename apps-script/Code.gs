@@ -6316,6 +6316,17 @@ var FIX_24NOV = [
   ["XMWT3W7U21E",{"scan":"(01)18906029357448(17)290130(21)CS37PFJ14027"},""],
   ["XMWT3W7U61G",{"scan":"(01)18906029357462(17)290402(21)CS44AO34034"},""]
 ];
+/* boxes photographed by Dr Yadav on 24 Nov, read by Claude: new stock, added with the correction */
+var NEW_24NOV = [
+  ["stent", "Yukon Choice Swift", "Translumina", "2.75", "28", "", "SAAY060826", "SAAY061176", "", "Yukon 2.75 x 28 (photo of 24 Nov, box 1 of 3)"],
+  ["stent", "Yukon Choice Swift", "Translumina", "3", "24", "", "SAAX110726", "SAAX111145", "", "Yukon 3.00 x 24 (photo of 24 Nov, box 2 of 3)"],
+  ["stent", "Yukon Choice Swift", "Translumina", "2.75", "36", "", "SAAW060726", "SAAW060250", "", "Yukon 2.75 x 36 (photo of 24 Nov, box 3 of 3)"],
+  ["balloon", "NC Rockstar", "Sanavascular", "2.5", "12", "NCP-2.50-12-RX", "", "131029082026J0191153", "2029-08-20", "Rockstar stack of 24 Nov, box 1 of 5"],
+  ["balloon", "NC Rockstar", "Sanavascular", "2", "12", "NCP-2.00-12-RX", "", "130229080926J0179089", "2029-08-09", "Rockstar stack of 24 Nov, box 2 of 5"],
+  ["balloon", "NC Rockstar", "Sanavascular", "3.5", "12", "NCP-3.50-12-RX", "", "132629082026J0187111", "2029-08-20", "Rockstar stack of 24 Nov, box 3 of 5"],
+  ["balloon", "NC Rockstar", "Sanavascular", "2.75", "12", "NCP-2.75-12-RX", "", "131429060926G0095053", "2029-06-09", "Rockstar stack of 24 Nov, box 4 of 5"],
+  ["balloon", "NC Rockstar", "Sanavascular", "3.5", "12", "NCP-3.50-12-RX", "", "132629082026J0187110", "2029-08-20", "Rockstar stack of 24 Nov, box 5 of 5"]
+];
 function invFix24Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("INV_FIX_24NOV")) return false;
@@ -6333,13 +6344,24 @@ function invFix24Nov_(runId) {
     if (set.status) statuses[set.status] = (statuses[set.status] || 0) + 1;
     b._dirty = true; changed++;
   });
+  // the new boxes of 24 Nov (a serial already on the list is not added twice)
+  var haveSn = {}, added = 0;
+  boxes.forEach(function (b) { if (b.serial) haveSn[invNorm_(b.serial)] = 1; });
+  var fresh = [];
+  NEW_24NOV.forEach(function (n) {
+    if (haveSn[invNorm_(n[7])]) return;
+    fresh.push({ id: cathId_("X"), up: "CLAUDE-24NOV", photo: n[9] + ", read by Claude", fileId: "", status: "in stock", why: "added from the photo Dr Yadav sent on 24 Nov", kind: n[0], brand: n[1], mfr: n[2],
+      dia: n[3], len: n[4], ref: n[5], lot: n[6], serial: n[7], expiry: n[8], gtin: "", codes: "", place: "", item: "", same: "", readAt: cathNow_(), readBy: "Claude", checkedBy: who, checkedAt: cathNow_(), size: "", area: "", usedIn: "", scan: "" });
+    added++;
+  });
   // one write for the whole tab (rows keep their places)
   if (changed) boxTab_().getRange(2, 1, boxes.length, BOX_HEAD.length).setNumberFormat("@").setValues(boxes.map(boxVals_));
+  if (fresh.length) boxAppend_(fresh);
   boxSyncMoves_(who);
-  pr.setProperty("INV_FIX_24NOV", JSON.stringify({ at: cathNow_(), changed: changed, missed: missed, statuses: statuses }));
+  pr.setProperty("INV_FIX_24NOV", JSON.stringify({ at: cathNow_(), changed: changed, added: added, missed: missed, statuses: statuses }));
   batchLogRow_(runId, "", "", "barcode check of 24 Nov (read by Claude)", "written",
     changed + " box row(s) updated (" + Object.keys(statuses).map(function (k) { return statuses[k] + " now " + k; }).join(", ") + "; barcodes kept on " +
-    FIX_24NOV.filter(function (f) { return f[1] && f[1].scan; }).length + " boxes)" + (missed.length ? "; not found: " + missed.join(", ") : ""));
+    FIX_24NOV.filter(function (f) { return f[1] && f[1].scan; }).length + " boxes); " + added + " new box(es) added from the photos of 24 Nov" + (missed.length ? "; not found: " + missed.join(", ") : ""));
   return true;
 }
 /* ==== 13.50 — what each Gemini request cost ====
