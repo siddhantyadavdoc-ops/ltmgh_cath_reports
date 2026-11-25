@@ -1490,7 +1490,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -4928,8 +4928,13 @@ function boxSizeText_(b) { return BOX_SIZED[b.kind] ? (Number(b.dia) && Number(b
 /* a kind of box: device, brand, size and its LOT — or, for a brand that prints
    no LOT, its own serial number (what every counted box has; a GTIN or REF
    read on one photo and missed on another must not split one box in two) */
+/* 13.52: Ultima PC boxes carry no LOT on the side — read without one they are
+   counted (each box on its own: never taken as a repeat), and the app shows
+   a caveat on them for a day after the photo */
+var BOX_NO_LOT_RE = /ultima\s*pc/i;
+function boxNoLot_(b) { return BOX_NO_LOT_RE.test(String(b.brand || "")) && !invNorm_(b.lot) && !invNorm_(b.serial); }
 function boxKey_(b) {
-  var id = invNorm_(b.lot) ? invNorm_(b.lot) : invNorm_(b.serial) ? "s" + invNorm_(b.serial) : "";
+  var id = invNorm_(b.lot) ? invNorm_(b.lot) : invNorm_(b.serial) ? "s" + invNorm_(b.serial) : boxNoLot_(b) && b.id ? "x" + b.id : "";
   return (b.kind || "stent") + "|" + invNorm_(b.brand) + "|" + invSizeKey_(boxSizeText_(b)) + "|" + id;
 }
 /* the same kind of stent for a sticker of a USED stent (it may carry only some of the numbers) */
@@ -4956,7 +4961,7 @@ function boxWhy_(b, raw) {
   if (raw && raw.partial === true) return "cut off at the edge of the photo, or its size or LOT hidden";
   if (!b.brand) miss.push("brand");
   if (BOX_SIZED[b.kind]) { if (!Number(b.dia)) miss.push("diameter"); if (!Number(b.len)) miss.push("length"); }
-  if (!invNorm_(b.lot) && !invNorm_(b.serial)) miss.push("LOT");
+  if (!invNorm_(b.lot) && !invNorm_(b.serial) && !BOX_NO_LOT_RE.test(String(b.brand || ""))) miss.push("LOT");
   if (miss.length) return miss.join(", ") + " not read";
   if (String(b.lot).indexOf("?") >= 0 || String(b.serial).indexOf("?") >= 0) return "LOT not read clearly (" + (b.lot || b.serial) + ")";
   if (BOX_SIZED[b.kind] && !boxSizeOk_(b.kind, b.dia, b.len)) return "size " + b.dia + " × " + b.len + " is not a " + INV_KIND_LABEL[b.kind].toLowerCase() + " size";
@@ -6279,6 +6284,81 @@ var SHELF_24NOV = [
   ["XMWOLZNLTV", { status: "in stock", scan: "", codes: "" }, "on the shelf (shelf check 24 Nov): the box returned on 23 Nov was IMG_0055's, (93)001708, not this one"],
   ["XMWOM5Q61O", { status: "returned", same: "" }, "returned to the company on 23 Nov (stock out); its barcode number (93)001708 is the returned box's"]
 ];
+/* 13.52 — PTCA 2397 AP-667 (Rahul Sorte), once: the utilization sheet's LCx
+   row was read into the D1 row, so the 3×38 Ultimaster Tansei (sticker: LCx,
+   LOT 260521), the Fielder FC wire and the postdilation sat on a D1 target.
+   Dr Yadav (25 Nov): the stents are LAD and LCx. Moved to the LCx target;
+   the D1 target and the D1 row emptied; the registry columns and the
+   inventory "where" follow. */
+/* 13.52, once: the Ultima PC boxes kept to check only for their LOT (none
+   printed on the side) are counted, with the app's one-day caveat */
+function boxUltima25Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("BOX_ULTIMA_25NOV")) return false;
+  pr.setProperty("BOX_ULTIMA_25NOV", "started " + cathNow_());
+  var n = 0, at = cathNow_();
+  boxRowsAll_().forEach(function (b) {
+    if (b.status !== "check" || !boxNoLot_(b) || boxWhy_(b, null)) return;
+    b.status = "in stock"; b.why = ""; b.checkedBy = "Dr Yadav (Ultima PC: no LOT on the box)"; b.checkedAt = at;
+    boxWrite_(b); n++;
+  });
+  if (n) { try { boxSyncMoves_(); } catch (e) {} }
+  pr.setProperty("BOX_ULTIMA_25NOV", JSON.stringify({ at: at, counted: n }));
+  batchLogRow_(runId, "", "", "Ultima PC boxes without a LOT", "written", n + " box(es) counted");
+  return true;
+}
+
+function ptcaSorte25Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("PTCA_SORTE_25NOV")) return false;
+  pr.setProperty("PTCA_SORTE_25NOV", "started " + cathNow_());
+  var sh = SpreadsheetApp.getActive().getSheetByName("PTCA 2026");
+  var have = headersOf(sh), vals = sh.getDataRange().getValues();
+  var cNo = have.indexOf("PTCA No"), cJ = have.indexOf(CASE_JSON_COL), r = -1;
+  for (var i = 1; i < vals.length; i++) if (invSameCase_(vals[i][cNo], "2397AP667") && /sorte/i.test(String(vals[i][have.indexOf("Name")]))) { r = i; break; }
+  if (r < 0) { pr.setProperty("PTCA_SORTE_25NOV", "not found " + cathNow_()); batchLogRow_(runId, "", "", "PTCA 2397 vessel fix", "skipped", "case not found"); return false; }
+  var row = vals[r].slice(), P = JSON.parse(String(row[cJ] || "{}")), note = [];
+  var fixed = ptcaSorteFix_(P);
+  if (fixed) { row[cJ] = JSON.stringify(P); note.push("case JSON"); }
+  ["Stents", "Predilated (balloon → lesion)", "Stent placed (stent → site)", "Postdilated (balloon → stent)"].forEach(function (h) {
+    var c = have.indexOf(h); if (c < 0) return;
+    var v = String(row[c] || ""), seen = {}, out = [];
+    v.split(/;\s*/).forEach(function (x) { x = x.replace(/\bD1\b/g, "LCx"); if (x && !seen[x]) { seen[x] = 1; out.push(x); } });
+    var nv = out.join("; ");
+    if (nv !== v) { row[c] = nv; note.push(h); }
+  });
+  sh.getRange(r + 1, 1, 1, row.length).setValues([row]);
+  var moves = invMovesAll_(), sm = invMovesSheet_(), n = 0;
+  moves.forEach(function (m) {
+    if (!invSameCase_(m.ptcaNo, "2397AP667") || !/^d1$/i.test(m.where)) return;
+    sm.getRange(m.row, 12).setValue("LCx"); n++;
+  });
+  pr.setProperty("PTCA_SORTE_25NOV", JSON.stringify({ at: cathNow_(), fixed: note, moves: n }));
+  batchLogRow_(runId, "", "", "PTCA 2397 vessel fix", "written", "3×38 Ultimaster Tansei moved from D1 to LCx (" + note.join(", ") + "; " + n + " inventory line(s))");
+  return true;
+}
+/* the case JSON: the D1 target's wire, stent and postdilation go to the LCx target */
+function ptcaSorteFix_(P) {
+  var T = (P.proc && P.proc.targets) || [], d = -1, x = -1;
+  T.forEach(function (t, i) { if (/^d1$/i.test(t.site)) d = i; else if (/^lcx$/i.test(t.site)) x = i; });
+  if (d < 0) return false;
+  var D = T[d];
+  (D.stents || []).forEach(function (st) { if (/d1/i.test(st.site || "")) st.site = "LCx"; });
+  if (x >= 0) {
+    var X = T[x];
+    X.wire = D.wire || X.wire; X.pre = X.pre || D.pre; X.preAtm = X.preAtm || D.preAtm; X.preSec = X.preSec || D.preSec;
+    X.stents = (D.stents || []).filter(function (st) { return st.size || st.name; });
+    X.post = D.post; X.postAtm = D.postAtm; X.postSec = D.postSec;
+    T.splice(d, 1);
+  } else D.site = "LCx";
+  var g = P.util && P.util.grid;
+  if (g && g.D1) {
+    var lc = g.LCx || {}, empty = Object.keys(lc).every(function (k) { return !lc[k]; });
+    if (empty) { g.LCx = g.D1; g.D1 = {}; Object.keys(g.LCx).forEach(function (k) { g.D1[k] = ""; }); }
+  }
+  return true;
+}
+
 function invShelf24Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("INV_SHELF_24NOV")) return false;

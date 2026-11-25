@@ -5243,11 +5243,22 @@ function hardwareLines(P) {
   out.push("Other PTCA Accessories");
   return out;
 }
-function cannulatedVessel(t) {
+/* 13.52: the left system is cannulated at the LMCA; with separate LAD and
+   LCx origins (written on the case) the target artery itself is named */
+function cannulatedVessel(t, sep) {
   const s = ((t.site || "") + " " + (t.stents || []).map(function (x) { return x.site || ""; }).join(" ")).trim();
   if (/rca|pda|plv|right coronary/i.test(s)) return "RCA";
-  if (/lm|lad|lcx|om|d1|d2|diag|ramus|left main|circumflex/i.test(s)) return "LCA";
+  if (sep) {
+    if (/lcx|circumflex|\bom\d?\b/i.test(s)) return "LCx";
+    if (/lad|d1|d2|diag/i.test(s)) return "LAD";
+  }
+  if (/lm|lad|lcx|om|d1|d2|diag|ramus|left main|circumflex/i.test(s)) return "LMCA";
   return "The vessel";
+}
+function ptcaSeparateOrigin(P) {
+  const pr = P.proc || {};
+  const txt = [pr.notes, pr.note, pr.findings].concat((pr.targets || []).map(function (t) { return [t.site, t.note, t.notes].join(" "); })).join(" ");
+  return /separate\s+(lad|lcx|origin|ostia)/i.test(txt);
 }
 function ptcaNarrativeParas(P) {
   const pr = P.proc;
@@ -5258,9 +5269,15 @@ function ptcaNarrativeParas(P) {
     j([sideWord, routeWord, "arterial access obtained"], " ").replace(/\s+/g, " ").trim() +
     " with " + (has(pr.sheath) ? String(pr.sheath).replace(/f$/i, "").trim() : "6") + "F sheath." +
     (has(pr.heparin) ? " Inj Heparin " + String(pr.heparin).replace(/u$/i, "").trim() + " U given intra-arterially." : ""));
+  const sepOrigin = ptcaSeparateOrigin(P), doneCann = {};
   (pr.targets || []).filter(targetHasContent).forEach(function (t, ti) {
     let s = "";
-    if (has(t.guide)) s += cannulatedVessel(t) + " cannulated with " + t.guide.trim() + " guiding catheter. Angiogram obtained in various views.";
+    if (has(t.guide)) {
+      // a later vessel through the same guide in the same cannulated artery needs no second cannulation
+      const cv = cannulatedVessel(t, sepOrigin), gk = cv + "|" + t.guide.trim().toLowerCase();
+      if (cv === "The vessel" || !doneCann[gk]) s += cv + " cannulated with " + t.guide.trim() + " guiding catheter. Angiogram obtained in various views.";
+      doneCann[gk] = true;
+    }
     const bif = targetIsBif(t);
     const sbName = bif ? bifSbFull(bifVesselName(t.sb)) : "";
     const dkCrush = bif && (/dk\s*crush/i.test(t.bifConverted || "") || (!has(t.bifConverted) && /dk\s*crush/i.test(t.bifTech || "")));
@@ -13904,6 +13921,13 @@ function techInvPhotosHtml() {
       ${st.invInUrl ? `<a class="b" href="${esc2(st.invInUrl)}" target="_blank" rel="noopener">${esc2(st.invInName || "Stock in upload")} folder</a>` : ""}</div>
     ${T.invSaid ? `<p class="hint" style="color:var(--live)">${esc2(T.invSaid)}</p>` : ""}
     ${techBoxFixHtml()}`;
+  // 13.52: Ultima PC boxes carry no LOT — counted, with this note for a day after the photo
+  const noLot = inStock.filter(function (b) {
+    if (!/ultima\s*pc/i.test(b.brand || "") || b.lot || b.serial) return false;
+    const t = Date.parse(String(b.checkedAt || b.readAt || "").replace(" ", "T"));
+    return !t || Date.now() - t < 864e5;
+  });
+  if (noLot.length) h += `<div class="boxlist chk conf"><div class="bxhead"><b>Counted without a LOT (${noLot.length})</b><span class="hint">Ultima PC boxes have no LOT on the side, so each one photographed is counted as a separate box. If the same box was on two photos, discard the extra one. This note goes after a day.</span></div>${noLot.map(function (b) { return `<div class="bxrow"><b>${esc2((b.brand || "") + " " + (b.dia || "") + " × " + (b.len || ""))}</b> <span class="hint">${esc2(b.photo || "")}${b.place ? " · " + esc2(b.place) : ""}</span> <button class="b" onclick="techBoxSave('${esc2(b.id)}','discarded')" ${T.saving ? "disabled" : ""}>Same box as another — discard</button></div>`; }).join("")}</div>`;
   if (chk.length) h += `<div class="boxlist chk"><div class="bxhead"><b>Boxes to check (${chk.length})</b><span class="hint">Not counted. Fix what was misread and add it, or discard it.</span></div>${chk.map(techBoxCheckHtml).join("")}</div>`;
   if (conf.length) h += `<div class="boxlist chk conf"><div class="bxhead"><b>LOT to confirm (${conf.length})</b><span class="hint">Looks like a box already counted, but its LOT was read one character differently. Find the box on the shelf and type the LOT printed on it.</span></div>${conf.map(techBoxConfirmHtml).join("")}</div>`;
   const nm = (T.inv && T.inv.boxNoMatch) || [];
