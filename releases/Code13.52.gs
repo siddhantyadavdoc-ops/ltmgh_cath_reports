@@ -5035,6 +5035,9 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
   var nearOf = function (b) {
     var hits = boxes.filter(function (x) {
       var xi = invNorm_(x.lot) || invNorm_(x.serial), bi = invNorm_(b.lot) || invNorm_(b.serial);
+      // 13.52: a box known by its own serial number (NC Rockstar) is never a misread of another:
+      // boxes of one batch carry numbers one digit apart (…179106, …179108, …179128)
+      if (!invNorm_(b.lot) && invNorm_(b.serial) && !invNorm_(x.lot) && invNorm_(x.serial)) return false;
       return x.status === "in stock" && x.up !== up.id && (x.kind || "stent") === (b.kind || "stent") && invNorm_(x.brand) === invNorm_(b.brand) && invSizeKey_(boxSizeText_(x)) === invSizeKey_(boxSizeText_(b)) &&
         xi !== bi && boxEdit1_(xi, bi) && (!b.expiry || !x.expiry || boxYmd_(b.expiry) === boxYmd_(x.expiry)) &&
         // 13.51: two LOTs both read from barcodes are exact — never a misread of one another
@@ -6312,27 +6315,25 @@ var SHELF_24NOV = [
    inventory "where" follow. */
 /* 13.52, once: the Ultima PC boxes kept to check only for their LOT (none
    printed on the side) are counted, with the app's one-day caveat */
-/* 13.52, once: NC Rockstar 2×12 No. 130229080926J0179128 — the box of the
-   20 Nov stack photo read then as …108 (Dr Yadav, 25 Nov: the same box,
-   photographed again on stock_20261125-112554). The counted box takes the
-   number printed on it; today's reading is a repeat, not counted. */
+/* 13.52, once: NC Rockstar 2×12 No. 130229080926J0179128 on
+   stock_20261125-112554 was taken as a misread of No. …179108 (the 20 Nov
+   stack photo, where the barcode reads …179108 and the box below it
+   …179106). The numbers are printed and barcoded on both photos: three
+   different boxes. Today's box is counted. */
 function boxRockstar25Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("BOX_ROCKSTAR_25NOV")) return false;
   pr.setProperty("BOX_ROCKSTAR_25NOV", "started " + cathNow_());
   var at = cathNow_(), n = 0;
   boxRowsAll_().forEach(function (b) {
-    if (b.id === "XMWT36KO21U" && invNorm_(b.serial) === invNorm_("130229080926J0179108")) {
-      b.serial = "130229080926J0179128"; b.scan = ""; b.codes = "130229080926J0179128";
-      b.why = "No. corrected from 130229080926J0179108 to 130229080926J0179128 (printed on the box, stock_20261125-112554; Dr Yadav 25 Nov)";
-      b.checkedBy = "Dr Yadav"; b.checkedAt = at; boxWrite_(b); n++;
-    } else if (b.id === "XMWVRA55W4" && b.status === "repeat") {
-      b.same = "XMWT36KO21U"; b.why = "the same box as on the 20 Nov stack photo — not counted again (Dr Yadav 25 Nov)";
-      b.checkedBy = "Dr Yadav"; b.checkedAt = at; boxWrite_(b); n++;
-    }
+    if (b.id !== "XMWVRA55W4" || b.status !== "repeat") return;
+    b.status = "in stock"; b.same = "";
+    b.why = "a different box from No. 130229080926J0179108 of the 20 Nov photo (numbers of one batch run one digit apart) — counted";
+    b.checkedBy = "Claude (barcode and printed number checked, 25 Nov)"; b.checkedAt = at; boxWrite_(b); n++;
   });
+  if (n) { try { boxSyncMoves_(); } catch (e) {} }
   pr.setProperty("BOX_ROCKSTAR_25NOV", JSON.stringify({ at: at, rows: n }));
-  batchLogRow_(runId, "", "", "NC Rockstar 2×12 read twice", "written", n + " row(s): …108 corrected to …128, today's reading kept as a repeat");
+  batchLogRow_(runId, "", "", "NC Rockstar 2×12 …179128", "written", n ? "counted as a new box" : "not found as a repeat — nothing changed");
   return true;
 }
 
