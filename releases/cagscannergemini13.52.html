@@ -4405,14 +4405,51 @@ function invDevice(raw, rowKind, where, list, opt) {
   if (!brand) brand = "(no name written)";
   return { kind: kind, type: INV_KIND_BY[kind].one, brand: brand, size: size, units: q.units, reused: reused, raw: raw, where: where };
 }
-/* the sheath(s) written in "Access / Sheath": "Rt Radial 6F", "R Fem 7F" */
+/* 13.52 — the "Access / Sheath" cell as the technicians write it: RtRA / RRA
+   = right radial artery, RtFA / RFA = right femoral, LtRA / LRA, LtFA / LFA
+   = left; "Rt Radial", "R Fem" too; then perhaps the sheath size, 5F / 6F / 7F
+   (F = French). Several accesses may be written, separated by , ; + & or
+   "and". Returns one entry per access: { side, route, fr, raw, guess }. */
+function accessParse(text) {
+  const out = [];
+  String(text == null ? "" : text).split(/[,;+&]|\band\b/i).forEach(function (part) {
+    const raw = part.trim();
+    if (!raw) return;
+    let t = raw, fr = "";
+    const fm = /([4-9])\s*(?:f|fr|french)\b\.?/i.exec(t) || /([4-9])\s*(?:f|fr|french)(?=[^a-z]|$)/i.exec(t);
+    if (fm) { fr = fm[1]; t = t.slice(0, fm.index) + " " + t.slice(fm.index + fm[0].length); }
+    const c = t.toUpperCase().replace(/[^A-Z]/g, "").replace(/(ARTERY|ART|A)?SHEATH$/, "");
+    const m = /^(RIGHT|RT|RL|R|LEFT|LT|L)?(D|DISTAL)?(RADIAL|RAD|RA|FEMORAL|FEM|FA|BRACHIAL|BRACH|BA)(ARTERY|ART|A)?$/.exec(c);
+    if (!m) { if (fr) out.push({ side: "", route: "", fr: fr, raw: raw, guess: false }); return; }
+    const sd = m[1] || "";
+    const side = /^(RIGHT|RT|RL|R)$/.test(sd) ? "Right" : /^(LEFT|LT|L)$/.test(sd) ? "Left" : "";
+    const route = /^RA/.test(m[3]) ? "Radial" : /^F/.test(m[3]) ? "Femoral" : "Brachial";
+    // "RL" is a "Rt" whose t was read as an l
+    out.push({ side: side, route: route, distal: !!m[2], fr: fr, raw: raw, guess: sd === "RL" });
+  });
+  return out;
+}
+function accessWords(x) {
+  if (!x) return "";
+  const a = [x.side, x.distal ? "distal" : "", x.route ? x.route.toLowerCase() + " artery" : ""].filter(Boolean).join(" ");
+  return [a ? a.charAt(0).toUpperCase() + a.slice(1) : "", x.fr ? x.fr + "F sheath" : ""].filter(Boolean).join(", ");
+}
+function accessPreview(text) {
+  if (!has(text)) return "";
+  const l = accessParse(text);
+  if (!l.length || !l.some(function (x) { return x.route || x.fr; })) return `<div class="preview"><span>Access</span><b>not recognised — write e.g. RtRA 6F, RFA 7F, LtFA</b></div>`;
+  return `<div class="preview"><span>Access reads as</span><b>${esc2(l.map(accessWords).join("; "))}</b>${l.some(function (x) { return x.guess; }) ? ` <i>(“Rl” taken as Rt)</i>` : ""}</div>`;
+}
+/* the sheath(s) written in "Access / Sheath": "Rt Radial 6F", "R Fem 7F", "RtRA 6F" */
 function invSheaths(text) {
   const out = [];
   String(text == null ? "" : text).split(/[,;+&]|\band\b/i).forEach(function (part) {
     part = part.trim();
     if (!part) return;
-    const fr = /([4-9])\s*fr?\b/i.exec(part);
-    const route = /fem/i.test(part) ? "Femoral" : /rad|\bd?ra\b/i.test(part) ? "Radial" : /brach/i.test(part) ? "Brachial" : "";
+    const ap = accessParse(part)[0] || {};
+    const fr0 = /([4-9])\s*fr?\b/i.exec(part);
+    const fr = ap.fr ? [ap.fr, ap.fr] : fr0;
+    const route = ap.route || (/fem/i.test(part) ? "Femoral" : /rad|\bd?ra\b/i.test(part) ? "Radial" : /brach/i.test(part) ? "Brachial" : "");
     if (!fr && !route && !/sheath/i.test(part)) return;
     out.push({ kind: "sheath", type: "Sheath", brand: route ? route + " sheath" : "Sheath", size: fr ? fr[1] + "F" : "",
       units: 1, reused: isReused(part), raw: part, where: "Access / Sheath" });
@@ -6807,7 +6844,7 @@ ${P_COMMON}
 
 TOP TABLE (patient & team)
 - "Name of the Patient" → util.name; "IP No. PTCA" → util.ipNo (the PTCA number, digits); "Cath No." → util.cathNo (the cath number, digits); "Date" → util.date; "Technician Name" → util.technician.
-- "First Operator" → util.op1; "Second Operator" → util.op2; "Third Operator" → util.op3; "Access / Sheath (F)" → util.accessSheath (verbatim, e.g. "Rt Radial 6F").
+- "First Operator" → util.op1; "Second Operator" → util.op2; "Third Operator" → util.op3; "Access / Sheath (F)" → util.accessSheath, copied letter for letter. It is usually written in short: RtRA or RRA (right radial artery), RtFA or RFA (right femoral artery), LtRA or LRA (left radial), LtFA or LFA (left femoral), sometimes in words ("Rt Radial"), often followed by the sheath size 5F, 6F or 7F (F = French), e.g. "RtRA 6F", "RFA 7F", "LtFA". The small "t" of "Rt" / "Lt" is easily mistaken for an "l" — "RtRA", not "RlRA". Copy exactly what is written; never expand it.
 
 VESSEL GRID — the big table. Its header row reads "Vessel →" then the columns LM, LAD, D1, LCx, Ramus, OM, RCA, PDA, PLV (an older printing has no Ramus column). Its rows are Guiding Catheter, Guide Wire, Balloon 1, Balloon 2, Stent 1, Stent 2 and (on the current printing) Stent 3. Report every handwritten cell under util.grid, keyed by column then row: util.grid.LAD = {"guide":"...","wire":"...","balloon1":"...","balloon2":"...","stent1":"...","stent2":"...","stent3":"..."}. Use exactly these column keys: LM, LAD, D1, LCx, Ramus, OM, RCA, PDA, PLV. Omit empty cells and empty columns entirely.
 - Copy each cell verbatim: balloons and stents are written as name and size, e.g. "Sapphire 1.5×10" or "2.75*44 Biomime Aura". Keep the size characters exactly (* or ×). A cell can carry two devices separated by a comma — keep the comma.
@@ -8950,9 +8987,11 @@ function ptcaAfterMerge(P) {
   if (!has(P.proc.performedBy[1]) && has(u.op2)) P.proc.performedBy[1] = u.op2;
   if (has(u.accessSheath)) {
     const a = String(u.accessSheath);
-    if (!has(P.proc.side)) P.proc.side = /\b(rt|right)\b/i.test(a) ? "Right" : /\b(lt|left)\b/i.test(a) ? "Left" : "";
-    if (!has(P.proc.route)) P.proc.route = /radial/i.test(a) ? "Radial" : /femoral/i.test(a) ? "Femoral" : "";
-    if (!has(P.proc.sheath)) { const m = a.match(/(\d+(?:\.\d+)?)\s*F/i) || a.match(/\b([5-8])\b/); if (m) P.proc.sheath = m[1]; }
+    // 13.52: RtRA / RRA / RtFA / RFA / LtRA / LRA / LtFA / LFA, then 5F / 6F / 7F
+    const ac = accessParse(a).filter(function (x) { return x.route; })[0] || accessParse(a)[0] || {};
+    if (!has(P.proc.side)) P.proc.side = ac.side || (/\b(rt|right)\b/i.test(a) ? "Right" : /\b(lt|left)\b/i.test(a) ? "Left" : "");
+    if (!has(P.proc.route)) P.proc.route = ac.route === "Radial" || ac.route === "Femoral" ? ac.route : /radial/i.test(a) ? "Radial" : /femoral/i.test(a) ? "Femoral" : "";
+    if (!has(P.proc.sheath)) { if (ac.fr) P.proc.sheath = ac.fr; else { const m = a.match(/(\d+(?:\.\d+)?)\s*F/i) || a.match(/\b([5-8])\b/); if (m) P.proc.sheath = m[1]; } }
   }
 }
 
@@ -9942,7 +9981,34 @@ function rvAfterClear() { const r = rvS(), L = unsureList().length; if (r.idx >=
 function rvStep(d) { const r = rvS(), L = unsureList().length; if (!L) return; r.idx = ((r.idx || 0) + d + L) % L; render(); }
 
 /* ---- moving about ---- */
-function rvPick(slot) { rvS().slot = slot; render(); }
+/* 13.52: a page's tab also takes the form on the right to where that page's
+   fields are */
+const RV_JUMP = { p1: "Patient", a1: "Angiogram", a2: "vk:lcx", a3: "vk:pda", d1: "j:d1",
+  q1: "Patient", q2: "Examination", q3: "Procedure", q4: "j:q4",
+  qu: "Utilization sheet (technician's hardware grid)", qd: "PTCA diagram & stent sticker" };
+function rvSlotEl(slot) {
+  const w = RV_JUMP[slot]; if (!w) return null;
+  const app = document.getElementById("app") || document;
+  if (w.indexOf("vk:") === 0) return app.querySelector('[data-vk="' + w.slice(3) + '"]');
+  if (w.indexOf("j:") === 0) return app.querySelector('[data-jump="' + w.slice(2) + '"]');
+  const all = app.querySelectorAll("section[data-sect]");
+  for (let i = 0; i < all.length; i++) if (all[i].getAttribute("data-sect") === w) return all[i];
+  return null;
+}
+function rvGoSlot(slot) {
+  const el = rvSlotEl(slot);
+  if (!el) return;
+  const d = el.matches("details") ? el : (el.querySelector("details.rvfold") || el.closest("details"));
+  if (d && !d.open) { d.open = true; if (d.getAttribute("data-t")) rvSect(d.getAttribute("data-t"), true); }
+  try { el.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (e) { el.scrollIntoView(); }
+  el.classList.add("rvping");
+  setTimeout(function () { el.classList.remove("rvping"); }, 1500);
+}
+function rvPick(slot) {
+  rvS().slot = slot; render();
+  // a PC: the form scrolls beside the page; a phone keeps the page in view
+  if (rvWide()) setTimeout(function () { rvGoSlot(slot); }, 30);
+}
 function rvZoom(z) { const r = rvS(); r.zoom = z === 0 ? 1 : Math.max(1, Math.min(4, (r.zoom || 1) + z)); render(); }
 function rvBig(on) { rvS().big = !!on; render(); }
 /* "Show on sheet" / "View full sheet": a PC turns to Full sheet at that page;
@@ -10147,11 +10213,11 @@ const SEGB = (label, path, opts, fn) =>
 const SECT_WIDE = /angiogra|coronary|procedure|technique|utilization|final diagnosis|collateral|cag case|diagram/i;
 const SECT = function (t, inner) {
   const wide = SECT_WIDE.test(t) ? ` class="wide"` : "";
-  if (!rvFold()) return `<section${wide}><h3>${esc2(t)}</h3>${inner}</section>`;
+  if (!rvFold()) return `<section${wide} data-sect="${esc2(t)}"><h3>${esc2(t)}</h3>${inner}</section>`;
   // 13.46: a phone in Flagged view folds each section to its title and how many
   // of its values the scanner flagged; tap to open
   const n = (String(inner).match(/class="[^"]*\bunsure\b/g) || []).length;
-  return `<section${wide}><details class="rvfold"${rvS().open[t] ? " open" : ""} data-t="${esc2(t)}" ontoggle="rvSect(this.dataset.t,this.open)">` +
+  return `<section${wide} data-sect="${esc2(t)}"><details class="rvfold"${rvS().open[t] ? " open" : ""} data-t="${esc2(t)}" ontoggle="rvSect(this.dataset.t,this.open)">` +
     `<summary><h3>${esc2(t)}</h3>${n ? `<span class="rvn">${n} to check</span>` : ""}</summary>${inner}</details></section>`;
 };
 const ROW = (inner) => `<div class="row">${inner}</div>`;
@@ -10192,7 +10258,7 @@ function setDominance(vk, val) {
 function vesselBlock(v) {
   const V = S.D.cag[v.key];
   const p = "cag." + v.key;
-  let h = `<div class="vessel"><div class="cardhead">
+  let h = `<div class="vessel" data-vk="${v.key}"><div class="cardhead">
       <div><b>${esc2(v.full)}</b> <span class="tag">${esc2(v.abbr)}</span></div>
       <button class="b" onclick="addLesion('${v.key}')">+ Lesion</button></div>`;
 
@@ -12164,7 +12230,7 @@ function viewReview() {
   h += cagNumberPanel(D);
   h += readByPanel(D);
   h += unsurePanel();
-  h += diagramPanel(D);
+  h += `<span data-jump="d1"></span>` + diagramPanel(D);
 
   h += rvOpen();
   h += SECT("Patient",
@@ -12707,6 +12773,7 @@ function viewPtcaReview() {
       FD("Date", "P.util.date") + F("Technician", "P.util.technician", "1 1 120px")) +
     ROW(F("First operator", "P.util.op1", "1 1 150px") + F("Second operator", "P.util.op2", "1 1 150px") +
       F("Third operator", "P.util.op3", "1 1 150px") + F("Access / Sheath", "P.util.accessSheath", "1 1 130px")) +
+    accessPreview(P.util.accessSheath) +
     `<p class="hint">Show a vessel's column to type or correct its hardware — each device as name and size, e.g. "2.5*12 Seguro"; two devices in one cell separated by a comma. A short form from the hardware list in Settings (RS, UT \u2026) is put in full when you leave the field.</p>` +
     `<div class="chips">` + UTIL_VESSELS.map(function (v) {
       const on = S.utilOpen[v] || filledCols.indexOf(v) >= 0;
@@ -12760,7 +12827,7 @@ function viewPtcaReview() {
     `<div class="row alignend">` + SEGB("Post dilation", "P.tech.postDilation",
       [{ v: "Simple", t: "Simple" }, { v: "Differential", t: "Differential" }, { v: "POT", t: "POT" }]) +
       F("Note", "P.tech.postDilationNote", "1 1 140px") + `</div>` +
-    `<p class="hint">Bif techniques</p><div class="chips">` +
+    `<p class="hint" data-jump="q4">Bif techniques</p><div class="chips">` +
       ["Provisional", "DK Crush", "Mini Crush", "Culotte", "T stenting", "TAP", "Direct crush", "JSBT"].map(function (w) { return CKA(w, "P.tech.bifTechniques", w); }).join("") +
       CK("Provisional switched to true Bif", "P.tech.bifSwitched") + `</div>` +
     `<p class="hint">Bifurcation vessels — MB</p><div class="chips">` +
