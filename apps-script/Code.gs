@@ -3973,6 +3973,20 @@ function invMoveOut_(m) {
    of the technicians, who add its sticker details (accept) or say it was not
    used (reject). */
 function invDigits_(s) { return String(s == null ? "" : s).replace(/\D/g, "").replace(/^0+/, ""); }
+/* 13.52: "2368AP660" is Cath no. 2368 (the year's cath serial, unique) and
+   angioplasty no. AP 660. Cases are the same when the Cath numbers agree and
+   the AP numbers do not disagree (a sticker page often has the Cath no. alone) */
+function invCaseNo_(s) {
+  var t = String(s == null ? "" : s).toUpperCase();
+  var m = t.match(/^\D*(\d+)/), a = t.match(/AP\D*(\d+)/);
+  return { cath: m ? m[1].replace(/^0+/, "") : "", ap: a ? a[1].replace(/^0+/, "") : "" };
+}
+function invSameCase_(x, y) {
+  var a = invCaseNo_(x), b = invCaseNo_(y);
+  if (!a.cath || !b.cath) return false;
+  if (a.cath !== b.cath) return false;
+  return !a.ap || !b.ap || a.ap === b.ap;
+}
 function invStickerSize_(s) {
   if (s.dia && s.len) return s.dia + "×" + s.len;
   return cathStr_(s.size, 60).replace(/\s*mm\b/ig, "").replace(/\s*[x*×]\s*/g, "×").trim();
@@ -4070,7 +4084,7 @@ function invStickerCheck_(moves, stickers, items) {
     var mine = st.filter(function (s) {
       if (used[s.id]) return false;
       var sp = invDigits_(s.ptcaNo);
-      if (pn && sp) return pn === sp;
+      if (pn && sp) return invSameCase_(c.ptcaNo, s.ptcaNo);
       return !!nm && invNorm_(s.patient) === nm;
     });
     mine.forEach(function (s) { used[s.id] = true; });
@@ -4100,7 +4114,7 @@ function invStickerCheck_(moves, stickers, items) {
     if (used[s.id]) return;
     var d = invStickerDate_(s);
     if (d < start) return;
-    var k = invDigits_(s.ptcaNo) || invNorm_(s.patient) || s.id;
+    var k = invCaseNo_(s.ptcaNo).cath || invNorm_(s.patient) || s.id;
     if (!noSheet[k]) { noSheet[k] = { ptcaNo: s.ptcaNo, patient: s.patient, date: d, n: 0 }; nsList.push(noSheet[k]); }
     noSheet[k].n++;
   });
@@ -4710,7 +4724,7 @@ function caseStickers_(req) {
   var rows = stentRowsAll_().filter(function (o) {
     if (!invIsStentSticker_(o)) return false;
     var sp = String(o.ptcaNo || "").replace(/\D/g, "");
-    if (pn && sp) return sp === pn || (pn.length > 6 && sp.length >= 4 && pn.indexOf(sp) === 0);
+    if (pn && sp) return invSameCase_(req.ptcaNo, o.ptcaNo);
     return !!nm && String(o.patient || "").toLowerCase().replace(/[^a-z]/g, "") === nm;
   });
   return { stickers: rows.map(function (o) { return { id: o.id, patient: o.patient, ptcaNo: o.ptcaNo, brand: o.brand, device: o.device, size: o.size, dia: o.dia, len: o.len, lot: o.lot, ref: o.ref, serial: o.serial, expiry: o.expiry, photo: o.photo }; }) };
