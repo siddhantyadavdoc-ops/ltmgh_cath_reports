@@ -14009,7 +14009,7 @@ function techBoxConfirmHtml(b) {
   const first = bx.filter(function (x) { return x.id === b.same; })[0];
   const lots = [b.lot, first && first.lot].filter(Boolean);
   return `<div class="bxrow open">${techBoxRowHtml(b, "")}
-    ${first ? `<p class="hint" style="margin:0 0 4px">Already counted: LOT <b>${esc2(first.lot)}</b> on ${esc2(first.photo || "")}${first.place ? " (" + esc2(first.place) + ")" : ""}${techBoxUnit(first) ? " · " + esc2(techBoxUnit(first)) : ""}. This photo read LOT <b>${esc2(b.lot)}</b>${techBoxUnit(b) ? " · " + esc2(techBoxUnit(b)) : ""}.</p>` : ""}
+    ${first ? `<p class="hint" style="margin:0 0 4px">Already counted: ${first.lot ? "LOT" : "No."} <b>${esc2(first.lot || first.serial || "")}</b> on ${first.fileId ? `<button type="button" class="linkbtn" onclick="techBoxShow('${esc2(b.id)}')">${esc2(first.photo || "its photo")} — show both photos</button>` : esc2((first.photo || "") + " (sent in the chat, not in Drive)")}${first.place ? " (" + esc2(first.place) + ")" : ""}${techBoxUnit(first) ? " · " + esc2(techBoxUnit(first)) : ""}. This photo read ${b.lot ? "LOT" : "No."} <b>${esc2(b.lot || b.serial || "")}</b>${techBoxUnit(b) ? " · " + esc2(techBoxUnit(b)) : ""}.</p>` : ""}
     <div class="row alignend"><label class="fld" style="flex:0 1 170px"><span>LOT printed on the box</span><input id="cf_${esc2(b.id)}" list="cfl_${esc2(b.id)}" placeholder="${esc2(lots[0] || "")}"></label>
       <datalist id="cfl_${esc2(b.id)}">${lots.map(function (l) { return `<option value="${esc2(l)}">`; }).join("")}</datalist>
       <button class="b live" onclick="techBoxConfirm('${esc2(b.id)}','same')" ${T.saving ? "disabled" : ""}>Same box — not counted again</button>
@@ -14074,15 +14074,29 @@ function techStockPhotosHtml() {
 /* 13.50: a box shown on its photo — the photo with the box ringed in red,
    and the box itself enlarged beside it */
 const BOX_PHOTO_CACHE = {};
+/* 13.52: a repeat (or a LOT to confirm) shows its own photo and, below it,
+   the photo of the box it was taken to be — the two photos side by side */
+async function techBoxPhoto(b) {
+  if (!b || !b.fileId) return null;
+  let ph = BOX_PHOTO_CACHE[b.fileId];
+  if (!ph) { ph = await sheetApi("boxPhoto", { id: b.id }, 90000); BOX_PHOTO_CACHE[b.fileId] = ph; }
+  return "data:" + (ph.mime || "image/jpeg") + ";base64," + ph.b64;
+}
 async function techBoxShow(id) {
   const T = S.tech;
   T.boxShow = { id: id, loading: true }; render();
   try {
-    const b = ((T.inv && T.inv.boxes) || []).filter(function (x) { return x.id === id; })[0] || {};
-    let ph = BOX_PHOTO_CACHE[b.fileId];
-    if (!ph) { ph = await sheetApi("boxPhoto", { id: id }, 90000); BOX_PHOTO_CACHE[b.fileId] = ph; }
+    const all = (T.inv && T.inv.boxes) || [];
+    const b = all.filter(function (x) { return x.id === id; })[0] || {};
+    const o = b.same ? all.filter(function (x) { return x.id === b.same; })[0] : null;
+    const src = await techBoxPhoto(b);
+    let other = null;
+    if (o) {
+      other = { box: o };
+      try { other.src = o.fileId === b.fileId ? src : await techBoxPhoto(o); } catch (e2) { other.err = e2.message || String(e2); }
+    }
     if (!T.boxShow || T.boxShow.id !== id) return;
-    T.boxShow = { id: id, box: b, src: "data:" + (ph.mime || "image/jpeg") + ";base64," + ph.b64 };
+    T.boxShow = { id: id, box: b, src: src, other: other };
   } catch (e) { T.boxShow = { id: id, err: e.message || String(e) }; }
   render();
   setTimeout(techBoxDraw, 30);
@@ -14090,20 +14104,32 @@ async function techBoxShow(id) {
 function techBoxShowHtml() {
   const v = S.tech.boxShow;
   if (!v) return "";
-  const b = v.box || {};
+  const b = v.box || {}, o = v.other;
   if (v.src) setTimeout(techBoxDraw, 0);     // a redraw of the page empties the canvases
+  const label = function (x) { return esc2([x.lot ? "LOT " + x.lot : x.serial ? "No. " + x.serial : "", x.photo || "", x.place || ""].filter(Boolean).join(" · ")); };
+  const pics = function (x, src, n) {
+    if (!src) return `<p class="hint">${x.fileId ? "Could not fetch this photo." : "This photo was sent to Claude in the chat and is not in Drive, so it cannot be shown here."}</p>`;
+    return `${x.area ? "" : `<p class="hint">Read before 13.50, so its exact spot is not known — it is ${esc2(x.place || "on the photo")}.</p>`}
+      <div class="boxshowpics"><canvas id="bxZoom${n}" class="${x.area ? "" : "hide"}"></canvas><canvas id="bxFull${n}"></canvas></div>`;
+  };
   return `<div class="boxshow" onclick="if(event.target===this){S.tech.boxShow=null;render()}"><div class="boxshowin">
     <div class="row" style="justify-content:space-between;align-items:center"><b>${esc2(((b.brand || "?") + " " + techBoxSize(b)).trim())}${b.lot || b.serial ? " · " + esc2(b.lot ? "LOT " + b.lot : "No. " + b.serial) : ""}</b>
       <button class="b" onclick="S.tech.boxShow=null;render()">Close</button></div>
     ${b.why ? `<p class="hint" style="color:#8a4b00;margin:2px 0">${esc2(b.why)}</p>` : ""}
     ${v.loading ? `<p class="hint">Fetching the photo…</p>` : v.err ? `<p class="hint" style="color:#b42318">Could not fetch the photo: ${esc2(v.err)}</p>` : `
-    ${b.area ? "" : `<p class="hint">This box was read before 13.50, so its exact spot is not known — it is ${esc2(b.place || "on the photo")}.</p>`}
-    <div class="boxshowpics"><canvas id="bxZoom" class="${b.area ? "" : "hide"}"></canvas><canvas id="bxFull"></canvas></div>`}
+    ${o ? `<p style="margin:6px 0 2px"><b>This photo</b> <span class="hint">${label(b)}</span></p>` : ""}
+    ${pics(b, v.src, "")}
+    ${o ? `<p style="margin:12px 0 2px"><b>The box already counted</b> <span class="hint">${label(o.box)}</span>${o.box.fileId && o.box.fileId === b.fileId ? ` <span class="hint">(the same photo)</span>` : ""}</p>
+      ${o.err ? `<p class="hint" style="color:#b42318">Could not fetch that photo: ${esc2(o.err)}</p>` : pics(o.box, o.src, "2")}` : ""}`}
   </div></div>`;
 }
 function techBoxDraw() {
   const v = S.tech.boxShow; if (!v || !v.src) return;
-  const full = document.getElementById("bxFull"), zoom = document.getElementById("bxZoom");
+  techBoxDrawOne(v.src, v.box, "bxFull", "bxZoom");
+  if (v.other && v.other.src) techBoxDrawOne(v.other.src, v.other.box, "bxFull2", "bxZoom2");
+}
+function techBoxDrawOne(src, box, fullId, zoomId) {
+  const full = document.getElementById(fullId), zoom = document.getElementById(zoomId);
   if (!full) return;
   const img = new Image();
   img.onload = function () {
@@ -14112,7 +14138,7 @@ function techBoxDraw() {
     const k = Math.min(1, maxW / W);
     full.width = Math.round(W * k); full.height = Math.round(H * k);
     const g = full.getContext("2d"); g.drawImage(img, 0, 0, full.width, full.height);
-    const a = String((v.box || {}).area || "").split(",").map(Number);
+    const a = String((box || {}).area || "").split(",").map(Number);
     if (a.length === 4 && a[2] > a[0]) {
       const x0 = a[1] / 1000 * full.width, y0 = a[0] / 1000 * full.height, x1 = a[3] / 1000 * full.width, y1 = a[2] / 1000 * full.height;
       g.fillStyle = "rgba(0,0,0,.35)";
@@ -14129,7 +14155,7 @@ function techBoxDraw() {
       }
     }
   };
-  img.src = v.src;
+  img.src = src;
 }
 /* 13.50: the day an item's uses start being taken off */
 function techFromHtml(x) {

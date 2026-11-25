@@ -1490,7 +1490,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -4685,19 +4685,61 @@ function stentDeleteRows_(rowNums) {
   var sh = stentTab_();
   rowNums.slice().sort(function (a, b) { return b - a; }).forEach(function (n) { sh.deleteRow(n); });
 }
-/* Only the newest STENT_KEEP photos stay in Stents scanned: older ones are
-   deleted (what was read from them stays in the Stents tab, marked "photo
-   removed"). Returns a one-line note or "". */
+/* 13.52 — the photos once read (used stents, stock in, stock out) are kept
+   six months at full quality, then six months more as a smaller,
+   lower-quality copy (the same Drive file, so every link to it still works),
+   and are then deleted. What was read from them stays in the sheet. Runs at
+   most once a day, a few photos at a time. */
+var PHOTO_FULL_DAYS = 183, PHOTO_LOW_DAYS = 365, PHOTO_LOW_PX = 1280, PHOTO_LOW_TAG = "low quality copy (13.52)";
 function stentHousekeep_(f, runId) {
-  var keep = stentKeepN_();
-  var files = [], it = f.stentsDone.getFiles();
-  while (it.hasNext()) { var x = it.next(); files.push({ f: x, id: x.getId(), t: x.getDateCreated().getTime() }); }
-  if (files.length <= keep) return "";
-  files.sort(function (a, b) { return a.t - b.t; });
-  var drop = files.slice(0, files.length - keep);
-  var gone = {}, failed = 0;
-  drop.forEach(function (x) { try { x.f.setTrashed(true); gone[x.id] = true; } catch (e) { failed++; } });
-  var day = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var pr = PropertiesService.getScriptProperties(), day = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  if (pr.getProperty("PHOTO_AGE_DAY") === day) return "";
+  pr.setProperty("PHOTO_AGE_DAY", day);
+  var now = Date.now(), files = [];
+  var walk = function (fo, depth) {
+    var it = fo.getFiles();
+    while (it.hasNext()) { var x = it.next(); if (/^image\//.test(x.getMimeType())) files.push(x); }
+    if (depth < 2) { var sub = fo.getFolders(); while (sub.hasNext()) walk(sub.next(), depth + 1); }
+  };
+  [f.stentsDone, f.invDone, f.usedDone].forEach(function (fo) { try { walk(fo, 0); } catch (e) {} });
+  var gone = {}, low = 0, failed = 0, budget = 25;
+  files.forEach(function (x) {
+    var age = (now - x.getDateCreated().getTime()) / 864e5;
+    try {
+      if (age > PHOTO_LOW_DAYS) { x.setTrashed(true); gone[x.getId()] = true; }
+      else if (age > PHOTO_FULL_DAYS && budget > 0 && String(x.getDescription() || "").indexOf(PHOTO_LOW_TAG) < 0) {
+        budget--; if (photoShrink_(x)) low++; else failed++;
+      }
+    } catch (e) { failed++; }
+  });
+  photoMarkGone_(gone, day);
+  var n = Object.keys(gone).length;
+  if (!n && !low && !failed) return "";
+  var note = "photos: " + [low ? low + " older than 6 months made a smaller copy" : "", n ? n + " older than a year deleted (what was read stays in the sheet)" : "",
+    failed ? failed + " could not be changed (owned by another account?)" : ""].filter(Boolean).join("; ");
+  batchLogRow_(runId, "", "", "photo housekeeping", "ok", note);
+  return note;
+}
+/* the photo replaced, in place, by a JPEG at most PHOTO_LOW_PX on its long side (Drive's own preview of it) */
+function photoShrink_(file) {
+  var tok = ScriptApp.getOAuthToken(), id = file.getId();
+  var meta = JSON.parse(UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files/" + id + "?fields=thumbnailLink&supportsAllDrives=true",
+    { headers: { Authorization: "Bearer " + tok } }).getContentText());
+  if (!meta.thumbnailLink) return false;
+  var r = UrlFetchApp.fetch(String(meta.thumbnailLink).replace(/=s\d+$/, "") + "=s" + PHOTO_LOW_PX, { headers: { Authorization: "Bearer " + tok }, muteHttpExceptions: true });
+  var h = r.getHeaders(), ct = String(h["Content-Type"] || h["content-type"] || "");
+  if (r.getResponseCode() !== 200 || !/^image\//.test(ct)) return false;
+  var bytes = r.getContent();
+  if (bytes.length >= file.getSize()) { file.setDescription(PHOTO_LOW_TAG + " — already small"); return true; }
+  var up = UrlFetchApp.fetch("https://www.googleapis.com/upload/drive/v3/files/" + id + "?uploadType=media&supportsAllDrives=true",
+    { method: "patch", contentType: ct.split(";")[0], payload: bytes, headers: { Authorization: "Bearer " + tok }, muteHttpExceptions: true });
+  if (up.getResponseCode() !== 200) return false;
+  DriveApp.getFileById(id).setDescription(PHOTO_LOW_TAG + " " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"));
+  return true;
+}
+/* a deleted photo is marked "photo removed" where it is listed */
+function photoMarkGone_(gone, day) {
+  if (!Object.keys(gone).length) return;
   var tab = stentUpRows_();
   tab.rows.forEach(function (r) { if (gone[r.fileId] && !r.photoGone) { r.photoGone = day; stentUpWrite_(r); } });
   var sh = stentTab_();
@@ -4709,11 +4751,6 @@ function stentHousekeep_(f, runId) {
     ids.forEach(function (v, i) { if (gone[String(v[0])] && !String(g[i][0])) { g[i][0] = day; changed = true; } });
     if (changed) sh.getRange(2, gc, g.length, 1).setNumberFormat("@").setValues(g);
   }
-  var n = Object.keys(gone).length;
-  var note = "stent photos: the " + n + " oldest deleted from " + STENT_DONE_DEFAULT + " (the newest " + keep + " are kept; what was read stays in the sheet)" +
-    (failed ? "; " + failed + " could not be deleted (owned by another account) — delete them by hand" : "");
-  batchLogRow_(runId, "", "", "stent housekeeping", "ok", note);
-  return note;
 }
 /* ---- what the app asks ---- */
 /* 13.52: the used-stent stickers of one case — by its PTCA / Cath number
@@ -4826,7 +4863,7 @@ function stentRetry_(req) {
   var tab = stentUpRows_();
   var r = tab.byId[String(req.id || "")];
   if (!r) throw new Error("that photo is no longer in the uploads list");
-  if (r.photoGone) throw new Error("this photo was deleted on " + r.photoGone + " (only the newest " + stentKeepN_() + " are kept) — upload it again");
+  if (r.photoGone) throw new Error("this photo was deleted on " + r.photoGone + " (photos are kept a year: six months full size, six months smaller) — upload it again");
   var billed = stentRowsAll_().filter(function (x) { return x.up === r.id && (x.billNo || x.billedAt || x.edited); });
   if (billed.length) throw new Error("a sticker from this photo has been corrected or marked billed — reading it again would lose that; correct the stickers by hand instead");
   r.status = "queued"; r.result = null; r.tries = 0; r.errors = [];
@@ -4849,7 +4886,7 @@ function stentPhoto_(req) {
   var tab = stentUpRows_();
   if (!id || !tab.byFile[id]) throw new Error("that photo is not one of the stent uploads");
   var f = DriveApp.getFileById(id);
-  if (f.isTrashed()) throw new Error("this photo has been deleted (only the newest " + stentKeepN_() + " are kept)");
+  if (f.isTrashed()) throw new Error("this photo has been deleted (photos are kept a year: six months full size, six months smaller)");
   var blob = f.getBlob();
   if (blob.getBytes().length > 15 * 1024 * 1024) throw new Error("the photo is too large to show here — open it in Drive");
   return { fileId: id, name: f.getName(), mime: String(blob.getContentType() || f.getMimeType() || ""), b64: Utilities.base64Encode(blob.getBytes()) };
@@ -6337,6 +6374,19 @@ function boxRockstar25Nov_(runId) {
   return true;
 }
 
+/* 13.52, once: the 20 Nov NC Rockstar 2.00–2.50 stack photo (sent to Claude in
+   the chat) put in "Stock in processed", so its boxes can be shown */
+function boxPhoto20Nov9_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("BOX_PHOTO_20NOV9")) return false;
+  pr.setProperty("BOX_PHOTO_20NOV9", "started " + cathNow_());
+  var n = 0;
+  boxRowsAll_().forEach(function (b) { if (b.up === "CLAUDE-20NOV-9" && !b.fileId) { b.fileId = "1vuvPcLIPhygQ1gbxiyADOUhlByQ0MC6n"; boxWrite_(b); n++; } });
+  pr.setProperty("BOX_PHOTO_20NOV9", JSON.stringify({ at: cathNow_(), rows: n }));
+  batchLogRow_(runId, "", "", "20 Nov Rockstar photo", "written", n + " box row(s) linked to the photo");
+  return true;
+}
+
 function boxUltima25Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("BOX_ULTIMA_25NOV")) return false;
@@ -6952,7 +7002,10 @@ function boxPhoto_(req) {
   var id = String(req.id || ""), b = null, list = boxRowsAll_();
   for (var i = 0; i < list.length; i++) if (list[i].id === id) b = list[i];
   if (!b) throw new Error("that box is no longer on the list");
-  var file = DriveApp.getFileById(b.fileId);
+  if (!b.fileId) throw new Error("this photo was sent in the chat and is not in Drive");
+  var file;
+  try { file = DriveApp.getFileById(b.fileId); if (file.isTrashed()) throw new Error("x"); }
+  catch (e) { throw new Error("the photo was deleted (photos are kept a year: six months full size, six months smaller)"); }
   if (file.getSize() > 15 * 1024 * 1024) throw new Error("the photo is larger than 15 MB — open it in Drive");
   var blob = file.getBlob();
   return { id: b.id, area: b.area, place: b.place, photo: b.photo, mime: blob.getContentType(), b64: Utilities.base64Encode(blob.getBytes()) };
