@@ -25,6 +25,7 @@ BOX = "☐"          # ☐
 TICK = "☒"         # ☒ — a ticked box in the examples
 INK = RGBColor(0x1F, 0x3F, 0xBF)
 VALS = {}               # the example's values; empty = blank form
+XBOX, COMB = 12, 20     # tick-box and comb-box sizes (pt); a denser form sets them smaller
 
 
 # ------------------------------------------------------------ run helpers
@@ -68,7 +69,7 @@ def emit(p, x, size=None):
     elif k == "x":                       # a tick box before its label: ("x", label, key)
         key = x[2] if len(x) > 2 else x[1]
         on = VALS.get(key) is True
-        run(p, (TICK if on else BOX) + "\u00a0", font="Segoe UI Symbol", size=12, color=INK if on else None)
+        run(p, (TICK if on else BOX) + "\u00a0", font="Segoe UI Symbol", size=XBOX, color=INK if on else None)
         run(p, x[1].replace(" ", "\u00a0") if len(x[1]) <= 18 else x[1], size=size)
         run(p, "   ", size=size)
     elif k == "_":                       # a blank: ("_", n, key)
@@ -81,14 +82,14 @@ def emit(p, x, size=None):
             s = str(v)
             r = run(p, " ".join(s) + " ", font="Segoe UI Symbol", size=13, color=INK)
         else:
-            run(p, BOX * x[1], font="Segoe UI Symbol", size=20)
+            run(p, BOX * x[1], font="Segoe UI Symbol", size=COMB)
     elif k == "d":                       # a date comb: ("d", key)
         v = VALS.get(x[1])
         if v: ink(p, " " + v + " ")
         else:
             for i in range(3):
-                run(p, BOX * 2, font="Segoe UI Symbol", size=20)
-                if i < 2: run(p, "/", font="Segoe UI Symbol", size=16)
+                run(p, BOX * 2, font="Segoe UI Symbol", size=COMB)
+                if i < 2: run(p, "/", font="Segoe UI Symbol", size=COMB * 0.8)
             run(p, " DD/MM/YY", size=6)
     elif k == "t":                       # a literal with a size
         run(p, x[1], size=x[2])
