@@ -3641,7 +3641,6 @@ const PTCA_CONSULTANTS = [
   "Dr. P. J. Nathani  MD (Int. Med) DM (Cardio) F.A.C.C, F.E.S.C, F.S.C.A.I — Professor & Head",
   "Dr. Milind Phadke  MD (Int. Med) DM (Cardio) — Additional Professor",
   "Dr. Zohaib Shaikh  MD (Int. Med) DM (Cardio) — Additional Professor",
-  "Dr. Abhinav Anand  MD (Int. Med) DM (Cardio) — Assistant Professor",
   "Dr. Siddhant Yadav  MD (Int. Med) DM (Cardio) — Assistant Professor",
 ];
 
@@ -11743,7 +11742,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.52", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.53", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
