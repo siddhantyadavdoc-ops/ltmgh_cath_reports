@@ -679,6 +679,11 @@ function appendCase(req) {
           caseDate: /^\d{4}-\d{2}-\d{2}$/.test(String(req.invDate || "")) ? String(req.invDate) : cathToday_(), uses: req.invUse, by: g("Saved by") || String(req.by || "") });
         invPendingDrop_([caseKey, origKey]);
       } else inv = invPendingNote_(cj, { key: caseKey, year: year, ptcaNo: ptcaNo, cagNo: cagNo, name: name });
+      // 13.52: the diagram stent sheet's stickers
+      if (Array.isArray(req.diagStickers)) {
+        try { var dgs = diagStickersSave_(ptcaNo || cagNo, name, String(req.diagDate || ""), req.diagStickers, g("Saved by") || String(req.by || "")); inv = inv || {}; inv.diag = dgs; }
+        catch (eD) { inv = inv || {}; inv.diagError = String(eD && eD.message || eD); }
+      }
     } catch (eI) { inv = { error: String(eI && eI.message || eI) }; }
   }
   return { diagramUrl: diagramUrl, utilUrl: utilUrl, utilError: utilError, replaced: replaced, inv: inv };
@@ -1146,7 +1151,7 @@ var BATCH_NEEDED_OF = { CAG: ["p1", "a1", "a2", "a3"], PTCA: ["q1", "q2", "q3", 
 var BATCH_SLOT_WORD = { p1: "Sheet 1 (clinical proforma)", a1: "Sheet 2 (angiogram page 1)",
   a2: "Sheet 3 (angiogram page 2)", a3: "Sheet 4 (angiogram page 3)", d: "Sheet 5 (coronary diagram)",
   q1: "PTCA sheet 1 (front page)", q2: "PTCA sheet 2 (investigations)", q3: "PTCA sheet 3 (procedure & technique)",
-  q4: "PTCA sheet 4 (bif / thrombus / calcium)", qu: "PTCA utilization report", qd: "PTCA diagram sheet (stent sticker)", other: "not a proforma page" };
+  q4: "PTCA sheet 4 (bif / thrombus / calcium)", qu: "PTCA utilization report", qd: "Diagram stent sheet", other: "not a proforma page" };
 function batchType_(t) { return String(t || "").toUpperCase() === "PTCA" ? "PTCA" : "CAG"; }
 
 /* ---- setup / teardown (run from the editor) ---- */
@@ -1490,7 +1495,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -1903,6 +1908,16 @@ function batchProcessCase0_(c, f, prompts, models, key, runStart, runId) {
     // diagram sheet called "Sheet 1" again, say), so each repeat in a PDF is
     // looked at on its own with the single-page prompt before being written
     // off; the first page keeps the slot, a repeat that still matches is noted
+    // 13.52: a PTCA page called "other" is looked at once more on its own —
+    // the diagram stent sheet was often taken for "not a proforma page"
+    if (type === "PTCA") map.forEach(function (m) {
+      if (m.slot !== "other" || !m.pdfPage || timeLeft() < 100000) return;
+      var r3 = batchCallChain_(key, models.pageChain || [models.page], batchReadPrompt_(batchPagePrompt_(false, prompts, type), true, m.pdfPage), items[m.fileIdx], m.pdfPage, pause, timeLeft);
+      if (r3.ok) { var pg3 = batchParsePages_(r3.json, false, type); if (pg3.length && pg3[0].slot && pg3[0].slot !== "other" && pg3[0].slot !== "unknown") {
+        batchNote_(c, runId, m.label, "page recognition", "ok", "looked at again on its own: " + (BATCH_SLOT_WORD[pg3[0].slot] || pg3[0].slot));
+        m.slot = pg3[0].slot; } }
+      pause();
+    });
     var seen = {};
     map.forEach(function (m) {
       if (m.slot === "other" || m.slot === "unknown") return;
@@ -4000,6 +4015,73 @@ function invStickerDate_(s) {
   return d || sc || cathToday_();
 }
 function invIsStentSticker_(s) { return s && s.id && String(s.device || "Stent") === "Stent" && (s.brand || s.size || s.dia); }
+/* 13.52 — stickers read off the PTCA "diagram stent sheet" are kept with the
+   upload id "DIAGRAM <PTCA No>". They take a stent off the stock only while
+   the technicians' sticker photo of that case has not been read: that photo
+   is the more reliable one. Once it is, the diagram ones are kept only to be
+   compared with it (stentDiagDiffs_). */
+var DIAG_UP = "DIAGRAM ";
+function stentIsDiag_(s) { return String(s && s.up || "").indexOf(DIAG_UP) === 0; }
+function stentSameCaseOf_(a, b) {
+  var pa = invDigits_(a.ptcaNo), pb = invDigits_(b.ptcaNo);
+  if (pa && pb) return invSameCase_(a.ptcaNo, b.ptcaNo);
+  var na = invNorm_(a.patient), nb = invNorm_(b.patient);
+  return !!na && na === nb;
+}
+/* the stent stickers that count: the technicians' ones, and the diagram
+   sheet's where the case has no technicians' sticker yet */
+function stentCounted_(all) {
+  var st = (all || []).filter(invIsStentSticker_), tech = st.filter(function (x) { return !stentIsDiag_(x); });
+  return st.filter(function (x) { return !stentIsDiag_(x) || !tech.some(function (t) { return stentSameCaseOf_(t, x); }); });
+}
+/* where the diagram sheet's stickers and the technicians' stickers of one case disagree */
+function stentDiagDiffs_(all) {
+  var st = (all || []).filter(invIsStentSticker_), diag = st.filter(stentIsDiag_), tech = st.filter(function (x) { return !stentIsDiag_(x); });
+  var cases = {}, out = [];
+  diag.forEach(function (d) { var k = invCaseNo_(d.ptcaNo).cath || invNorm_(d.patient); (cases[k] = cases[k] || []).push(d); });
+  Object.keys(cases).forEach(function (k) {
+    var ds = cases[k], ts = tech.filter(function (t) { return stentSameCaseOf_(t, ds[0]); });
+    if (!ts.length) return;
+    var left = ts.slice(), msgs = [];
+    var txt = function (x) { return [x.brand, x.size || (x.dia && x.len ? x.dia + " × " + x.len + " mm" : ""), x.lot ? "LOT " + x.lot : ""].filter(Boolean).join(" "); };
+    var sz = function (x) { return invSizeKey_(invStickerSize_(x)); };
+    ds.forEach(function (d) {
+      var i = -1, l;
+      for (l = 0; l < left.length; l++) if (invNorm_(d.lot) && invNorm_(left[l].lot) === invNorm_(d.lot)) { i = l; break; }
+      if (i < 0) for (l = 0; l < left.length; l++) if (sz(left[l]) && sz(left[l]) === sz(d)) { i = l; break; }
+      if (i < 0) { msgs.push("diagram sheet " + txt(d) + " — no technicians' sticker like it"); return; }
+      var t = left.splice(i, 1)[0];
+      if (invNorm_(d.lot) && invNorm_(t.lot) && invNorm_(d.lot) !== invNorm_(t.lot)) msgs.push("diagram sheet LOT " + d.lot + ", technicians' sticker LOT " + t.lot + " (" + txt(t) + ")");
+      else if (sz(d) && sz(t) && sz(d) !== sz(t)) msgs.push("diagram sheet " + txt(d) + ", technicians' sticker " + txt(t));
+    });
+    left.forEach(function (t) { msgs.push("technicians' sticker " + txt(t) + " — not on the diagram sheet"); });
+    if (msgs.length) out.push({ ptcaNo: ds[0].ptcaNo, patient: ds[0].patient || ts[0].patient, date: ds[0].date, diffs: msgs });
+  });
+  return out.slice(-40);
+}
+/* the app saves a PTCA case: the stickers on its diagram stent sheet are
+   written (replacing that case's earlier diagram ones); the inventory follows */
+function diagStickersSave_(ptcaNo, name, date, list, by) {
+  var key = invCaseNo_(ptcaNo).cath ? String(ptcaNo).replace(/\s+/g, "") : invNorm_(name);
+  if (!key) return { n: 0 };
+  var up = DIAG_UP + key, all = stentRowsAll_();
+  var old = all.filter(function (x) { return stentIsDiag_(x) && (x.up === up || stentSameCaseOf_(x, { ptcaNo: ptcaNo, patient: name })); });
+  if (old.length) stentDeleteRows_(old.map(function (x) { return x.row; }));
+  var rows = [];
+  (list || []).slice(0, 8).forEach(function (x, i) {
+    x = x || {};
+    if (!x.dia && !x.lot && !x.brand && !x.product) return;
+    var st = stentNormItem_({ device: "Stent", brand: x.product || x.brand, manufacturer: x.brand && x.product ? x.brand : "", diameter: x.dia, length: x.len,
+      ref: x.ref, lot: x.lot, serial: x.serial, expiry: x.expiry, codes: [], other: x.position || "" });
+    var row = stentRowOf_(cathId_("DG"), up, { name: name, ptcaNo: ptcaNo, ipNo: "", date: date }, st, "", "", "diagram stent sheet");
+    row[STENT_KEYS.indexOf("notes")] = "from the PTCA diagram stent sheet" + (x.position ? " · " + x.position : "") + " — the technicians' sticker photo, when read, is taken instead";
+    rows.push(row);
+  });
+  if (rows.length) stentWriteRows_(rows);
+  if (rows.length || old.length) invAfterSticker_(by);
+  var tech = stentRowsAll_().filter(function (x) { return invIsStentSticker_(x) && !stentIsDiag_(x) && stentSameCaseOf_(x, { ptcaNo: ptcaNo, patient: name }); });
+  return { n: rows.length, tech: tech.length };
+}
 function invNeedSync_(moves, stickers) {
   if (String(PropertiesService.getScriptProperties().getProperty("INV_SEEDED") || "") !== "1") return true;
   var have = {};
@@ -4010,7 +4092,7 @@ function invNeedSync_(moves, stickers) {
 }
 function invSyncStickers_(items, moves, by) {
   var start = invStart_(), now = cathNow_();
-  var stickers = stentRowsAll_().filter(invIsStentSticker_);
+  var stickers = stentCounted_(stentRowsAll_());
   var oldBy = {};
   moves.forEach(function (m) { if (m.caseKey.indexOf("STICKER ") === 0) (oldBy[m.caseKey] = oldBy[m.caseKey] || []).push(m); });
   var add = [], del = [], seen = {};
@@ -4133,12 +4215,12 @@ function invGet_(req) {
       stock: t.stock, received: t.received, used: t.used, adjusted: t.adjusted, reused: t.reused, early: t.early, lastUsed: t.lastUsed, cases: t.cases,
       onSheet: t.onSheet, counted: t.counted, from: it.from || "", fromAuto: !!it.fromAuto, before: t.before };
   });
-  var stickers = [];
-  try { stickers = stentRowsAll_(); } catch (e) {}
+  var stickers = [], diagDiff = [];
+  try { var allSt = stentRowsAll_(); stickers = stentCounted_(allSt); diagDiff = stentDiagDiffs_(allSt); } catch (e) {}
   var chk = invStickerCheck_(moves, stickers, items);
   var o = { items: list, start: invStart_(), moves: moves.slice(-400).reverse().map(invMoveOut_), moveCount: moves.length, pending: invPending_(),
     kinds: INV_KIND_ORDER.map(function (k) { return { kind: k, label: INV_KIND_LABEL[k] }; }),
-    review: chk.review, noSheet: chk.noSheet, needSync: invNeedSync_(moves, stickers) };
+    review: chk.review, noSheet: chk.noSheet, diagDiff: diagDiff, needSync: invNeedSync_(moves, stickers) };
   try { o.boxFix = invAutoFixStatus_(); } catch (e) {}
   try { o.stockPhotos = invPhotoList_(); } catch (e) {}
   try {
@@ -4759,7 +4841,7 @@ function caseStickers_(req) {
   var pn = String(req.ptcaNo || "").replace(/\D/g, ""), nm = String(req.name || "").toLowerCase().replace(/[^a-z]/g, "");
   if (!pn && !nm) return { stickers: [] };
   var rows = stentRowsAll_().filter(function (o) {
-    if (!invIsStentSticker_(o)) return false;
+    if (!invIsStentSticker_(o) || stentIsDiag_(o)) return false;   // the technicians' stickers only
     var sp = String(o.ptcaNo || "").replace(/\D/g, "");
     if (pn && sp) return invSameCase_(req.ptcaNo, o.ptcaNo);
     return !!nm && String(o.patient || "").toLowerCase().replace(/[^a-z]/g, "") === nm;
@@ -5464,7 +5546,7 @@ function invPhotoTick_(f, models, key, runId, manual, pause, timeLeft, codesOnly
     return out;
   }
   batchLogRow_(runId, "", "", "inventory photos", "started", work.length + " photo(s) to read");
-  var boxes = boxRowsAll_(), stickers = stentRowsAll_().filter(invIsStentSticker_), changed = false;
+  var boxes = boxRowsAll_(), stickers = stentCounted_(stentRowsAll_()), changed = false;
   for (var i = 0; i < work.length; i++) {
     if (timeLeft() < 100000) { out.pending = work.length - i; out.why = "time budget used; the other inventory photos continue next run"; break; }
     var r = work[i], file = null;
@@ -6388,6 +6470,31 @@ var STICKERS_25NOV = [
   ["CLAUDE-25NOVS-5", "Rahul Sorte", "2397AP667", "20/11/26", "Ultimaster Tansei", "Terumo", "3", "33", "DE-RQ3033KSM", "260130", "", "LAD", "PMJAY"],
   ["CLAUDE-25NOVS-6", "Rahul Sorte", "2397AP667", "20/11/26", "Ultimaster Tansei", "Terumo", "3", "38", "DE-RQ3038KSM", "260521", "", "LCx", "PMJAY · the utilization sheet's row read as D1 is LCx (Dr Yadav 25 Nov)"]
 ];
+/* 13.52, once: PTCA inbox cases sorted before the diagram stent sheet was
+   known: a case with all four proforma pages and the utilization report read,
+   and exactly one page called "other", has that page as its diagram stent
+   sheet — relabelled and queued, so only that page is read */
+function ptcaDiagResort_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("PTCA_DIAG_RESORT")) return false;
+  pr.setProperty("PTCA_DIAG_RESORT", "started " + cathNow_());
+  var tab = batchTabRows_(), n = 0, names = [];
+  tab.rows.forEach(function (c) {
+    if (c.type !== "PTCA" || c.status === "failed" || c.results.qd) return;
+    var other = c.pageMap.filter(function (m) { return m.slot === "other" && !m.dup; });
+    var have = ["q1", "q2", "q3", "q4", "qu"].every(function (k) { return c.pageMap.some(function (m) { return m.slot === k; }); });
+    if (other.length !== 1 || !have || c.pageMap.some(function (m) { return m.slot === "qd"; })) return;
+    other[0].slot = "qd";
+    c.errors = (c.errors || []).filter(function (e) { return e.slot !== "qd"; });
+    batchNote_(c, runId, other[0].label, "page recognition", "ok", "taken as the diagram stent sheet (the one page left over in a full PTCA set); queued to read that page");
+    if (c.status !== "saved") c.status = "queued";   // a saved case keeps its status (the page is only relabelled)
+    batchWriteRow_(c); n++; names.push(c.name || c.caseId);
+  });
+  pr.setProperty("PTCA_DIAG_RESORT", JSON.stringify({ at: cathNow_(), cases: names }));
+  batchLogRow_(runId, "", "", "PTCA diagram pages", "written", n + " case(s): " + names.join(", "));
+  return true;
+}
+
 function stickers25Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("STICKERS_25NOV")) return false;
@@ -7054,7 +7161,7 @@ function invPhotoList_() {
    sticker fits (same LOT and kind) shows that PTCA */
 function boxList_() {
   var boxes = boxRowsAll_(), stickers = [];
-  try { stickers = stentRowsAll_().filter(invIsStentSticker_); } catch (e) {}
+  try { stickers = stentCounted_(stentRowsAll_()); } catch (e) {}
   var taken = {}, boxBy = {};
   var give = function (b, st, how) { taken[st.id] = 1; boxBy[b.id] = { sticker: st.id, ptcaNo: st.ptcaNo, patient: st.patient, date: invStickerDate_(st), how: how }; };
   var inStock = boxes.filter(function (b) { return b.status === "in stock"; });
