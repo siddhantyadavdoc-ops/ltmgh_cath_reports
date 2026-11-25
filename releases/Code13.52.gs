@@ -3042,6 +3042,16 @@ function batchStatus_() {
     running: running && running.live ? running : null, cutOff: cutOff, usage: usage, last429: u.last429 || "", lastSlow: u.lastSlow || "", resting: resting, fetchSec: batchFetchSec_(),
     schedule: batchPlan_(), reserveLeft: batchCappedLeft_() };
 }
+/* 13.52: the date of the procedure as read off the sheets — the CAG / PTCA
+   proforma's own date first, then the utilization or diagram sheet's */
+function batchCaseDate_(r) {
+  var x = r.results || {}, pick = function (v) { return String(v == null ? "" : v).trim(); };
+  var ds = batchType_(r.type) === "PTCA"
+    ? [x.q1 && x.q1.date, x.qu && x.qu.util && x.qu.util.date, x.qd && x.qd.pdiag && x.qd.pdiag.date]
+    : [x.p1 && x.p1.date, x.d && (x.d.diagram || x.d).date];
+  for (var i = 0; i < ds.length; i++) if (pick(ds[i])) return pick(ds[i]);
+  return "";
+}
 function batchList_() {
   var tab = batchTabRows_();
   return tab.rows.map(function (r) {
@@ -3049,7 +3059,7 @@ function batchList_() {
       pages: r.pages, grouping: r.grouping, name: r.name, cagNo: r.cagNo, type: r.type,
       uploaded: r.uploaded, scannedAt: r.scannedAt, checkedAt: r.checkedAt, filesRemoved: r.filesRemoved,
       sheets: Object.keys(r.results || {}).filter(function (k) { return BATCH_SLOTS.indexOf(k) >= 0; }),
-      errors: r.errors, openedBy: r.openedBy, savedBy: r.savedBy, readBy: batchReadBy_(r) };
+      errors: r.errors, openedBy: r.openedBy, savedBy: r.savedBy, readBy: batchReadBy_(r), date: batchCaseDate_(r) };
   }).reverse();
 }
 /* which model read each sheet; a case read before 13.38 has it worked out from its log
