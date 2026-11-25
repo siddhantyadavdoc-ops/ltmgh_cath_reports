@@ -1490,7 +1490,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -5003,6 +5003,15 @@ function boxHaveOf_(key, boxes, stickers, exceptUp) {
   return { n: Math.max(0, mine.length - used), list: mine };
 }
 /* one photo's boxes → rows of Stock boxes (its earlier rows replaced) */
+/* 13.52: a box's LOT / number is backed by its barcode text when it is in it */
+/* how sure a box's LOT / number is: 2 read by the phone from its barcode,
+   1 the number printed beside the barcode read off the photo, 0 neither */
+function boxSureOf_(b, id) {
+  var n = invNorm_(id);
+  if (!n) return 0;
+  if (String(b.scan || "").trim() && invNorm_(b.scan).indexOf(n) >= 0) return 2;
+  return String(b.codes || "").trim() && invNorm_(b.codes).indexOf(n) >= 0 ? 1 : 0;
+}
 function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
   var old = boxes.filter(function (x) { return x.up === up.id; });
   if (old.length) {
@@ -5083,12 +5092,23 @@ function boxTakePhoto_(up, list, by, readBy, boxes, stickers) {
       var near = i < have.n ? null : nearOf(b);
       if (near) {
         b.status = "repeat"; b.same = near.id;
-        // 13.51: the box read from its barcode has the true LOT: the counted box's misread LOT is corrected
-        if (b.scan && !near.scan && near.row) {
-          near.why = "LOT corrected from " + (near.lot || near.serial) + " to " + (b.lot || b.serial) + " from the barcode on " + (up.file || "a later photo");
-          near.lot = b.lot; if (b.expiry) near.expiry = b.expiry; near.scan = b.scan; boxWrite_(near);
-        }
-        b.why = "LOT read as " + (b.lot || b.serial) + " here but " + (near.lot || near.serial) + " on " + (near.photo || "another photo") + " (same size and expiry) — taken as the same box; check the LOT";
+        var was = near.lot || near.serial, now = b.lot || b.serial;
+        // 13.51: the box read from its barcode has the true LOT: the counted box's misread LOT is corrected.
+        // 13.52: so does a box whose number is printed beside its barcode on this photo
+        // when the counted box's was not (read off a stack or a shelf)
+        var rNow = boxSureOf_(b, now), rWas = boxSureOf_(near, was);
+        if (rNow > rWas && near.row) {
+          near.why = "LOT corrected from " + was + " to " + now + " (" + (rNow === 2 ? "barcode" : "number beside the barcode") + " on " + (up.file || "a later photo") + ")";
+          if (b.lot) near.lot = b.lot; if (b.serial) near.serial = b.serial;
+          if (b.expiry) near.expiry = b.expiry; if (b.scan) near.scan = b.scan; if (b.codes) near.codes = b.codes;
+          boxWrite_(near);
+          b.why = "the same box as on " + (near.photo || "another photo") + " (its number there was misread as " + was + ") — not counted again";
+          b.checkedBy = "app (13.52)"; b.checkedAt = cathNow_();
+        } else if (rWas > rNow) {
+          b.why = "the same box as on " + (near.photo || "another photo") + " (No. " + was + "; read here as " + now + ") — not counted again";
+          b.checkedBy = "app (13.52)"; b.checkedAt = cathNow_();
+        } else
+          b.why = "LOT read as " + now + " here but " + was + " on " + (near.photo || "another photo") + " (same size and expiry) — taken as the same box; check the LOT";
         counts.repeat++;
       } else if (i < have.n) {
         b.status = "repeat"; b.same = have.list[i] ? have.list[i].id : "";
@@ -6292,6 +6312,30 @@ var SHELF_24NOV = [
    inventory "where" follow. */
 /* 13.52, once: the Ultima PC boxes kept to check only for their LOT (none
    printed on the side) are counted, with the app's one-day caveat */
+/* 13.52, once: NC Rockstar 2×12 No. 130229080926J0179128 — the box of the
+   20 Nov stack photo read then as …108 (Dr Yadav, 25 Nov: the same box,
+   photographed again on stock_20261125-112554). The counted box takes the
+   number printed on it; today's reading is a repeat, not counted. */
+function boxRockstar25Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("BOX_ROCKSTAR_25NOV")) return false;
+  pr.setProperty("BOX_ROCKSTAR_25NOV", "started " + cathNow_());
+  var at = cathNow_(), n = 0;
+  boxRowsAll_().forEach(function (b) {
+    if (b.id === "XMWT36KO21U" && invNorm_(b.serial) === invNorm_("130229080926J0179108")) {
+      b.serial = "130229080926J0179128"; b.scan = ""; b.codes = "130229080926J0179128";
+      b.why = "No. corrected from 130229080926J0179108 to 130229080926J0179128 (printed on the box, stock_20261125-112554; Dr Yadav 25 Nov)";
+      b.checkedBy = "Dr Yadav"; b.checkedAt = at; boxWrite_(b); n++;
+    } else if (b.id === "XMWVRA55W4" && b.status === "repeat") {
+      b.same = "XMWT36KO21U"; b.why = "the same box as on the 20 Nov stack photo — not counted again (Dr Yadav 25 Nov)";
+      b.checkedBy = "Dr Yadav"; b.checkedAt = at; boxWrite_(b); n++;
+    }
+  });
+  pr.setProperty("BOX_ROCKSTAR_25NOV", JSON.stringify({ at: at, rows: n }));
+  batchLogRow_(runId, "", "", "NC Rockstar 2×12 read twice", "written", n + " row(s): …108 corrected to …128, today's reading kept as a repeat");
+  return true;
+}
+
 function boxUltima25Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("BOX_ULTIMA_25NOV")) return false;
