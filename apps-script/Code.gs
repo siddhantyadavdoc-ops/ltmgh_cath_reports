@@ -1495,7 +1495,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId) || boxX12Fix25Nov_(runId) || invAudit25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId) || boxX12Fix25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -6479,49 +6479,6 @@ var STICKERS_25NOV = [
    three. IMG_0034's "box 5" is not a box of this size (the boxes after the two
    are 2.75 × 15): discarded. IMG_0034's box 3 reads (91)5518 on its barcode
    line, not 5515. */
-/* 13.52, once — stent audit of 25 Nov (Dr Yadav: the stent records must be
-   exact). Photo stock_20261120-100045.jpg read again box by box (19 boxes,
-   not 20): boxes 10–13 had their LOTs shifted by one box, box 15 was a third
-   3.5 × 33 that is not there. The Xience shelf photos were taken on 19 Nov,
-   so Xience uses dated before 19 Nov are not taken off (PTCA 2379 on 18 Nov).
-   Surekha More's stickers were read with the year 2020. */
-var AUDIT_25NOV_BOX = [
-  ["XMWOM5A8YA", { lot: "260113", expiry: "2027-12-31" }, "LOT corrected from 250806 (the box to its left) — read again 25 Nov"],
-  ["XMWOM5A8ZB", { lot: "260304", expiry: "2028-02-29" }, "LOT corrected from 260113 — read again 25 Nov"],
-  ["XMWOM5A90C", { lot: "260105", expiry: "2027-12-31" }, "LOT corrected from 260304 — read again 25 Nov"],
-  ["XMWOM5A91D", { lot: "260219", expiry: "2028-01-31" }, "LOT corrected from 260105 — read again 25 Nov"],
-  ["XMWOM5A93F", { status: "discarded" }, "not a box: the photo has two 3.5 × 33 (both LOT 260128, boxes 16 and 17), not three — read again 25 Nov"]
-];
-function invAudit25Nov_(runId) {
-  var pr = PropertiesService.getScriptProperties();
-  if (pr.getProperty("INV_AUDIT_25NOV")) return false;
-  pr.setProperty("INV_AUDIT_25NOV", "started " + cathNow_());
-  var who = "Claude (stent audit 25 Nov)", at = cathNow_(), boxes = boxRowsAll_(), nb = 0;
-  AUDIT_25NOV_BOX.forEach(function (f) {
-    var b = boxes.filter(function (x) { return x.id === f[0]; })[0];
-    if (!b) return;
-    Object.keys(f[1]).forEach(function (k) { b[k] = f[1][k]; });
-    b.why = f[2]; b.checkedBy = who; b.checkedAt = at; boxWrite_(b); nb++;
-  });
-  try { boxSyncMoves_(who); } catch (e) {}
-  // Surekha More: 17/11/20 → 17/11/26
-  var sh = stentTab_(), ns = 0;
-  stentRowsAll_().forEach(function (s) {
-    if (/surekha/i.test(s.patient) && s.date === "17/11/20") { sh.getRange(s.row, STENT_KEYS.indexOf("date") + 1).setNumberFormat("@").setValue("17/11/26"); ns++; }
-  });
-  // Xience: uses taken off from the day of the shelf photos (19 Nov)
-  var items = invItems_(), nf = 0;
-  items.forEach(function (it) {
-    if (it.kind !== "stent" || !/xience/i.test(it.brand) || it.from || it.fromSetBy === "hand") return;
-    it.from = "2026-11-19"; it.fromAuto = false; it.updated = at; it.by = who; nf++;
-  });
-  if (nf) invWriteTab_(items);
-  invAfterSticker_(who);
-  pr.setProperty("INV_AUDIT_25NOV", JSON.stringify({ at: at, boxes: nb, surekha: ns, xienceFrom: nf }));
-  batchLogRow_(runId, "", "", "stent audit of 25 Nov", "written", nb + " box row(s) on stock_20261120-100045 corrected (one 3.5 × 33 too many); " + ns + " sticker date(s) 2020 → 2026; " + nf + " Xience size(s) count uses from 19 Nov");
-  return true;
-}
-
 function boxX12Fix25Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("BOX_X12_25NOV")) return false;
