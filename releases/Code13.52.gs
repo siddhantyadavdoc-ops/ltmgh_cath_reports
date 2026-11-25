@@ -1495,7 +1495,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId) || boxX12Fix25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -6474,6 +6474,32 @@ var STICKERS_25NOV = [
    known: a case with all four proforma pages and the utilization report read,
    and exactly one page called "other", has that page as its diagram stent
    sheet — relabelled and queued, so only that page is read */
+/* 13.52, once: Xience Alpine 2.75 × 12 LOT 4112041 — IMG_0033 and IMG_0034
+   show the same TWO boxes ((91)5518 and (91)5515); the count of 20 Nov had
+   three. IMG_0034's "box 5" is not a box of this size (the boxes after the two
+   are 2.75 × 15): discarded. IMG_0034's box 3 reads (91)5518 on its barcode
+   line, not 5515. */
+function boxX12Fix25Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("BOX_X12_25NOV")) return false;
+  pr.setProperty("BOX_X12_25NOV", "started " + cathNow_());
+  var at = cathNow_(), n = 0, who = "Claude (photos checked 25 Nov)";
+  boxRowsAll_().forEach(function (b) {
+    if (b.id === "XMWOJN4VOS" && b.status === "in stock") {
+      b.status = "discarded"; b.why = "not a third 2.75 × 12 box: IMG_0033 and IMG_0034 show two ((91)5518 and (91)5515) — checked 25 Nov";
+      b.checkedBy = who; b.checkedAt = at; boxWrite_(b); n++;
+    } else if (b.id === "XMWOJN4VKQ" && /\(91\)5515/.test(b.codes)) {
+      b.codes = b.codes.replace("(91)5515", "(91)5518");
+      b.why = (b.why ? b.why + " · " : "") + "barcode line reads (91)5518 (checked 25 Nov)";
+      b.checkedBy = who; b.checkedAt = at; boxWrite_(b); n++;
+    }
+  });
+  if (n) { try { boxSyncMoves_(who); } catch (e) {} }
+  pr.setProperty("BOX_X12_25NOV", JSON.stringify({ at: at, rows: n }));
+  batchLogRow_(runId, "", "", "Xience 2.75 × 12 count", "written", n + " row(s): two boxes, not three");
+  return true;
+}
+
 function ptcaDiagResort_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("PTCA_DIAG_RESORT")) return false;

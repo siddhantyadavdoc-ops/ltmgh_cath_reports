@@ -13962,9 +13962,21 @@ function techInvPhotosHtml() {
         <span>LOT ${esc2(x.lot || "?")} · ${esc2([x.ptcaNo ? "PTCA " + x.ptcaNo : "", x.patient, x.date ? techDate(x.date) : ""].filter(Boolean).join(" · "))}</span>
         ${x.near ? `<span class="why">a box in stock has LOT ${esc2(x.near.lot)} (one character apart, on ${esc2(x.near.photo || "a photo")}) — check the sticker and that box, and press the one that is right</span>` : `<span class="why">no box of this size has a LOT close to it — check the sticker's LOT; if it is right, the box came before the stock photos or was never photographed</span>`}</div>
         <div class="btns" style="margin:0">${btns}</div></div>`; }).join("")}</details>`;
-  if (rep.length) h += `<details class="boxlist rep"${T.repOpen ? " open" : ""} ontoggle="S.tech.repOpen=this.open"><summary><b>Repeats, not counted (${rep.length})</b> <span class="hint">the same LOT and size already in stock from another photo</span></summary>
-      <p class="hint">Photos of one shelf overlap, so a box seen again is counted once. If it really is another box (more of that LOT came in), press <b>Another box — count it</b>.</p>
-      ${rep.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','in stock')" ${T.saving ? "disabled" : ""}>Another box — count it</button>`); }).join("")}</details>`;
+  // 13.52: a repeat whose own number (Abbott (91), Terumo (93), or a serial) is the
+  // counted box's own number is proved the same box — folded away, no button
+  const repProved = function (b) {
+    const o = bx.filter(function (x) { return x.id === b.same; })[0];
+    if (!o) return false;
+    const u = techBoxUnit(b), v = techBoxUnit(o);
+    if (u && v) return u === v && String(b.lot || "") === String(o.lot || "");
+    return !!(b.serial && o.serial && String(b.serial).toUpperCase() === String(o.serial).toUpperCase());
+  };
+  const repOk = rep.filter(repProved), repAsk = rep.filter(function (b) { return !repProved(b); });
+  if (repAsk.length) h += `<details class="boxlist rep"${T.repOpen ? " open" : ""} ontoggle="S.tech.repOpen=this.open"><summary><b>Repeats to look at (${repAsk.length})</b> <span class="hint">taken as a box already counted from another photo — not proved by a barcode</span></summary>
+      <p class="hint">Photos of one shelf overlap, so a box seen again is counted once. These have no barcode number to prove it; if it really is another box (more of that LOT came in), press <b>Another box — count it</b>.</p>
+      ${repAsk.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','in stock')" ${T.saving ? "disabled" : ""}>Another box — count it</button>`); }).join("")}</details>`;
+  if (repOk.length) h += `<details class="boxlist"><summary><b style="color:#1a7f37">✓ Same box, proved by barcode (${repOk.length})</b> <span class="hint">seen on two overlapping photos; its own barcode number matches the box counted — counted once</span></summary>
+      ${repOk.map(function (b) { return techBoxRowHtml(b, ""); }).join("")}</details>`;
   if (bgs.length) h += `<details class="boxlist"><summary><b>In the background, not counted (${bgs.length})</b> <span class="hint">boxes behind the ones photographed — photograph them on their own to count them</span></summary>
       ${bgs.map(function (b) { return techBoxRowHtml(b, ""); }).join("")}</details>`;
   h += techStockPhotosHtml();
