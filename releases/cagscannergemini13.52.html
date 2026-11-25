@@ -2739,7 +2739,30 @@ function normalizeTgLdl(d) {
     else b.tg = parts[0];
   }
   delete b.tgLdl;
+  normalizeSero(b);
   return d;
+}
+/* 13.52 — HIV / HBsAg / HCV: the residents write NR (non-reactive) with a
+   bracket or long stroke in front of it joining the three rows, which reads
+   as "1NR", "INR", "|NR", "(NR". Those are NR. A single NR whose stroke
+   spans the rows is NR for the rows left empty under it too. */
+const SERO_NR = /^[\s(\[{|\/\\1lIi!\]})]*n\s*\.?\s*r\s*\.?[\s)\]}]*$/i;
+function normalizeSero(b) {
+  if (!b || typeof b !== "object") return b;
+  const keys = ["hiv", "hbsag", "hcv"];
+  let braced = false;
+  keys.forEach(function (k) {
+    const v = String(b[k] == null ? "" : b[k]).trim();
+    if (!v || !SERO_NR.test(v)) return;
+    if (/^[\s(\[{|\/\\1lIi!]+/.test(v)) braced = true;
+    b[k] = "NR";
+  });
+  // "1NR" / "INR" written once against the three rows: the bracket covers them
+  if (braced) {
+    const filled = keys.filter(function (k) { return has(b[k]); });
+    if (filled.length && filled.every(function (k) { return b[k] === "NR"; })) keys.forEach(function (k) { if (!has(b[k])) b[k] = "NR"; });
+  }
+  return b;
 }
 
 /* The model does not always return every field of a lesion — a lesion with no
@@ -6559,7 +6582,7 @@ TG / LDL CELL
 - If only one number is written, put it in "tg" and omit "ldl". If either half is illegible, return "?" for that half only.
 
 BRACES IN BLOOD TABLE
-- A brace joining HIV / HBsAg / HCV with one note such as "-ve" means that value applies to ALL rows it spans. Write "Negative" for -ve and "Positive" for +ve.
+- A brace joining HIV / HBsAg / HCV with one note such as "-ve" means that value applies to ALL rows it spans. Write "Negative" for -ve and "Positive" for +ve. The residents usually write "NR" for non-reactive, often with a long vertical stroke or bracket in front of it that joins the HIV, HBsAg and HCV rows — so it looks like "1NR", "INR", "|NR" or "(NR". That stroke is a brace, not a 1 or an I: read it as "NR", and when the stroke spans the rows, return "NR" for every row it spans (hiv, hbsag and hcv). It is never INR (the clotting test) in these rows.
 
 ECHO / BLOOD TABLES
 - Read the handwritten value in the cell to the right of each printed label. LVEF may read like "20-25"; drop the "%" sign.
@@ -6764,6 +6787,7 @@ EXAMINATION
 BLOOD INVESTIGATIONS TABLE — TWO VALUE COLUMNS PER VARIABLE
 - The table has two halves side by side. In each half the first column is the variable name, then an "At CAG" column, then a "Repeat" column. The very TOP row of the table is the DATE row: the date each report was done, written once per column.
 - "At CAG" values (from the angiography workup) go under "blood"; "Repeat" values (any newer report after the CAG) go under "blood2"; each object's "date" comes from the top date row of its column. Left half variables: Hb, TLC, Platelets, TC, TG, LDL, RBS/FBS. Right half: BUN, Sr. Creatinine, Sr. Na/K, HIV, HBsAg, HCV, Bl. group.
+- HIV / HBsAg / HCV: The residents usually write "NR" for non-reactive, often with a long vertical stroke or bracket in front of it that joins the HIV, HBsAg and HCV rows — so it looks like "1NR", "INR", "|NR" or "(NR". That stroke is a brace, not a 1 or an I: read it as "NR", and when the stroke spans the rows, return "NR" for every row it spans (hiv, hbsag and hcv). It is never INR (the clotting test) in these rows.
 - Never swap the two columns: the LEFT value column of each half is At CAG, the RIGHT is Repeat. An empty column is normal (the app fills At CAG from the registry) — omit empty cells.
 
 ECG
