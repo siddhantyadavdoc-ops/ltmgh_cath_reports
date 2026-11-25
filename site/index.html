@@ -3887,12 +3887,36 @@ function ptcaToVessels(P) {
    dash ("Post 3.5×8 …", "PrD: 2×12 …"). Any other note the technician wrote
    with the device — the stent's site, "(Mid-Distal)" — stays in its name and
    prints in the report (13.42: the department wants it there). */
+/* 13.52: a balloon tagged for dottering ("Dottering", "Dot", "Pre-dottering",
+   "PrD/Dot") — the tag is not printed either; utilDotTagged reads it */
+const DOT_TAG = "(?:(?:pre|prd|pre-?dil\\w*)\\s*[-\\/&+,]?\\s*(?:and\\s+)?)?dott?(?:er\\w*|ing)?(?:\\s*[-\\/&+,]?\\s*(?:and\\s+)?(?:pre|prd|pre-?dil\\w*))?";
 function stripPrePost(s) {
   return String(s == null ? "" : s)
+    .replace(new RegExp("\\s*[\\(\\[\\{]\\s*" + DOT_TAG + "\\s*[\\)\\]\\}]", "gi"), "")
+    .replace(new RegExp("(^|\\s)[-–]?\\s*" + DOT_TAG + "\\s*$", "i"), "")
+    .replace(new RegExp("^\\s*" + DOT_TAG + "\\b\\s*[-–:]?\\s*(?=\\S)", "i"), "")
     .replace(/\s*[\(\[\{]\s*(pre|post|prd|pod|pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*)\s*[\)\]\}]/gi, "")
     .replace(/(^|\s)[-–]?\s*(pre|post|prd|pod)\s*$/i, "")
     .replace(/^\s*(pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod)\b\s*[-–:]?\s*(?=\S)/i, "")
     .replace(/\s{2,}/g, " ").trim();
+}
+/* the balloon the technician tagged as the dottering one: { b, pre } — pre
+   when the tag says it predilated too ("Pre-dottering") */
+function utilDotTagged(P) {
+  const g = ((P && P.util) || {}).grid || {};
+  for (const v of UTIL_VESSELS) {
+    const c = g[v] || {};
+    for (const k of ["balloon1", "balloon2"]) {
+      const parts = String(c[k] || "").split(/[,;\n]+/);
+      for (const raw of parts) {
+        const m = new RegExp("(^|[^a-z])" + DOT_TAG + "(?![a-z])", "i").exec(raw);
+        if (!m || !/dot/i.test(m[0])) continue;
+        const b = stripPrePost(stripReuse(raw.trim()).replace(/\.+$/, ""));
+        if (b) return { b: b, pre: /pre|prd/i.test(m[0]), col: v };
+      }
+    }
+  }
+  return null;
 }
 /* 13.44 — "ox" / "oxy" beside a device on the utilization sheet: a reused,
    re-sterilised device. The inventory does not subtract it; the report never
@@ -4026,7 +4050,7 @@ function hwFind(text, rowKind, list) {
 }
 const HW_SIZE_SRC = "\\d+(?:\\.\\d+)?\\s*[*×xX]\\s*\\d+(?:\\.\\d+)?";
 const HW_TOK_RE = new RegExp("([\\(\\[\\{][^\\)\\]\\}]*[\\)\\]\\}]?)|(" + HW_SIZE_SRC + ")|(\\s+)|((?:(?!" + HW_SIZE_SRC + ")[^\\s\\(\\[\\{])+)", "g");
-const HW_TAG_RE = /^(?:pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod)[:\-–]?$/i;
+const HW_TAG_RE = /^(?:pre-?dil\w*|post-?dil\w*|predilat\w*|postdilat\w*|pre|post|prd|pod|(?:pre[-\/&+]?)?dott?(?:er\w*|ing)?(?:[-\/&+]pre)?)[:\-–]?$/i;
 /* 13.44: "ox" / "oxy" (a reused device) beside a name is not part of it either */
 const HW_REUSE_RE = /^[-–]?(?:ox|oxy)[.,:]?$/i;
 const HW_SITE_RE = /^[opmd](?:[-–—\/][opmd])?$/i;
@@ -4614,7 +4638,7 @@ function deriveTargets(P, force) {
     const overlap = stents.length > 1;
     stents.forEach(function (s, si) {
       const st = blankStent();
-      st.size = s.size; st.name = s.name; st.atm = "12"; st.sec = "10";
+      st.size = s.size; st.name = s.name; st.atm = "12"; st.sec = "20";   // 13.52: stents inflated 20 s by default
       if (!overlap) st.site = info.phrase || g.name;
       else if (si === 0) st.site = (proxFirst ? info.proxSeg : info.distalSeg) || info.phrase || g.name;
       else {
@@ -4803,7 +4827,7 @@ function deriveBifurcation(P) {
   // this one, so the stent is not printed twice
   if ((twoStent.length || switched) && sb) {
     var sbStents = utilStentsOf(P, sb);
-    if (sbStents.length) { mb.sbStent = sbStents[0]; mb.sbStentAtm = "12"; mb.sbStentSec = "10"; }
+    if (sbStents.length) { mb.sbStent = sbStents[0]; mb.sbStentAtm = "12"; mb.sbStentSec = "20"; }
     P.proc.targets = targets.filter(function (t) { return t === mb || String(t.site || "").trim().toUpperCase() !== sb.toUpperCase(); });
     if (!targets.some(function (t) { return t !== mb && String(t.site || "").trim().toUpperCase() === sb.toUpperCase(); })) P.proc.targets = targets;
     var sbBall = (sb ? utilBalloonsOf(P, sb) : []).map(function (b) { return { b: b, d: deviceDia(b) }; }).sort(function (a, b) { return b.d - a.d; })[0];
@@ -4854,22 +4878,30 @@ function deriveThrombus(P) {
   var th = T.thrombus;
   var u = P.util || {};
   var ticks = (T.thrombusMx || []).map(function (x) { return String(x).trim().toLowerCase(); });
+  // 13.52: a balloon tagged "Dottering" / "Pre-dottering" on the utilization
+  // sheet is the dottering balloon, and dottering was done even if its tick was missed
+  var dt = utilDotTagged(P);
+  if (dt) {
+    if (!thrombusDotters(T)) T.thrombusMx = (T.thrombusMx || []).concat(["Balloon dottering"]);
+    if (!has(th.dotter)) { th.dotter = dt.b; th.dotterAtm = "12"; th.dotterSec = "10"; }
+  }
   if (thrombusDotters(T) && !has(th.dotter)) {
     var small = utilAllBalloons(P).map(function (b) { return { b: b, d: deviceDia(b) }; }).filter(function (x) { return isFinite(x.d); })
       .sort(function (a, b) { return a.d - b.d; })[0];
     if (small) { th.dotter = small.b; th.dotterAtm = "12"; th.dotterSec = "10"; }
   }
   // the dottering balloon is not the predilation balloon too: the lesion is
-  // predilated with the next size up, when the sheet has one
-  if (has(th.dotter)) {
+  // predilated with the next size up, when the sheet has one. 13.52: unless
+  // the sheet says it did both ("Pre-dottering"), and with no other balloon
+  // the same one predilated after dottering
+  if (has(th.dotter) && !(dt && dt.pre && dt.b === th.dotter.trim())) {
     (P.proc.targets || []).forEach(function (t) {
       var pre = splitDevices(t.pre);
       if (pre.length !== 1 || pre[0] !== th.dotter.trim()) return;
       var sd = Math.max.apply(null, (t.stents || []).map(function (s) { return deviceDia(s.size) || 0; }).concat([0])) || Infinity;
       var next = utilAllBalloons(P).map(function (x) { return { b: x, d: deviceDia(x) }; })
         .filter(function (x) { return isFinite(x.d) && x.b !== th.dotter.trim() && x.d < sd; }).sort(function (a, c) { return a.d - c.d; })[0];
-      t.pre = next ? next.b : "";
-      if (!t.pre) { t.preAtm = ""; t.preSec = ""; }
+      if (next) t.pre = next.b;
     });
   }
   if (thrombusAspirates(T) && !has(th.device)) {
@@ -6874,6 +6906,7 @@ TOP TABLE (patient & team)
 VESSEL GRID — the big table. Its header row reads "Vessel →" then the columns LM, LAD, D1, LCx, Ramus, OM, RCA, PDA, PLV (an older printing has no Ramus column). Its rows are Guiding Catheter, Guide Wire, Balloon 1, Balloon 2, Stent 1, Stent 2 and (on the current printing) Stent 3. Report every handwritten cell under util.grid, keyed by column then row: util.grid.LAD = {"guide":"...","wire":"...","balloon1":"...","balloon2":"...","stent1":"...","stent2":"...","stent3":"..."}. Use exactly these column keys: LM, LAD, D1, LCx, Ramus, OM, RCA, PDA, PLV. Omit empty cells and empty columns entirely.
 - Copy each cell verbatim: balloons and stents are written as name and size, e.g. "Sapphire 1.5×10" or "2.75*44 Biomime Aura". Keep the size characters exactly (* or ×). A cell can carry two devices separated by a comma — keep the comma.
 - A device is often written as a SHORT FORM — a code of two to four capital letters, or a short code with a number — beside its size, sometimes followed by a site code made of the letters o, p, m, d: for example "2.5×12 RS", "3×38 UT p-m", "XB3", "RNS, FC". Copy short forms and site codes exactly as written, letter for letter; never expand them, translate them or guess what they stand for.
+- A balloon may carry a note of what it was used for: "Pre", "PrD", "Post", "PoD", "Dottering" / "Dot", or both together such as "Pre-dottering" or "PrD/Dot" (one balloon used to dotter the thrombus and to predilate). Copy such a note exactly, in the same cell beside its balloon.
 - Some devices have "ox" or "oxy" written beside them (sometimes in brackets): it marks a re-sterilised, reused device. Copy it exactly where it is written, in the same cell right after that device — never drop it and never move it to another device.
 - Be careful to keep each device in ITS OWN column: the column says which vessel the device was used in.
 
