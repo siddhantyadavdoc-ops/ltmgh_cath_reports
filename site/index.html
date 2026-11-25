@@ -5707,6 +5707,9 @@ function ptcaRecord(P) {
     ["Third operator", uu.op3 || ""],
     ["Technician", has(P.proc.technician) ? P.proc.technician : uu.technician || ""],
     ["Utilization notes", uu.notes || ""],
+    // 13.52: the diagram sheet's stickers and what did not agree with the case
+    ["Diagram sheet stickers", ((P.pdiag && P.pdiag.stickers) || []).map(function (x) { return [x.product || x.brand, pdSizeText(x), has(x.lot) ? "LOT " + x.lot : "", has(x.position) ? "(" + x.position + ")" : ""].filter(has).join(" "); }).join("; ")],
+    ["Diagram sheet check", P.pdiag && P.pdiag.present ? (ptcaDiagramChecks(P).filter(function (c) { return c.kind !== "info"; }).map(function (c) { return c.text; }).join("; ") || "agrees") : ""],
     [UTIL_IMG_COL, uu.imageUrl || ""],
     ["Recommendations extra", P.recommendationsExtra || ""]
   );
@@ -5770,6 +5773,18 @@ function normalizePtcaResult(d) {
     if (has(d.util.technician)) d.util.technician = matchTechnician(d.util.technician);
     hwExpandUtil(d.util);       // 13.41 — short forms and listed spellings → the hardware list's full names
   }
+  // 13.52: the PTCA diagram sheet — operators matched, sticker sizes as numbers
+  if (d.pdiag && typeof d.pdiag === "object") {
+    const g = d.pdiag;
+    if (Array.isArray(g.performedBy)) g.performedBy = g.performedBy.map(matchOperator);
+    else if (has(g.performedBy)) g.performedBy = String(g.performedBy).split(/\s*[,&]\s*/).map(matchOperator);
+    g.stickers = (Array.isArray(g.stickers) ? g.stickers : []).filter(function (x) { return x && typeof x === "object"; }).map(function (x) {
+      ["dia", "len"].forEach(function (k) { if (has(x[k])) { const m = /\d+(?:\.\d+)?/.exec(String(x[k]).replace(",", ".")); x[k] = m ? String(Number(m[0])) : String(x[k]); } });
+      return x;
+    });
+    g.stents = (Array.isArray(g.stents) ? g.stents : []).filter(function (x) { return x && typeof x === "object"; });
+    g.present = true;
+  }
   // …and the one device the doctor's sheet 4 names: the cutting balloon
   const cal = d.tech && typeof d.tech === "object" ? d.tech.calcium : null;
   if (cal && typeof cal === "object" && typeof cal.cuttingName === "string" && has(cal.cuttingName)) cal.cuttingName = hwExpandCell(cal.cuttingName, "cutting", null);
@@ -5790,7 +5805,9 @@ function cagSame(a, b) {
   if (!a || !b) return false;
   if (a === b) return true;
   const da = a.replace(/\D/g, ""), db = b.replace(/\D/g, "");
-  return da.length >= 5 && da === db && !/[A-Za-z]/.test(a + b);
+  if (da.length >= 5 && da === db && !/[A-Za-z]/.test(a + b)) return true;
+  // 13.52: 2145 = 2145/2026 (a number without its year matches it)
+  return cagNoSame(a, b);
 }
 /* a CAG case saved on this phone whose CAG No or IPD/OPD No matches */
 function findLocalCagCase(q) {
@@ -6483,7 +6500,7 @@ DATE BESIDE CLINICAL DIAGNOSIS — STACKED VERTICALLY
 - Never reorder those rows, never read the three rows as three separate dates, and never merge them with the "Date" field at the top of the sheet. Illegible digits follow the DATES rules above, so a middle row that cannot be read gives "28/??/26".
 
 BOXED FIELDS
-- The CAG No. is digits only: the CAG number followed by the four-digit year of the CAG (e.g. 2371 then 2026); it never contains letters.
+- The CAG No. is digits only and never contains letters. Residents usually write just the number (e.g. 2371); some add the year after it (2371/2026 or 23712026). Copy exactly what is written — never add a year that is not written.
 - CAG No., IPD/OPD No. and Date are each a row of individual printed boxes (one character per box) rather than a plain underline — Date is split into three pairs of boxes for day/month/year. Read the boxes left to right as one continuous value, exactly as you would an underline.
 - IDENTITY NUMBERS, top right: the newest printing has TWO combs under each other — "IPD No. :" with its boxes above, "OPD No. :" with its boxes below. Return the upper row as "ipdNo" and the lower as "opdNo" (digits/letters as written; omit a row whose boxes are all empty). Older printings have ONE comb labelled "IPD/OPD No." — return that as "ipdOpdNo" and leave ipdNo / opdNo out. A number written in the margin near the boxes instead of inside them still belongs to the nearer label.
 - Only transcribe boxes that actually contain handwriting. A box left empty because the value is simply shorter than the row of boxes (e.g. a 6-digit CAG No. in a row of 15 boxes) is normal and NOT an illegible character — stop at the last box that has a mark in it and do not pad the rest with "?". Only use "?" for a box that clearly has a mark you cannot make out.
@@ -6683,7 +6700,7 @@ LEFT-MARGIN COLUMN — payment status and staff sign-off, top to bottom:
 MAIN FORM
 - Name / Age / Sex on ruled lines.
 - PTCA / Cath No. (12 boxes) as "ptcaNo" — it may contain digits, letters and dashes, e.g. "1387-AP-382". It is written as the cath number, then the letters AP, then the PTCA number (e.g. "2356 AP 657"); copy it as written. Leave it empty when its boxes are empty — never put the CAG No. into it.
-- The CAG No. is digits only — the CAG number followed by the four-digit year (e.g. "23432026"); it never contains letters.
+- The CAG No. is digits only and never contains letters. It is usually just the CAG number (e.g. "2343"); sometimes the year follows it ("2343/2026" or "23432026"). Copy exactly what is written — never add a year that is not written.
 - CAG No. (8 boxes) as "cagNo"; Date (DD/MM/YY boxes) as "date". Identity numbers: the newest printing has an "IPD No. :" comb and, on the line below it, an "OPD No. :" comb — return them as "ipdNo" and "opdNo" (omit an empty one); an older printing has a single "IPD/OPD No." comb (6 boxes) — return that as "ipdOpdNo".
 - Newer printings carry "Height : ____ cm" beside the CAG No. boxes and "Weight : ____ kg" beside the Date boxes: return the numbers as "height" and "weight" (digits only); omit when blank or absent.
 - Clinical Diagnosis boxes: AWMI, IW, PW, RV MI, UA, CSA, NSTEMI, Non-anginal chest pain; Thrombolysed Yes/No and, if yes, STK / TNK / RTP; the boxed "Diagnosis date" as dx.dxDate.
@@ -6807,6 +6824,42 @@ BOTTOM TABLE (adjunct hardware & dose)
 Shape:
 {"util":{"name":"","ipNo":"","cathNo":"","date":"","technician":"","op1":"","op2":"","op3":"","accessSheath":"","grid":{"LAD":{"guide":"","wire":"","balloon1":"","balloon2":"","stent1":"","stent2":"","stent3":""}},"cutting":"","microcatheter":"","guideExtension":"","rotaBurr":"","aspiration":"","ivusOctElca":"","ak":"","ft":"","injection":"","otherHardware":"","notes":""}}`;
 
+
+/* 13.52 — the PTCA DIAGRAM SHEET: the department's printed heart drawing (the
+   same printing as the CAG diagram) used for a PTCA: the stent drawn where it
+   went, the stent's sticker pasted on it, the patient's name, the Cath No.
+   (xxxx AP zzz) and the date. It is a cross-check only — the inventory takes
+   its stents from the technicians' sticker photo, never from this sheet. */
+const PROMPT_QD = `You are reading a photograph of the PTCA DIAGRAM SHEET of the Department of Cardiology, LTMG Hospital, Sion, Mumbai: the department's printed heart drawing (coronary arteries in an RAO-30 view) used after a PTCA. The operator marks where the stent(s) went on the drawing, writes the stent position beside it, and pastes the stent's peel-off STICKER (from its box) on the sheet. It is NOT the technicians' utilization report (that is a printed grid of hardware, with no heart drawing).
+
+${P_COMMON}
+
+HEADER (top of the sheet)
+- The boxed "No." / "Cath No." line: copy it exactly as written as "cathNo" — for a PTCA it is the cath number, then the letters AP, then the PTCA number (e.g. "2413 AP 669"). Keep the letters AP.
+- A boxed "Date" → "date" (day/month/year as written, e.g. "23/11/26").
+- "Name" → "name"; "Age" → "age"; "Sex": the circled or ticked M or F → "sex".
+- "Performed by" → "performedBy" as a list of the names written (e.g. ["Dr. Saurabh","Dr. Khushmi"]).
+- "Ao-p", "PV-p" → "aoP", "pvP" (only if written); "LVEF ___ %" → "lvef" (the number or range written, e.g. "30-35") and anything written after it ("by echo") → "lvefNote".
+
+STENT STICKERS — the small printed labels pasted on the sheet
+- Each sticker is a manufacturer's label: a brand/logo (e.g. translumina, Meril, SMT, Abbott, Boston Scientific, Terumo, Medtronic, Sahajanand), the product name (e.g. Yukon Choice Flex, Biomime, Xience, Supraflex, Ultimaster), symbols with REF, LOT, SN (serial), a manufacturing date and a "Use by" / expiry date, a QR code or barcode, and the stent size: a diameter "Ø 2.75 mm" and a length "36 mm" (or "2.75 x 36").
+- Report EVERY sticker as one entry in "stickers", in order top to bottom: brand, product, ref, lot, serial, dia (mm, number only, e.g. "2.75"), len (mm, number only, e.g. "36"), expiry and mfg (as printed, e.g. "2028-07"), and the text of a barcode/QR line if a number is printed beside it ("codes").
+- These are PRINTED small characters: copy them character for character. A character you cannot read with certainty becomes "?" in that position (e.g. "SAAW00?726") — never guess it. A REF and a LOT are different fields: take each from beside its own printed symbol or word.
+- "position": the HANDWRITTEN text the operator wrote on or beside that sticker or joined to it by a line, naming where it went (e.g. "Prox-mid LAD", "Ostial RCA", "LCx"). Copy it as written. Omit if none.
+
+THE DRAWING — what the operator drew
+- A stent drawn on the heart: a cross-hatched, shaded or bracketed stretch of a vessel, often with an arrow pointing to it. Report each as one entry in "stents": "vessel" — the vessel it lies on, named by the printed or drawn labels (LM, LAD, D1, D2, LCx, OM, Ramus, RCA, PDA, PLV; on this printing CM is an obtuse marginal = OM, DI is the diagonal = D1, LCA is the left main = LM) — and "segment" (Ostial, Proximal, Mid, Distal, or two joined like "Proximal-Mid") from where along the vessel it lies; "note" for anything written beside it (a size, "2.75x36", "overlapping").
+- A percentage written by a narrowing that was NOT stented → a "lesions" entry {"vessel","segment","percent"}.
+- Anything else written (complications, "TIMI III flow", remarks) → "notes".
+
+RULES
+- Report only what is written, drawn or printed on a sticker. The printed heart drawing and its printed labels are not findings.
+- The photo may be sideways or upside down.
+- legibility: 0 to 1 — how clearly this photo could be read.
+
+Shape (omit empty keys):
+{"pdiag":{"cathNo":"","date":"","name":"","age":"","sex":"M|F","performedBy":[""],"aoP":"","pvP":"","lvef":"","lvefNote":"","stickers":[{"brand":"","product":"","ref":"","lot":"","serial":"","dia":"","len":"","expiry":"","mfg":"","codes":"","position":""}],"stents":[{"vessel":"LAD","segment":"Proximal-Mid","note":""}],"lesions":[{"vessel":"","segment":"","percent":""}],"notes":"","legibility":0.9}}`;
+
 const PSLOTS = [
   { slot: "q1", title: "PTCA Sheet 1 — Front page",
     hint: "Patient, diagnosis, approval boxes, LVIDd/LVIDs/EF/Creat/K+", prompt: PROMPT_Q1 },
@@ -6818,6 +6871,11 @@ const PSLOTS = [
     hint: "Bifurcation, thrombus & calcium Mx, complications, recommendations", prompt: PROMPT_Q4 },
   { slot: "qu", title: "Utilization sheet (technician's)",
     hint: "Per-vessel hardware grid — guides, wires, balloons, stents, adjuncts", prompt: PROMPT_U },
+  // 13.52: the heart drawing with the stent marked and its sticker pasted —
+  // a second source, checked against the other sheets; optional
+  { slot: "qd", title: "PTCA diagram & stent sticker",
+    hint: "Heart drawing with the stent marked, its sticker, name, Cath No. and date — cross-checked against the other sheets; optional",
+    prompt: PROMPT_QD, diagram: true },
 ];
 
 /* The sheets, sorter prompt and case shape the capture screen is working
@@ -6939,8 +6997,8 @@ function unsureLabel(p) {
    colour by kind: Pro purple, Flash teal, Flash-Lite amber (lighter and less
    accurate on handwriting), anything else grey */
 const READBY_SHEET = { p1: "1", a1: "2", a2: "3", a3: "4", d1: "diagram", d: "diagram",
-  q1: "1", q2: "2", q3: "3", q4: "4", qu: "utilization" };
-const READBY_ORDER = ["p1", "a1", "a2", "a3", "d1", "d", "q1", "q2", "q3", "q4", "qu"];
+  q1: "1", q2: "2", q3: "3", q4: "4", qu: "utilization", qd: "diagram" };
+const READBY_ORDER = ["p1", "a1", "a2", "a3", "d1", "d", "q1", "q2", "q3", "q4", "qu", "qd"];
 function readByColour(model) { const t = mcTier(model); return t === "high" ? "#6d28d9" : t === "mid" ? "#0f766e" : t === "low" ? "#b45309" : "#5f6470"; }
 function readByShort(model) { return String(mcLabel(model) || model || "?").replace(/^Gemini\s+/, ""); }
 function readByOfSession() {
@@ -7759,11 +7817,11 @@ THE DEPARTMENT'S OTHER FORMS. A footer reading "PTCA — Page N of 4", or headin
 
 /* Same job for the PTCA paperwork: the 4-page PTCA & stenting proforma plus
    the technicians' one-page utilization sheet, which has no footer. */
-const SORT_PROMPT_PTCA = `This is ONE photograph (or scanned page) that should belong to the PTCA paperwork of the Department of Cardiology, LTMG Hospital, Sion, Mumbai: either one of the FOUR pages of the printed PTCA & STENTING PROFORMA, or the separate one-page PTCA UTILIZATION REPORT the technician fills. Say which it is.
+const SORT_PROMPT_PTCA = `This is ONE photograph (or scanned page) that should belong to the PTCA paperwork of the Department of Cardiology, LTMG Hospital, Sion, Mumbai: one of the FOUR pages of the printed PTCA & STENTING PROFORMA, the separate one-page PTCA UTILIZATION REPORT the technician fills, or the PTCA DIAGRAM SHEET (a printed heart drawing with the stent marked and the stent's sticker pasted on it). Say which it is.
 
 Judge this image entirely on its own. Pages arrive in any order, the same sheet is sometimes photographed twice, and a sheet may be missing — never assume a full set.
 
-FIRST, THE PRINTED PAGE NUMBER. Every PROFORMA page has a footer printed in small type, centred at the BOTTOM, reading "PTCA — Page 1 of 4" … "PTCA — Page 4 of 4". Find it and report N as "printedPage". It is printed, not handwritten — never take a number from handwriting, a box or a field. The photo may be sideways or upside down, so the bottom of the page may be at any edge of the image. If the line is missing, cut off, folded under, covered or too blurred to read with certainty, report 0 — never guess it. The UTILIZATION REPORT has NO such footer: report printedPage 0 for it.
+FIRST, THE PRINTED PAGE NUMBER. Every PROFORMA page has a footer printed in small type, centred at the BOTTOM, reading "PTCA — Page 1 of 4" … "PTCA — Page 4 of 4". Find it and report N as "printedPage". It is printed, not handwritten — never take a number from handwriting, a box or a field. The photo may be sideways or upside down, so the bottom of the page may be at any edge of the image. If the line is missing, cut off, folded under, covered or too blurred to read with certainty, report 0 — never guess it. The UTILIZATION REPORT and the DIAGRAM SHEET have NO such footer: report printedPage 0 for them (a newer diagram printing may carry "Coronary Diagram — Page 5 of 5" — that is not a PTCA footer: printedPage 0, sheet 6).
 
 SEPARATELY, THE HEADINGS. Also say which sheet the page's PRINTED section headings and layout show, on their own, as if there were no page number. Ignore all handwriting.
 
@@ -7771,14 +7829,15 @@ SHEET 1 — proforma front page: hospital letterhead and the title PTCA & STENTI
 SHEET 2 — investigations: Examination (Pulse, BP, Allen's Test); the Blood Investigations table with At CAG and Repeat columns and a Date row on top; ECG with rhythm boxes; the echocardiogram value grid and the valve grid (MR, MS, MVA, AS, AR, TR against Mild / Moderate / Severe); RWMA; 2D Echo & Doppler lines.
 SHEET 3 — procedure & technique: CAG Reference lines (LMCA, LAD, LCX, RCA); Access; AK, Fluoro time, Heparin, ACT; Performed by; Technician; the strategy boxes Predilate(PrD) → Stent → Postdilate(PoD) / Stenting → PoD / Direct stenting / PrD → Stent; Overlapping stents; the segment-level "PTCA to" box rows (Ostial / Prox / Mid / Distal LAD, LCx, RCA …); Wiring technique; Support (For wire / Pre balloon / Stent / Post balloon); Predilation; Stent position; Post dilation.
 SHEET 4 — the last proforma page: Bif techniques (Provisional, Provisional switched to true Bif, DK Crush, Mini Crush, Culotte, T stenting, TAP, Direct crush, JSBT); Bifurcation vessels in MB and SB rows; Recross wire 1 / 2 and POT 1 / 2; Thrombus Mx with the aspiration-runs and TIMI line; Calcium Mx (Cutting balloon, Rota, ELCA); Complications; Other hardware; Recommendations (in addition to standard).
-SHEET 5 — the PTCA UTILIZATION REPORT (a different, single-page form, no footer): the title PTCA UTILIZATION REPORT; a small table with Name of the Patient, IP No. PTCA, Cath No., Date, Technician Name, First / Second / Third Operator, Access / Sheath (F); then a large grid whose header row is "Vessel →" LM LAD D1 LCx OM RCA PDA PLV and whose rows are Guiding Catheter, Guide Wire, Balloon 1, Balloon 2, Stent 1, Stent 2; a bottom table with Cutting balloon, Microcatheter (MC), Guide extension (GE), Rota burr, Aspiration catheter, IVUS / OCT / ELCA, AK, FT, Injection, Other hardware, Notes.
+SHEET 5 — the PTCA UTILIZATION REPORT (a different, single-page form, no footer): the title PTCA UTILIZATION REPORT; a small table with Name of the Patient, IP No. PTCA, Cath No., Date, Technician Name, First / Second / Third Operator, Access / Sheath (F); then a large grid whose header row is "Vessel →" LM LAD D1 LCx OM RCA PDA PLV and whose rows are Guiding Catheter, Guide Wire, Balloon 1, Balloon 2, Stent 1, Stent 2; a bottom table with Cutting balloon, Microcatheter (MC), Guide extension (GE), Rota burr, Aspiration catheter, IVUS / OCT / ELCA, AK, FT, Injection, Other hardware, Notes. It is a TABLE of printed cells — it has NO heart drawing.
+SHEET 6 — the PTCA DIAGRAM SHEET (no footer): the department's letterhead (DEPARTMENT OF CARDIOLOGY, LOKMANYA TILAK MUNICIPAL MEDICAL COLLEGE & GENERAL HOSPITAL) over boxed "No." / "Cath No." and "Date", Name, Age, Sex, Performed by; and, filling most of the page, a large printed HEART DRAWING with the coronary arteries on it (labels such as LCA, CN, SN, CM, RCA, LAD, DI, PLV, PD, "RAO 30", Ao-p, PV-p, LVEF). For a PTCA a stent is usually drawn on a vessel and one or more small printed STENT STICKERS (brand, REF, LOT, Ø mm, length mm, QR code) are pasted on the page. Any page whose main content is that heart drawing is sheet 6 — a stent sticker on it does NOT make it the utilization report.
 
-A footer reading "Page N of 4" WITHOUT the word "PTCA", or headings such as CORONARY ANGIOGRAPHY REPORT, Rentrop Collaterals, or the vessel blocks Lt. Main / Diagonal with Ostial-Proximal-Mid-Distal lesion rows, belong to the department's CAG proforma — a different form; so does a page whose main content is a large printed heart drawing with the coronary arteries on it and percentages written by them (the CAG diagram sheet). Such a page is NOT part of this paperwork: report sheet 0 and printedPage 0 for it.
+A footer reading "Page N of 4" WITHOUT the word "PTCA", or headings such as CORONARY ANGIOGRAPHY REPORT, Rentrop Collaterals, or the vessel blocks Lt. Main / Diagonal with Ostial-Proximal-Mid-Distal lesion rows, belong to the department's CAG proforma — a different form. Such a page is NOT part of this paperwork: report sheet 0 and printedPage 0 for it. (A heart-drawing page is sheet 6, as above.)
 
 Return ONLY minified JSON of this shape:
 {"printedPage":number,"headings":[string],"sheet":number,"confidence":number,"top":string,"legibility":number,"cropped":boolean}
-- printedPage: N from the printed "PTCA — Page N of 4" at the bottom — or 0 if it is absent or cannot be read with certainty (always 0 for the utilization report).
-- sheet: 1, 2, 3 or 4 from the headings alone, 5 for the utilization report — or 0 if this is not part of this paperwork, or no printed text can be made out.
+- printedPage: N from the printed "PTCA — Page N of 4" at the bottom — or 0 if it is absent or cannot be read with certainty (always 0 for the utilization report and the diagram sheet).
+- sheet: 1, 2, 3 or 4 from the headings alone, 5 for the utilization report, 6 for the diagram sheet (heart drawing) — or 0 if this is not part of this paperwork, or no printed text can be made out.
 - headings: the printed section headings you can actually see, at most 8.
 - confidence: 0 to 1 — how sure you are of "sheet" (the headings judgement).
 - top: which edge of the IMAGE the top of the printed page is at — "top", "right", "bottom" or "left".
@@ -7957,7 +8016,9 @@ function normalizeSort(r) {
   let fromHeads = parseInt(r.sheet, 10);
   if (!(fromHeads >= 1 && fromHeads <= nSheets)) fromHeads = 0;
   let printed = parseInt(r.printedPage, 10);
-  if (!(printed >= 1 && printed <= nSheets)) printed = 0;
+  // 13.52: only the four PTCA proforma pages carry a PTCA footer — a "Page 5 of 5"
+  // read off a diagram sheet's footer must not send it to the utilization slot
+  if (!(printed >= 1 && printed <= (S.mode === "PTCA" ? 4 : nSheets))) printed = 0;
   let top = String(r.top || "top").toLowerCase().trim();
   if (["top", "right", "bottom", "left"].indexOf(top) < 0) top = "top";
   // The printed page number decides. The headings are the fallback when the
@@ -8376,7 +8437,7 @@ function poolSummary() {
     if (noDiagram.length) out.push({ text: "No coronary diagram (Sheet 5) among these pages — it is optional; add it here if one was drawn." });
     if (!missing.length) out.push({ text: noDiagram.length
       ? "The " + (sheetCount() - noDiagram.length) + " proforma sheets are in place."
-      : "All " + (["three", "four", "five"][sheetCount() - 3] || sheetCount()) + " sheets are in place." });
+      : "All " + (["three", "four", "five", "six"][sheetCount() - 3] || sheetCount()) + " sheets are in place." });
     else {
       const one = missing.length === 1;
       out.push({ att: true, text: (have.length ? joinSheets(have) + (have.length === 1 ? " is" : " are") + " in place. " : "") +
@@ -8749,7 +8810,7 @@ async function scanOne(slot) {
     S.readBy = S.readBy || {};
     S.readBy[slot] = S.lastModelUsed || slotModel(slot);
     const where = raw && raw.where;
-    S.res[slot] = s.diagram ? normalizeDiagramResult(raw)
+    S.res[slot] = s.diagram && slot.charAt(0) !== "q" ? normalizeDiagramResult(raw)
       : slot.charAt(0) === "q" ? normalizePtcaResult(raw)
       : normalizeOperators(normalizeTgLdl(normalizeLesions(raw)));
     if (where && S.res[slot] && !S.res[slot].where) S.res[slot].where = where;
@@ -8897,8 +8958,8 @@ function ptcaAfterMerge(P) {
 
 /* ---------- 13.48: the PTCA and CAG numbers ----------
    PTCA No. = cath number + "AP" + PTCA number, written xxxxAPzzzz (2356AP657).
-   CAG No. on the PTCA proforma = CAG number + four-digit year, digits only
-   (23432026). The front page is the first source; the PTCA / Cath No. line at
+   CAG No. on the PTCA proforma = CAG number / year of the CAG (2343/2026,
+   13.52; the year is added from the CAG date when it is not written). The front page is the first source; the PTCA / Cath No. line at
    the top of pages 2–4 and the utilization sheet (Cath No. + "IP No. PTCA")
    are the others. A front page without a full number takes it from them; any
    disagreement is flagged for the reviewer. The sources are kept on the case
@@ -8913,15 +8974,57 @@ function ptcaNoNorm(s) {
   if (/^\d{1,4}[\/-]?20\d\d$/.test(d)) return { kind: "cagLike", v: d.replace(/\D/g, "") };
   return { kind: "odd", v: t };
 }
-function cagNoNorm(s) {
+/* 13.52: a CAG number is stored as number/year — 2145/2026 — the year being
+   the year the angiography was done. Residents rarely write the year, so a
+   bare 2145 takes it from the CAG date; 2145/2026, 2145-26, 2145 2026 and
+   21452026 are all the same number. */
+function cagNoParse(s) {
   const t = String(s == null ? "" : s).trim();
-  if (!t) return { v: "", ok: true };
-  if (/[A-Za-z]/.test(t)) return { v: t, ok: false, why: "contains letters \u2014 CAG numbers are digits only" };
+  if (!t) return { n: "", y: "", empty: true };
+  if (/[A-Za-z]/.test(t)) return { bad: "contains letters — CAG numbers are digits only" };
+  let m = /^(\d{1,5})\s*[\/\-.\s]\s*(\d{4}|\d{2})$/.exec(t);
+  if (m) {
+    const y = m[2].length === 2 ? "20" + m[2] : m[2];
+    if (/^(?:19|20)\d\d$/.test(y)) return { n: m[1].replace(/^0+(?=\d)/, ""), y: y };
+  }
   const d = t.replace(/\D/g, "");
-  const m = /^(\d{1,4})((?:19|20)\d\d)$/.exec(d);
-  if (!m) return { v: d, ok: false, why: "is not a CAG number followed by its year (e.g. 2343" + new Date().getFullYear() + ")" };
-  if (Number(m[2]) > new Date().getFullYear()) return { v: d, ok: false, why: "ends in the year " + m[2] + ", which has not come yet" };
-  return { v: d, ok: true };
+  if (/^\d{1,4}$/.test(d)) return { n: d.replace(/^0+(?=\d)/, ""), y: "" };
+  m = /^(\d{1,4})((?:19|20)\d\d)$/.exec(d);
+  if (m) return { n: m[1].replace(/^0+(?=\d)/, ""), y: m[2] };
+  return { bad: "is not a CAG number (a number of up to four digits, with or without its year)" };
+}
+/* the stored form: "2145/2026". year = the year of the CAG; a written year
+   that is not the CAG's is kept as written and flagged */
+function cagNoCanon(s, year) {
+  const p = cagNoParse(s);
+  const now = new Date().getFullYear();
+  if (p.empty) return { v: "", ok: true };
+  if (p.bad) return { v: String(s).trim(), ok: false, why: p.bad };
+  const y = Number(year) || 0;
+  if (!p.y) return { v: p.n + "/" + (y || now), ok: true, added: true, guessed: !y };
+  const v = p.n + "/" + p.y;
+  if (y && Number(p.y) !== y) return { v: v, ok: false, why: "ends in the year " + p.y + " but the CAG date is in " + y };
+  if (!y && Number(p.y) > now) return { v: v, ok: false, why: "ends in the year " + p.y + ", which has not come yet" };
+  return { v: v, ok: true };
+}
+/* the same CAG number however it is written (2145, 2145/2026, 21452026);
+   a number without a year matches the same number of any year */
+function cagNoSame(a, b) {
+  const x = cagNoParse(a), z = cagNoParse(b);
+  if (x.empty || z.empty || x.bad || z.bad) return String(a || "").trim() === String(b || "").trim() && !!String(a || "").trim();
+  return x.n === z.n && (!x.y || !z.y || x.y === z.y);
+}
+/* tidy a case's CAG number into its stored form before it is saved */
+function cagNoTidy(o, isPtca) {
+  if (!o || !has(o.cagNo)) return;
+  const yr = yearOfDate(isPtca ? (o.cagDate || o.date) : o.date);
+  const c = cagNoCanon(o.cagNo, yr);
+  if (c.v && !(c.why && /letters|not a CAG number/.test(c.why))) o.cagNo = c.v;
+}
+/* the PTCA proforma's CAG No.: the year is the CAG's (CAG date), else the PTCA's */
+function cagNoNorm(s, year) {
+  const c = cagNoCanon(s, year);
+  return { v: c.v, ok: c.ok, why: c.why || "" };
 }
 /* the numbers each sheet carries, from this scan's readings */
 function ptcaNumberSources(res) {
@@ -8929,6 +9032,9 @@ function ptcaNumberSources(res) {
   res = res || {};
   if (res.q1 && has(res.q1.ptcaNo)) out.push({ where: "front page", raw: String(res.q1.ptcaNo) });
   ["q2", "q3", "q4"].forEach(function (s, i) { const r = res[s]; if (r && has(r.hdrPtcaNo)) out.push({ where: "page " + (i + 2) + " header", raw: String(r.hdrPtcaNo) }); });
+  // 13.52: the PTCA diagram sheet's "Cath No." (xxxx AP zzz) is one more source
+  const pd = res.qd && res.qd.pdiag;
+  if (pd && has(pd.cathNo)) out.push({ where: "diagram sheet", raw: String(pd.cathNo) });
   const u = res.qu && res.qu.util;
   if (u && (has(u.cathNo) || has(u.ipNo))) {
     const whole = ptcaNoNorm(u.cathNo);
@@ -8957,7 +9063,7 @@ function ptcaNumbersFill(P, res) {
     if (cur.kind === "cagLike" && !has(P.cagNo)) P.cagNo = cur.v;
     if (pick) P.ptcaNo = pick.v;
   }
-  const cg = cagNoNorm(P.cagNo);
+  const cg = cagNoNorm(P.cagNo, yearOfDate(P.cagDate || P.date));
   if (cg.ok && cg.v) P.cagNo = cg.v;
   const w = ptcaNumberWarns(P);
   if (w.ptca.length) P.unsure = unsureUnion(P.unsure, ["ptcaNo"]);
@@ -8979,7 +9085,7 @@ function ptcaNumberWarns(P) {
     else if (n.kind === "cath" && (cur.kind === "full" || cur.kind === "cath") && n.cath !== cur.cath) out.ptca.push("the " + x.where + " gives cath number " + n.cath + "; the report has " + P.ptcaNo);
     else if (n.kind === "full" && cur.kind === "cath" && n.cath !== cur.cath) out.ptca.push("the " + x.where + " reads " + n.v + "; the report has " + P.ptcaNo);
   });
-  const cg = cagNoNorm(P.cagNo);
+  const cg = cagNoNorm(P.cagNo, yearOfDate(P.cagDate || P.date));
   if (!cg.ok) out.cag.push("CAG No. " + P.cagNo + " " + cg.why);
   return out;
 }
@@ -8987,6 +9093,176 @@ function ptcaNumberPanel(P) {
   const w = ptcaNumberWarns(P), all = w.ptca.concat(w.cag);
   if (!all.length) return "";
   return `<div class="warn amber"><b>Check the case numbers</b> \u2014 ${all.map(esc2).join("; ")}.</div>`;
+}
+
+
+/* ============ 13.52: the PTCA diagram sheet, checked against the case ============
+   The diagram sheet (heart drawing, stent marked, sticker pasted, name, Cath
+   No., date) is a second source. Nothing on it changes the report or the
+   inventory by itself: the inventory's stents come from the technicians'
+   sticker photo; this sheet's sticker only confirms them. */
+function pdNameKey(s) { return String(s == null ? "" : s).toLowerCase().replace(/\b(mr|mrs|ms|smt|shri|dr)\.?\s+/g, " ").replace(/[^a-z ]/g, " ").split(/\s+/).filter(function (w) { return w.length > 1; }); }
+function pdEdit(a, b) {
+  const m = a.length, n = b.length; if (!m || !n) return Math.max(m, n);
+  let prev = []; for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  return prev[n];
+}
+/* the same patient's name as two people spell it (Shekh / Shaikh, Mannan / Manan) */
+function pdSameName(a, b) {
+  const x = pdNameKey(a), y = pdNameKey(b);
+  if (!x.length || !y.length) return true;
+  const near = function (p, q) { return p === q || pdEdit(p, q) <= Math.max(1, Math.floor(Math.min(p.length, q.length) / 3)) || (p.length >= 4 && q.indexOf(p) === 0) || (q.length >= 4 && p.indexOf(q) === 0); };
+  const hits = x.filter(function (p) { return y.some(function (q) { return near(p, q); }); }).length;
+  return hits >= Math.min(2, Math.min(x.length, y.length));
+}
+/* a size "2.75x36", "2.75 * 36", "36 × 2.75" → { dia: "2.75", len: "36" } */
+function pdSize(t) {
+  const m = /(\d+(?:\.\d+)?)\s*(?:mm)?\s*[x×*X]\s*(\d+(?:\.\d+)?)/.exec(String(t == null ? "" : t).replace(/,/g, "."));
+  if (!m) return null;
+  let a = Number(m[1]), b = Number(m[2]);
+  if (a > 6 && b <= 6) { const c = a; a = b; b = c; }
+  if (!(a > 0 && a <= 6 && b >= 4 && b <= 60)) return null;
+  return { dia: String(a), len: String(b) };
+}
+function pdSizeText(x) { return x && has(x.dia) && has(x.len) ? x.dia + "×" + x.len : x && has(x.dia) ? "Ø " + x.dia : ""; }
+function pdSameSize(a, b) { return !!(a && b && has(a.dia) && has(b.dia) && Number(a.dia) === Number(b.dia) && (!has(a.len) || !has(b.len) || Number(a.len) === Number(b.len))); }
+/* the vessel a written position names: "Prox-mid LAD" → LAD */
+const PD_VESSELS = [["LM", /\b(lm|lmca|left main|lca)\b/i], ["D1", /\b(d1|d2|diag(onal)?|di)\b/i], ["OM", /\b(om\d?|obtuse|cm)\b/i], ["Ramus", /\b(ramus|ri)\b/i],
+  ["PDA", /\b(pda|pd)\b/i], ["PLV", /\b(plv|pl)\b/i], ["LAD", /\b(lad)\b/i], ["LCx", /\b(lcx|cx|circ(umflex)?)\b/i], ["RCA", /\b(rca)\b/i]];
+function pdVessel(t) {
+  t = String(t == null ? "" : t);
+  for (let i = 0; i < PD_VESSELS.length; i++) if (PD_VESSELS[i][1].test(t)) return PD_VESSELS[i][0];
+  return "";
+}
+/* the stents on the utilization grid: one entry per stent written, with its column */
+function pdGridStents(P) {
+  const out = [], g = ((P.util || {}).grid) || {};
+  UTIL_VESSELS.forEach(function (v) {
+    const c = g[v] || {};
+    ["stent1", "stent2", "stent3"].forEach(function (k) {
+      String(c[k] || "").split(/\s*[,;]\s*/).filter(has).forEach(function (raw) {
+        out.push({ vessel: v, raw: raw, size: pdSize(raw) });
+      });
+    });
+  });
+  return out;
+}
+function pdDateKey(v) { const p = parseLooseDate(v); return p ? p.y + "-" + p.m + "-" + p.d : ""; }
+/* every disagreement between the diagram sheet and the rest of the case */
+function ptcaDiagramChecks(P) {
+  const g = P && P.pdiag;
+  const out = [];
+  if (!g || !g.present) return out;
+  if (has(g.name) && has(P.name) && !pdSameName(g.name, P.name)) out.push({ kind: "id", text: "Name: the diagram sheet reads “" + g.name + "”; the report has “" + P.name + "” — is it this patient's sheet?" });
+  if (has(g.cathNo) && has(P.ptcaNo)) {
+    const a = ptcaNoNorm(g.cathNo), b = ptcaNoNorm(P.ptcaNo);
+    if (a.kind === "full" && b.kind === "full" && a.v !== b.v) out.push({ kind: "id", text: "Cath No.: the diagram sheet reads " + a.v + "; the report has " + b.v });
+    else if (a.cath && b.cath && a.cath !== b.cath) out.push({ kind: "id", text: "Cath No.: the diagram sheet gives cath number " + a.cath + "; the report has " + P.ptcaNo });
+  }
+  const dk = pdDateKey(g.date), pk = pdDateKey(P.date);
+  if (dk && pk && dk !== pk) out.push({ kind: "id", text: "Date: the diagram sheet reads " + g.date + "; the report has " + P.date });
+  // its stickers against the stents on the utilization sheet (size, then vessel)
+  const stk = (g.stickers || []).map(function (x, i) { return { i: i, x: x, size: has(x.dia) ? { dia: x.dia, len: x.len } : null, vessel: pdVessel(x.position) }; });
+  const grid = pdGridStents(P);
+  const left = grid.slice();
+  stk.forEach(function (s) {
+    const lab = "Sticker " + (s.i + 1) + " (" + [s.x.product || s.x.brand, pdSizeText(s.x), has(s.x.lot) ? "LOT " + s.x.lot : ""].filter(has).join(" ") + ")";
+    if (!s.size) { out.push({ kind: "stent", text: lab + ": its size could not be read — check it against the sticker photo" }); return; }
+    let k = -1;
+    for (let a = 0; a < left.length; a++) if (pdSameSize(s.size, left[a].size)) { k = a; break; }
+    if (k < 0) { if (grid.length) out.push({ kind: "stent", text: lab + ": no stent of this size is written on the utilization sheet (" + grid.map(function (x) { return x.vessel + " " + x.raw; }).join("; ") + ")" }); return; }
+    const hit = left.splice(k, 1)[0];
+    const sv = s.vessel || "";
+    if (sv && hit.vessel && sv !== hit.vessel && !(UTIL_PARENT[hit.vessel] === sv || UTIL_PARENT[sv] === hit.vessel)) out.push({ kind: "stent", text: lab + " is marked “" + s.x.position + "” on the diagram, but the utilization sheet has this size in the " + hit.vessel + " column" });
+  });
+  if (stk.length) left.forEach(function (x) { if (x.size) out.push({ kind: "stent", text: "The utilization sheet's " + x.vessel + " stent " + x.raw + " has no sticker on the diagram sheet" }); });
+  if (!stk.length && grid.length) out.push({ kind: "info", text: "No stent sticker was read on the diagram sheet; the utilization sheet has " + grid.length + " stent" + (grid.length === 1 ? "" : "s") });
+  // the drawn stents against the vessels stented on the utilization sheet
+  const gridV = grid.map(function (x) { return x.vessel; });
+  (g.stents || []).forEach(function (d) {
+    const v = pdVessel(d.vessel) || String(d.vessel || "");
+    if (v && gridV.length && gridV.indexOf(v) < 0 && !gridV.some(function (w) { return UTIL_PARENT[w] === v || UTIL_PARENT[v] === w; }))
+      out.push({ kind: "stent", text: "A stent is drawn on the " + [d.segment, v].filter(has).join(" ") + " on the diagram, but the utilization sheet has no stent in that vessel" });
+  });
+  // the technicians' sticker photo of this case (fetched from the sheet)
+  const ts = pdTechStickers(P);
+  if (ts && ts.list && stk.length) {
+    if (!ts.list.length) out.push({ kind: "info", text: "No technicians' sticker photo has been read for this case yet — the stents are taken off the inventory from that photo" });
+    else {
+      const tl = ts.list.slice();
+      stk.forEach(function (s) {
+        const lot = stCode(s.x.lot);
+        let k = -1;
+        for (let a = 0; a < tl.length; a++) {
+          const t = tl[a];
+          if (lot && String(s.x.lot).indexOf("?") < 0 && stCode(t.lot) === lot) { k = a; break; }
+        }
+        if (k < 0) for (let a = 0; a < tl.length; a++) if (pdSameSize(s.size, { dia: tl[a].dia, len: tl[a].len })) { k = a; break; }
+        const lab = "Sticker " + (s.i + 1) + " (" + [pdSizeText(s.x), has(s.x.lot) ? "LOT " + s.x.lot : ""].filter(has).join(" ") + ")";
+        if (k < 0) { out.push({ kind: "stent", text: lab + " is not among the technicians' stickers for this case (" + ts.list.map(function (t) { return [t.size || pdSizeText(t), t.lot ? "LOT " + t.lot : ""].filter(has).join(" "); }).join("; ") + ")" }); return; }
+        const t = tl.splice(k, 1)[0];
+        if (lot && stCode(t.lot) && stCode(t.lot) !== lot) out.push({ kind: "stent", text: lab + ": the technicians' sticker of this size reads LOT " + t.lot + " — one of the two is misread" });
+        else if (s.size && !pdSameSize(s.size, { dia: t.dia, len: t.len }) && has(t.dia)) out.push({ kind: "stent", text: lab + ": the technicians' sticker with this LOT reads " + (t.size || pdSizeText(t)) });
+      });
+      tl.forEach(function (t) { out.push({ kind: "stent", text: "The technicians' sticker " + [t.brand, t.size || pdSizeText(t), t.lot ? "LOT " + t.lot : ""].filter(has).join(" ") + " is not on the diagram sheet" }); });
+    }
+  }
+  return out;
+}
+/* the technicians' stickers of this case: fetched once per case number from
+   the sheet (edit key or technicians' key), then kept */
+function pdTechKey(P) { return String(P.ptcaNo || "") + "|" + String(P.name || ""); }
+function pdTechStickers(P) {
+  if (!S.cfg.sheetUrl || !(S.cfg.editKey || S.cfg.techKey)) return null;
+  const k = pdTechKey(P);
+  const c = S.pdStk || (S.pdStk = {});
+  if (c[k]) return c[k];
+  c[k] = { busy: true, list: null };
+  sheetApi("caseStickers", { ptcaNo: P.ptcaNo || "", name: P.name || "" }, 40000).then(function (j) {
+    c[k] = { busy: false, list: (j && j.stickers) || [] };
+    render();
+  }).catch(function (e) { c[k] = { busy: false, list: null, err: String(e && e.message || e) }; render(); });
+  return c[k];
+}
+/* the amber line at the top of the review screen */
+function ptcaDiagramTopPanel(P) {
+  const all = ptcaDiagramChecks(P).filter(function (c) { return c.kind !== "info"; });
+  if (!all.length) return "";
+  return `<div class="warn amber"><b>Diagram sheet differs from the case</b> — ${all.length} point${all.length === 1 ? "" : "s"} to check: ${all.map(function (c) { return esc2(c.text); }).join("; ")}. See “PTCA diagram & stent sticker” below.</div>`;
+}
+/* the section on the review screen */
+function ptcaDiagramPanel(P) {
+  const g = P.pdiag;
+  const im = S.imgs.qd || null;
+  if (!g || !g.present) return `<p class="hint">${im ? "The diagram sheet's photo is here but it has not been read yet." : "No PTCA diagram sheet among this case's pages. It is optional: when there is one, its name, Cath No., date and stent sticker are checked against the rest of the case."}</p>`;
+  const chk = ptcaDiagramChecks(P);
+  let h = "";
+  h += `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">`;
+  if (im) h += `<img class="diagthumb${S.pdBig ? " big" : ""}" src="${S.pdBig ? im.url : (im.thumb || im.url)}" alt="PTCA diagram sheet" onclick="S.pdBig=!S.pdBig;render()" title="${S.pdBig ? "Shrink" : "Enlarge"}">`;
+  h += `<div style="flex:1 1 240px;font-size:12.5px">`;
+  const hdr = [g.name, has(g.cathNo) ? "Cath No. " + g.cathNo : "", g.date, [g.age, g.sex].filter(has).join(" "), has(g.lvef) ? "LVEF " + g.lvef + "%" + (has(g.lvefNote) ? " " + g.lvefNote : "") : ""].filter(has);
+  if (hdr.length) h += `<div>Header on the sheet: <b>${esc2(hdr.join(" · "))}</b></div>`;
+  const pb = (g.performedBy || []).filter(has);
+  if (pb.length) h += `<div>Performed by: ${esc2(pb.join(", "))}</div>`;
+  (g.stickers || []).forEach(function (x, i) {
+    h += `<div style="margin-top:4px">Sticker ${i + 1}: <b>${esc2([x.brand, x.product, pdSizeText(x)].filter(has).join(" "))}</b>${has(x.position) ? " — marked “" + esc2(x.position) + "”" : ""}<br><span class="hint">${esc2([has(x.ref) ? "REF " + x.ref : "", has(x.lot) ? "LOT " + x.lot : "", has(x.serial) ? "SN " + x.serial : "", has(x.expiry) ? "use by " + x.expiry : ""].filter(has).join(" · "))}</span></div>`;
+  });
+  (g.stents || []).forEach(function (d) { h += `<div>Stent drawn: ${esc2([d.segment, d.vessel].filter(has).join(" "))}${has(d.note) ? " (" + esc2(d.note) + ")" : ""}</div>`; });
+  (g.lesions || []).forEach(function (d) { if (d && (d.vessel || d.percent)) h += `<div>Lesion drawn: ${esc2([d.segment, d.vessel, has(d.percent) ? d.percent + "%" : ""].filter(has).join(" "))}</div>`; });
+  if (has(g.notes)) h += `<div>Written on the sheet: “${esc2(g.notes)}”</div>`;
+  h += `</div></div>`;
+  const ts = pdTechStickers(P);
+  const bad = chk.filter(function (c) { return c.kind !== "info"; }), info = chk.filter(function (c) { return c.kind === "info"; });
+  h += bad.length
+    ? `<div class="warn amber" style="margin-top:8px"><b>${bad.length} point${bad.length === 1 ? "" : "s"} to check</b><ul style="margin:4px 0 0 18px;padding:0">${bad.map(function (c) { return "<li>" + esc2(c.text) + "</li>"; }).join("")}</ul></div>`
+    : `<div class="warn blue" style="margin-top:8px">The diagram sheet agrees with the case: name, Cath No., date${(g.stickers || []).length ? ", and its sticker" + ((g.stickers || []).length === 1 ? "" : "s") + " against the utilization sheet" + (ts && ts.list && ts.list.length ? " and the technicians' sticker photo" : "") : ""}.</div>`;
+  info.forEach(function (c) { h += `<p class="hint">${esc2(c.text)}</p>`; });
+  if (ts && ts.busy) h += `<p class="hint">Fetching the technicians' stickers of this case…</p>`;
+  else if (ts && ts.err) h += `<p class="hint">The technicians' stickers could not be fetched (${esc2(ts.err)}).</p>`;
+  else if (!ts && (g.stickers || []).length) h += `<p class="hint">Add the edit key or the technicians' key in Settings to check the sticker against the technicians' sticker photo too.</p>`;
+  h += `<p class="hint">Only a cross-check: the stents are taken off the inventory from the technicians' sticker photo, not from this sheet.</p>`;
+  return h;
 }
 
 /* 13.48: the CAG proforma's CAG No. — digits only, the CAG number followed by
@@ -9010,30 +9286,29 @@ function cagNumbersFill(D, res) {
   const dg = dd && has(dd.cagNo) ? String(dd.cagNo).trim() : "";
   const src = [["the diagram sheet", dg], ["angiography sheet 2", res.a1 && res.a1.cagNo], ["angiography sheet 3", res.a2 && res.a2.cagNo], ["angiography sheet 4", res.a3 && res.a3.cagNo]]
     .filter(function (x) { return has(x[1]) && cagNoDigits(x[1]); });
+  const yr = yearOfDate(D.date) || yearOfDate(dd && dd.date);
   const p1No = res.p1 && has(res.p1.cagNo) ? String(res.p1.cagNo) : "";
   D.cagNoFrom = ""; D.cagNoFromV = "";
   if (!has(D.cagNo) && src.length) D.cagNo = String(src[0][1]).trim();
   if (!p1No && has(D.cagNo)) {
     // where the number in the report came from, when sheet 1 had none
-    const hit = src.filter(function (x) { return cagNoDigits(x[1]) === cagNoDigits(D.cagNo); })[0];
+    const hit = src.filter(function (x) { return cagNoSame(x[1], D.cagNo); })[0];
     if (hit) { D.cagNoFrom = hit[0]; D.cagNoFromV = String(hit[1]).trim(); }
   }
+  // 13.52: stored as number/year — 2145 written on a 2026 CAG becomes 2145/2026
+  if (has(D.cagNo)) { const c = cagNoCanon(D.cagNo, yr); if (c.ok) D.cagNo = c.v; }
   D.cagNoDiag = dg;
   cagNumbersFlag(D);
 }
 function cagProformaNoWarns(D) {
   const out = [];
   if (!has(D.cagNo)) return ["no CAG number was read on the proforma or the diagram sheet"];
-  if (D.cagNoFrom && cagNoDigits(D.cagNoFromV) === cagNoDigits(D.cagNo)) out.push("the proforma has no CAG number \u2014 " + String(D.cagNo).trim() + " was taken from " + D.cagNoFrom);
-  else if (has(D.cagNoDiag) && cagNoDigits(D.cagNoDiag) !== cagNoDigits(D.cagNo)) out.push("the diagram sheet reads " + D.cagNoDiag + "; the report has " + String(D.cagNo).trim());
+  if (D.cagNoFrom && cagNoSame(D.cagNoFromV, D.cagNo)) out.push("the proforma has no CAG number — " + String(D.cagNo).trim() + " was taken from " + D.cagNoFrom);
+  else if (has(D.cagNoDiag) && !cagNoSame(D.cagNoDiag, D.cagNo)) out.push("the diagram sheet reads " + D.cagNoDiag + "; the report has " + String(D.cagNo).trim());
   const t = String(D.cagNo).trim();
-  if (/[A-Za-z]/.test(t)) return out.concat(["CAG No. " + t + " contains letters \u2014 CAG numbers are digits only"]);
-  const d = t.replace(/\D/g, "");
-  const m = /^(\d{1,4})((?:19|20)\d\d)$/.exec(d);
-  if (!m) return out.concat(["CAG No. " + t + " is not a CAG number followed by its year (e.g. 2371/" + new Date().getFullYear() + ")"]);
-  const y = Number(m[2]), dy = yearOfDate(D.date);
-  if (dy && y !== dy) out.push("CAG No. " + t + " ends in " + y + " but the CAG date is in " + dy);
-  else if (!dy && y > new Date().getFullYear()) out.push("CAG No. " + t + " ends in " + y + ", which has not come yet");
+  // 13.52: a number without its year is normal — it is stored as number/year
+  const c = cagNoCanon(t, yearOfDate(D.date));
+  if (!c.ok) out.push("CAG No. " + t + " " + c.why);
   return out;
 }
 function cagNumbersFlag(D) { if (cagProformaNoWarns(D).length) D.unsure = unsureUnion(D.unsure, ["cagNo"]); }
@@ -9101,6 +9376,7 @@ function downloadDocx() {
   try {
     // a saved case being edited: if its corrected number now belongs to
     // another saved case, ask before anything is downloaded or replaced
+    cagNoTidy(S.D, false);
     const ed = editingCase(S.D);
     if (ed && !editClashOk(caseRecord(S.D), ed)) return;
     saveBlob(buildDocx(S.D), DOCX_MIME, safeName(S.D.name) + "_" + safeName(S.D.cagNo) + ".docx");
@@ -9114,6 +9390,7 @@ function downloadDocx() {
 function downloadPtcaDocx() {
   try {
     const P = S.P;
+    cagNoTidy(P, true);
     const ed = editingCase(P);
     if (ed && !editClashOk(ptcaRecord(P), ed)) return;
     const tail = has(P.date) ? P.date : (P.ptcaNo || P.cagNo);
@@ -9145,7 +9422,8 @@ function sameCase(a, b) {
     if (b.cagNo) return a.cagNo === b.cagNo;
     return a.name === b.name;
   }
-  return (b.cagNo && a.cagNo === b.cagNo) || (!b.cagNo && a.name === b.name);
+  // 13.52: a CAG saved as 2145 and again as 2145/2026 is one case
+  return (b.cagNo && (a.cagNo === b.cagNo || cagNoSame(a.cagNo, b.cagNo))) || (!b.cagNo && a.name === b.name);
 }
 function upsertLocalCase(rec, diagramImg, ed, utilImg) {
   // ed: the edit this save comes from (see beginEdit). Its record is replaced
@@ -9198,6 +9476,7 @@ function currentDiagramImage() {
   return im;
 }
 function addToRegistry(silent, clashChecked) {
+  cagNoTidy(S.D, false);
   const rec = caseRecord(S.D);
   if (!rec.cagNo && !rec.name) {
     if (!silent) flash("err", "Add a name or CAG number before saving.");
@@ -9213,6 +9492,7 @@ function addToRegistry(silent, clashChecked) {
   return true;
 }
 function addPtcaToRegistry(silent, clashChecked) {
+  cagNoTidy(S.P, true);
   const rec = ptcaRecord(S.P);
   if (!rec.ptcaNo && !rec.cagNo && !rec.name) {
     if (!silent) flash("err", "Add a name, PTCA number or CAG number before saving.");
@@ -9864,7 +10144,7 @@ const SEGB = (label, path, opts, fn) =>
   }).join("") + `</div></div>`;
 /* 13.45: on a PC the report pages lay their sections out in two columns; the
    long ones (findings, procedure, the hardware grid) take the whole width */
-const SECT_WIDE = /angiogra|coronary|procedure|technique|utilization|final diagnosis|collateral|cag case/i;
+const SECT_WIDE = /angiogra|coronary|procedure|technique|utilization|final diagnosis|collateral|cag case|diagram/i;
 const SECT = function (t, inner) {
   const wide = SECT_WIDE.test(t) ? ` class="wide"` : "";
   if (!rvFold()) return `<section${wide}><h3>${esc2(t)}</h3>${inner}</section>`;
@@ -10036,9 +10316,9 @@ function viewCapture() {
       <button class="${S.mode === "PTCA" ? "on" : ""}" onclick="setMode('PTCA')" ${busy ? "disabled" : ""}>PTCA / Stenting</button>
     </div>
     <span class="hint" style="margin:0">${S.mode === "PTCA"
-      ? "4-sheet PTCA & stenting proforma + the technician's utilization sheet — bloods, echo and CAG findings fill in from the registry; hardware from the utilization grid"
+      ? "4-sheet PTCA & stenting proforma + the technician's utilization sheet (+ the diagram sheet with the stent sticker, optional, cross-checked) — bloods, echo and CAG findings fill in from the registry; hardware from the utilization grid"
       : "4-sheet CAG proforma + the coronary diagram as sheet 5 — the drawing is cross-checked against the ticks; where they differ the report prints the tick with the diagram's figure in blue"}</span></div>`;
-  const nWord = ["three", "four", "five"][sheetCount() - 3] || String(sheetCount());
+  const nWord = ["three", "four", "five", "six"][sheetCount() - 3] || String(sheetCount());
   h += `<p class="hint">Two ways in: add all the sheets at once below — photos or a PDF, in any order — and they
     are sorted into the ${nWord} sheets for you; or photograph each sheet on its own card. Photograph sheets flat and
     evenly lit with all four corners in frame. Either way the sheets are read one at a time — each result is kept
@@ -11322,7 +11602,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.51", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.52", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -12306,6 +12586,7 @@ function viewPtcaReview() {
   h += batchPanel();
   h += `<div class="warn">PTCA & stenting report. Check every value against the sheet before issuing — handwriting recognition can misread digits.</div>`;
   h += ptcaNumberPanel(P);
+  h += ptcaDiagramTopPanel(P);
   h += readByPanel(P);
   h += unsurePanel();
 
@@ -12450,6 +12731,7 @@ function viewPtcaReview() {
     ROW(F("Other hardware", "P.util.otherHardware", "1 1 100%")) +
     ROW(F("Notes", "P.util.notes", "1 1 100%")) + invUseHintHtml(P);
   h += SECT("Utilization sheet (technician's hardware grid)", utilSheetPanel(P) + utilExpandedNote(P) + ut);
+  h += SECT("PTCA diagram & stent sticker", ptcaDiagramPanel(P));
 
   /* ---- the technique checklists from pages 3–4 ---- */
   const T = P.tech;
@@ -12577,7 +12859,7 @@ function viewLogs() {
 const BATCH_SLOT_TITLE = { p1: "Sheet 1 (clinical proforma)", a1: "Sheet 2 (angiogram page 1)",
   a2: "Sheet 3 (angiogram page 2)", a3: "Sheet 4 (angiogram page 3)", d: "Sheet 5 (coronary diagram)",
   q1: "PTCA sheet 1 (front page)", q2: "PTCA sheet 2 (investigations)", q3: "PTCA sheet 3 (procedure & technique)",
-  q4: "PTCA sheet 4 (bif / thrombus / calcium)", qu: "PTCA utilization report" };
+  q4: "PTCA sheet 4 (bif / thrombus / calcium)", qu: "PTCA utilization report", qd: "PTCA diagram & stent sticker" };
 const BATCH_CAG_SLOTS = ["p1", "a1", "a2", "a3"], BATCH_PTCA_SLOTS = ["q1", "q2", "q3", "q4"];
 function batchIsPtca(c) { return String((c || {}).type || "").toUpperCase() === "PTCA"; }
 /* the prompts the batch scanner reads with — the app's own, sent to the
@@ -12588,7 +12870,7 @@ function batchPromptSet() {
   SLOTS.forEach(function (s) { by[s.slot] = s.prompt; });
   PSLOTS.forEach(function (s) { by[s.slot] = s.prompt; });
   return { p1: by.p1, a1: by.a1, a2: by.a2, a3: by.a3, d: by.d1 || PROMPT_D, page: SORT_PROMPT,
-    q1: by.q1, q2: by.q2, q3: by.q3, q4: by.q4, qu: by.qu, pagePtca: SORT_PROMPT_PTCA };
+    q1: by.q1, q2: by.q2, q3: by.q3, q4: by.q4, qu: by.qu, qd: by.qd, pagePtca: SORT_PROMPT_PTCA };
 }
 /* Sent once per app version per sheet, by an editor; a view-only device
    cannot (the script refuses without the key) and does not try. */
@@ -12723,7 +13005,7 @@ function batchCaseLabel(c) {
 function batchSheetCount(c) {
   const need = batchIsPtca(c) ? BATCH_PTCA_SLOTS : BATCH_CAG_SLOTS;
   const got = (c.sheets || []).filter(function (s) { return need.indexOf(s) >= 0; }).length;
-  return got + " of 4 sheets read" + ((c.sheets || []).indexOf("d") >= 0 ? " + diagram" : "") + ((c.sheets || []).indexOf("qu") >= 0 ? " + utilization" : "");
+  return got + " of 4 sheets read" + ((c.sheets || []).indexOf("d") >= 0 ? " + diagram" : "") + ((c.sheets || []).indexOf("qu") >= 0 ? " + utilization" : "") + ((c.sheets || []).indexOf("qd") >= 0 ? " + diagram" : "");
 }
 function viewBatch() {
   const b = S.batch;
@@ -13045,7 +13327,7 @@ async function openBatchCase(caseId) {
   const ptca = batchIsPtca(j);
   const need = ptca ? BATCH_PTCA_SLOTS : BATCH_CAG_SLOTS;
   const got = need.filter(function (s) { return results[s]; });
-  const extra = ptca ? (results.qu ? ["qu"] : []) : (results.d ? ["d"] : []);
+  const extra = ptca ? ["qu", "qd"].filter(function (k) { return results[k]; }) : (results.d ? ["d"] : []);
   let draft = batchDraftOf(j.caseId);
   // a draft saved to the sheet with "Save draft" (any phone) wins when newer
   if (j.draft && (!draft || Number(j.draftMs || 0) > Number(draft.at || 0))) {
@@ -13130,7 +13412,7 @@ async function openBatchCase(caseId) {
   } else if (ptca) buildPtcaReport(); else buildReport();          // merges the readings and opens the review screen
   try { window.scrollTo(0, 0); } catch (e) {}
   const bc = S.batchCase;
-  const slotOf = function (m) { return m.slot === "d" ? "d1" : (need.concat(ptca ? ["qu"] : []).indexOf(m.slot) >= 0 ? m.slot : ""); };
+  const slotOf = function (m) { return m.slot === "d" ? "d1" : (need.concat(ptca ? ["qu", "qd"] : []).indexOf(m.slot) >= 0 ? m.slot : ""); };
   const still = function () { return S.batchCase === bc && bc.token === token; };
   // every file at once; shown in their order as each arrives
   const jobs = bc.files.map(function (f) { const was = BATCH_PAGES[f.id]; const pr = batchPagesOf(caseId, f.id); return { f: f, pr: pr, cached: !!(was && was.done) }; });

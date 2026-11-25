@@ -313,7 +313,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -363,6 +363,14 @@ function handle(e) {
   if (action === "techStatus") {
     try { return out(Object.assign({ ok: true }, techStatus_(req))); }
     catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
+  }
+  // 13.52: the technicians' stickers of one PTCA, for the diagram-sheet check on
+  // the review screen — an editor (or a technician) may read them
+  if (action === "caseStickers") {
+    try {
+      if (!editAllowed(req.key) && !techAllowed(req.tkey)) return out({ ok: false, error: "needs the edit key or the technicians' key" });
+      return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, caseStickers_(req)));
+    } catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
   }
   if (action === "invGet" || action === "stentList" || action === "stentUploads" || action === "stentPhoto" || action === "stentReadBill" || action === "stentUpload") {
     try {
@@ -558,7 +566,7 @@ function appendCase(req) {
   // the name
   var at = 0;
   if (type === "PTCA" && ptcaNo) at = findRow(sh, have.indexOf("PTCA No") + 1, ptcaNo);
-  else if (cagNo) at = findRow(sh, have.indexOf("CAG No") + 1, cagNo);
+  else if (cagNo) at = findRow(sh, have.indexOf("CAG No") + 1, cagNo) || (type !== "PTCA" ? findCagRow_(sh, have.indexOf("CAG No") + 1, cagNo) : 0);
   else if (!ptcaNo && name) at = findRow(sh, have.indexOf("Name") + 1, name);
   // 13.26 — the real PTCA replaces the "Planned PTCA" entry saved for the same CAG
   if (type === "PTCA" && !at && cagNo && have.indexOf("Case status") >= 0 && sh.getLastRow() >= 2) {
@@ -884,7 +892,35 @@ function cagSame_(a, b) {
   if (!a || !b) return false;
   if (a === b) return true;
   var da = a.replace(/\D/g, ""), db = b.replace(/\D/g, "");
-  return da.length >= 5 && da === db && !/[A-Za-z]/.test(a + b);
+  if (da.length >= 5 && da === db && !/[A-Za-z]/.test(a + b)) return true;
+  // 13.52: 2145 = 2145/2026 — a number written without its year matches it
+  var x = cagParse_(a), z = cagParse_(b);
+  return !!(x && z && x.n === z.n && (!x.y || !z.y || x.y === z.y));
+}
+/* 13.52: a CAG number is stored as number/year (2145/2026), the year being the
+   year of the angiography; residents rarely write it. Returns {n, y} or null. */
+function cagParse_(s) {
+  var t = String(s == null ? "" : s).trim();
+  if (!t || /[A-Za-z]/.test(t)) return null;
+  var m = /^(\d{1,5})\s*[\/\-.\s]\s*(\d{4}|\d{2})$/.exec(t);
+  if (m) { var y = m[2].length === 2 ? "20" + m[2] : m[2]; if (/^(?:19|20)\d\d$/.test(y)) return { n: m[1].replace(/^0+(?=\d)/, ""), y: y }; }
+  var d = t.replace(/\D/g, "");
+  if (/^\d{1,4}$/.test(d)) return { n: d.replace(/^0+(?=\d)/, ""), y: "" };
+  m = /^(\d{1,4})((?:19|20)\d\d)$/.exec(d);
+  return m ? { n: m[1].replace(/^0+(?=\d)/, ""), y: m[2] } : null;
+}
+/* the stored form, "2145/2026": a bare number takes the given year */
+function cagCanon_(s, year) {
+  var p = cagParse_(s);
+  if (!p) return String(s == null ? "" : s).trim();
+  return p.n + "/" + (p.y || year || new Date().getFullYear());
+}
+/* a CAG row of this sheet with the same CAG number however it was written */
+function findCagRow_(sh, col, value) {
+  if (col < 1 || sh.getLastRow() < 2 || !cagParse_(value)) return 0;
+  var vals = sh.getRange(2, col, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < vals.length; i++) if (cagSame_(vals[i][0], value)) return i + 2;
+  return 0;
 }
 function lookupHit(have, row, noLesions) {
   var fields = [];
@@ -1104,13 +1140,13 @@ var BATCH_SUB_CAG = "CAG", BATCH_SUB_PTCA = "PTCA";
    p1/a1/a2/a3 directly; the diagram sheet has no footer and is recognised by
    its drawing. PTCA: "PTCA — Page N of 4" gives q1–q4; the utilization
    report (qu) has no footer. */
-var BATCH_SLOTS = ["p1", "a1", "a2", "a3", "d", "q1", "q2", "q3", "q4", "qu"];
-var BATCH_SLOTS_OF = { CAG: ["p1", "a1", "a2", "a3", "d"], PTCA: ["q1", "q2", "q3", "q4", "qu"] };
+var BATCH_SLOTS = ["p1", "a1", "a2", "a3", "d", "q1", "q2", "q3", "q4", "qu", "qd"];
+var BATCH_SLOTS_OF = { CAG: ["p1", "a1", "a2", "a3", "d"], PTCA: ["q1", "q2", "q3", "q4", "qu", "qd"] };
 var BATCH_NEEDED_OF = { CAG: ["p1", "a1", "a2", "a3"], PTCA: ["q1", "q2", "q3", "q4"] };
 var BATCH_SLOT_WORD = { p1: "Sheet 1 (clinical proforma)", a1: "Sheet 2 (angiogram page 1)",
   a2: "Sheet 3 (angiogram page 2)", a3: "Sheet 4 (angiogram page 3)", d: "Sheet 5 (coronary diagram)",
   q1: "PTCA sheet 1 (front page)", q2: "PTCA sheet 2 (investigations)", q3: "PTCA sheet 3 (procedure & technique)",
-  q4: "PTCA sheet 4 (bif / thrombus / calcium)", qu: "PTCA utilization report", other: "not a proforma page" };
+  q4: "PTCA sheet 4 (bif / thrombus / calcium)", qu: "PTCA utilization report", qd: "PTCA diagram sheet (stent sticker)", other: "not a proforma page" };
 function batchType_(t) { return String(t || "").toUpperCase() === "PTCA" ? "PTCA" : "CAG"; }
 
 /* ---- setup / teardown (run from the editor) ---- */
@@ -1454,7 +1490,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -1919,6 +1955,7 @@ function batchProcessCase0_(c, f, prompts, models, key, runStart, runId) {
     var item = items[m.fileIdx];
     if (!item) continue;
     var prompt = slot ? prompts[slot] : "";
+    if (slot === "qd" && !prompts.qd) { c.errors.push({ page: m.label, step: "reading", reason: "the app sent no PTCA diagram-sheet prompt (needs app 13.52 or later, opened by an editor) \u2014 the page is kept but not read" }); continue; }
     if (slot === "d" && !prompts.d) { c.errors.push({ page: m.label, step: "reading", reason: "the app sent no diagram-sheet prompt; this version reads only the four tick sheets" }); continue; }
     if (!slot) {
       // identify-and-read in one go: the model names the sheet, then the app's prompt is applied next run
@@ -1973,7 +2010,7 @@ function batchProcessCase0_(c, f, prompts, models, key, runStart, runId) {
     c.errors.push({ page: "", step: "missing", reason: "the PTCA utilization report was not among the uploaded pages \u2014 hardware will be blank", slot: "qu" });
   var nTick = got.filter(function (k) { return BATCH_NEEDED_OF[type].indexOf(k) >= 0; }).length;
   return batchFinish_(c, f, runId, "scanned", nTick + " of 4 " + (type === "PTCA" ? "PTCA sheets" : "tick sheets") + " read" +
-    (c.results.d ? " + diagram" : "") + (c.results.qu ? " + utilization report" : "") +
+    (c.results.d ? " + diagram" : "") + (c.results.qu ? " + utilization report" : "") + (c.results.qd ? " + diagram sheet" : "") +
     (c.errors.length ? "; " + c.errors.length + " problem(s) noted" : ""));
 }
 /* ---- 13.48: the PTCA number ----
@@ -2009,22 +2046,26 @@ function batchCagNumber_(c) {
   c.errors = (c.errors || []).filter(function (e) { return e.step !== "numbers"; });
   if (!p1) return;
   var t = String(p1.cagNo || "").trim(), why = "", from = "";
+  var r = c.results || {}, dg = r.d && (r.d.diagram || r.d);
   // 13.49: no number on the proforma: the diagram sheet's (or an angiography sheet's)
   if (!t) {
-    var r = c.results || {}, dg = r.d && (r.d.diagram || r.d);
     var alt = [["the diagram sheet", dg && dg.cagNo], ["angiography sheet 2", r.a1 && r.a1.cagNo], ["angiography sheet 3", r.a2 && r.a2.cagNo], ["angiography sheet 4", r.a3 && r.a3.cagNo]];
     for (var i = 0; i < alt.length && !t; i++) if (String(alt[i][1] || "").replace(/\D/g, "")) { t = String(alt[i][1]).trim(); from = alt[i][0]; }
-    if (t) c.cagNo = t;
   }
+  // 13.52: stored as number/year — the year of the CAG (its date; else the
+  // diagram's; else the day it was uploaded)
+  var dy = batchYearOf_(p1.date) || batchYearOf_(dg && dg.date);
+  var upY = (/^(\d{4})/.exec(String(c.uploaded || "")) || [])[1];
   if (!t) why = "no CAG number was read on the proforma or the diagram sheet";
   else if (/[A-Za-z]/.test(t)) why = "CAG No. " + t + " contains letters \u2014 CAG numbers are digits only";
   else {
-    var m = /^(\d{1,4})((?:19|20)\d\d)$/.exec(t.replace(/\D/g, ""));
-    var dy = batchYearOf_(p1.date);
-    if (!m) why = "CAG No. " + t + " is not a CAG number followed by its year";
-    else if (dy && Number(m[2]) !== dy) why = "CAG No. " + t + " ends in " + m[2] + " but the CAG date is in " + dy;
-    else if (!dy && Number(m[2]) > new Date().getFullYear()) why = "CAG No. " + t + " ends in " + m[2] + ", which has not come yet";
+    var pp = cagParse_(t);
+    if (!pp) why = "CAG No. " + t + " is not a CAG number (up to four digits, with or without its year)";
+    else if (pp.y && dy && Number(pp.y) !== dy) why = "CAG No. " + t + " ends in " + pp.y + " but the CAG date is in " + dy;
+    else if (pp.y && !dy && Number(pp.y) > new Date().getFullYear()) why = "CAG No. " + t + " ends in " + pp.y + ", which has not come yet";
+    if (pp) t = cagCanon_(t, dy || Number(upY) || 0);
   }
+  if (t) c.cagNo = t;
   if (from) why = "the proforma has no CAG number \u2014 " + t + " was taken from " + from + (why ? "; " + why : "");
   if (why) c.errors.push({ page: "", step: "numbers", reason: why + " \u2014 check against the paperwork" });
 }
@@ -2032,6 +2073,9 @@ function batchPtcaNumbers_(c) {
   var r = c.results || {}, src = [];
   if (r.q1 && r.q1.ptcaNo) src.push({ where: "front page", n: batchPtcaNoNorm_(r.q1.ptcaNo), raw: String(r.q1.ptcaNo) });
   ["q2", "q3", "q4"].forEach(function (k, i) { if (r[k] && r[k].hdrPtcaNo) src.push({ where: "page " + (i + 2) + " header", n: batchPtcaNoNorm_(r[k].hdrPtcaNo), raw: String(r[k].hdrPtcaNo) }); });
+  // 13.52: the PTCA diagram sheet's Cath No.
+  var pdg = r.qd && r.qd.pdiag;
+  if (pdg && pdg.cathNo) src.push({ where: "diagram sheet", n: batchPtcaNoNorm_(pdg.cathNo), raw: String(pdg.cathNo) });
   var u = r.qu && r.qu.util;
   if (u && (u.cathNo || u.ipNo)) {
     var whole = batchPtcaNoNorm_(u.cathNo);
@@ -2178,8 +2222,9 @@ function batchPagePromptPtca_(isPdf, prompts) {
     "page 3 is procedure & technique (CAG Reference lines, Access, AK/Fluoro/Heparin/ACT, strategy boxes PrD/Stent/PoD, the segment PTCA-to box rows, Wiring technique, Support, Predilation, Stent position, Post dilation); " +
     "page 4 is Bif techniques, Bifurcation vessels MB/SB, Recross wire, POT, Thrombus Mx, Calcium Mx, Complications, Other hardware, Recommendations. " +
     "There may also be the separate one-page PTCA UTILIZATION REPORT (no footer): a Vessel grid LM LAD D1 LCx OM RCA PDA PLV Ramus with rows Guiding Catheter, Guide Wire, Balloon 1/2, Stent 1/2/3, and a bottom table with Cutting balloon, Microcatheter, Guide extension, Rota burr, Aspiration catheter. " +
+    "There may also be the PTCA DIAGRAM SHEET (no PTCA footer): the department's letterhead over Name, Cath No. (e.g. 2413 AP 669) and Date, and, filling most of the page, a large printed HEART DRAWING of the coronary arteries (labels LCA, RCA, LAD, CM, DI, PLV, PD, RAO 30, LVEF), usually with a stent drawn on a vessel and one or more small printed STENT STICKERS (brand, REF, LOT, diameter, length, QR code) pasted on it. A page whose main content is a heart drawing is ALWAYS qd, never qu, whatever stickers are pasted on it — qu is a printed table with no drawing. " +
     "Anything else (a blank page, a blood report, an ECG strip, a CAG proforma page) is \"other\".\n" +
-    "Slot codes: q1 = page 1 of 4, q2 = page 2 of 4, q3 = page 3 of 4, q4 = page 4 of 4, qu = utilization report, other = anything else. " +
+    "Slot codes: q1 = page 1 of 4, q2 = page 2 of 4, q3 = page 3 of 4, q4 = page 4 of 4, qu = utilization report, qd = diagram sheet (heart drawing), other = anything else. " +
     "Use the printed footer when it is readable; otherwise decide from the headings.\n";
   if (isPdf) return base + "Go through EVERY page of this PDF in order. Return ONLY minified JSON, no fences: " +
     "{\"pages\":[{\"page\":1,\"slot\":\"q1\",\"footer\":\"PTCA \u2014 Page 1 of 4\"},{\"page\":2,\"slot\":\"q2\",\"footer\":\"\"}]} \u2014 one entry per page, page numbers starting at 1, every page listed.";
@@ -2221,13 +2266,14 @@ function batchParsePages_(j, isPdf, type) {
   return [{ page: 1, slot: s, footer: String(one.footer || "") }];
 }
 function batchParsePagesPtca_(j, isPdf) {
-  var BY_N = ["", "q1", "q2", "q3", "q4", "qu"];
+  var BY_N = ["", "q1", "q2", "q3", "q4", "qu", "qd"];
   var norm = function (s) {
     s = String(s == null ? "" : s).trim().toLowerCase();
     if (/^q1$|^1$|page ?1|sheet ?1|front/.test(s)) return "q1";
     if (/^q2$|^2$|page ?2|sheet ?2|investig/.test(s)) return "q2";
     if (/^q3$|^3$|page ?3|sheet ?3|procedure|technique/.test(s)) return "q3";
     if (/^q4$|^4$|page ?4|sheet ?4|bif/.test(s)) return "q4";
+    if (/^qd$|^6$|sheet ?6|diagram|drawing|heart/.test(s)) return "qd";
     if (/^qu$|^u$|^5$|sheet ?5|utili/.test(s)) return "qu";
     return "other";
   };
@@ -2245,11 +2291,12 @@ function batchParsePagesPtca_(j, isPdf) {
   }
   var one = j.slot != null || j.sheet != null || j.printedPage != null ? j : (Array.isArray(j.pages) && j.pages[0]) || {};
   // the app's PTCA sorter answers {printedPage, sheet, confidence}: the
-  // printed footer decides, else the headings (sheet 5 = utilization report)
+  // printed footer decides, else the headings (sheet 5 = utilization report,
+  // sheet 6 = the diagram sheet, 13.52)
   var pp = Number(one.printedPage) || 0, sh = Number(one.sheet) || 0;
   var s;
   if (pp >= 1 && pp <= 4) s = BY_N[pp];
-  else if (sh >= 1 && sh <= 5) s = BY_N[sh];
+  else if (sh >= 1 && sh <= 6) s = BY_N[sh];
   else s = norm(one.slot != null ? one.slot : (one.sheet != null ? one.sheet : one.type));
   var f2 = /page\s*(\d)\s*of\s*4/i.exec(String(one.footer || ""));
   if (f2) s = BY_N[Number(f2[1])] || s;
@@ -2787,6 +2834,7 @@ function batchQueueStep_(c, items, prompts, models, key, runId) {
     if (c.results[m.slot]) return;
     if ((c.errors || []).some(function (e) { return e.slot === m.slot; })) return;
     if (m.slot === "d" && !prompts.d) return;
+    if (m.slot === "qd" && !prompts.qd) return;
     if (!prompts[m.slot] || !items[m.fileIdx]) return;
     if (todo.some(function (t) { return t.slot === m.slot; })) return;
     todo.push({ m: m, slot: m.slot, item: items[m.fileIdx] });
@@ -4644,6 +4692,19 @@ function stentHousekeep_(f, runId) {
   return note;
 }
 /* ---- what the app asks ---- */
+/* 13.52: the used-stent stickers of one case — by its PTCA / Cath number
+   (digits), else by the patient's name */
+function caseStickers_(req) {
+  var pn = String(req.ptcaNo || "").replace(/\D/g, ""), nm = String(req.name || "").toLowerCase().replace(/[^a-z]/g, "");
+  if (!pn && !nm) return { stickers: [] };
+  var rows = stentRowsAll_().filter(function (o) {
+    if (!invIsStentSticker_(o)) return false;
+    var sp = String(o.ptcaNo || "").replace(/\D/g, "");
+    if (pn && sp) return sp === pn || (pn.length > 6 && sp.length >= 4 && pn.indexOf(sp) === 0);
+    return !!nm && String(o.patient || "").toLowerCase().replace(/[^a-z]/g, "") === nm;
+  });
+  return { stickers: rows.map(function (o) { return { id: o.id, patient: o.patient, ptcaNo: o.ptcaNo, brand: o.brand, device: o.device, size: o.size, dia: o.dia, len: o.len, lot: o.lot, ref: o.ref, serial: o.serial, expiry: o.expiry, photo: o.photo }; }) };
+}
 function stentList_() {
   return { stents: stentRowsAll_().map(function (o) { var c = {}; STENT_KEYS.forEach(function (k) { c[k] = o[k]; }); return c; }) };
 }
@@ -6476,6 +6537,24 @@ var NEW_24NOV = [
   ["balloon", "NC Rockstar", "Sanavascular", "3.5", "12", "NCP-3.50-12-RX", "", "132629082026J0187110", "2029-08-20", "Rockstar stack of 24 Nov, box 5 of 5"],
   ["stent", "Xience Alpine", "Abbott", "2.75", "23", "1120275-23", "6071341", "", "2029-07-06", "Xience 2.75 x 23 (photo of 24 Nov, 13:01)", "(01)08717648205613(17)290706(10)6071341(91)5684"]
 ];
+/* 13.52, once: the inbox CAG cases flagged only because their CAG number had
+   no year get it (2407 → 2407/2026) and lose that note; their readings stay */
+function cagYears1352_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("CAG_YEARS_1352")) return false;
+  pr.setProperty("CAG_YEARS_1352", "started " + cathNow_());
+  var tab = batchTabRows_(), n = 0;
+  tab.rows.forEach(function (c) {
+    if (batchType_(c.type) !== "CAG" || !c.results || !c.results.p1) return;
+    var had = JSON.stringify(c.errors || []), cag = c.cagNo;
+    batchCagNumber_(c);
+    if (JSON.stringify(c.errors || []) === had && c.cagNo === cag) return;
+    batchWriteRow_(c); n++;
+  });
+  pr.setProperty("CAG_YEARS_1352", JSON.stringify({ at: cathNow_(), cases: n }));
+  batchLogRow_(runId, "", "", "CAG numbers", "ok", n + " inbox case(s) given the year of their CAG (number/year)");
+  return n > 0;
+}
 function invFix24Nov_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("INV_FIX_24NOV")) return false;
