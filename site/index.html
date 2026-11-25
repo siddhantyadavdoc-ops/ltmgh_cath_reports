@@ -6810,7 +6810,7 @@ MAIN FORM
 - Name / Age / Sex on ruled lines.
 - PTCA / Cath No. (12 boxes) as "ptcaNo" — it may contain digits, letters and dashes, e.g. "1387-AP-382". It is written as the cath number, then the letters AP, then the PTCA number (e.g. "2356 AP 657"); copy it as written. Leave it empty when its boxes are empty — never put the CAG No. into it.
 - The CAG No. is digits only and never contains letters. It is usually just the CAG number (e.g. "2343"); sometimes the year follows it ("2343/2026" or "23432026"). Copy exactly what is written — never add a year that is not written.
-- CAG No. (8 boxes) as "cagNo"; Date (DD/MM/YY boxes) as "date". Identity numbers: the newest printing has an "IPD No. :" comb and, on the line below it, an "OPD No. :" comb — return them as "ipdNo" and "opdNo" (omit an empty one); an older printing has a single "IPD/OPD No." comb (6 boxes) — return that as "ipdOpdNo".
+- CAG No. (8 boxes) as "cagNo"; Date (DD/MM/YY boxes — labelled "PTCA date (not CAG)" on the newest printing) as "date". It is the day of the PTCA: never put the CAG date here (that is the boxed "CAG date" further down). Identity numbers: the newest printing has an "IPD No. :" comb and, on the line below it, an "OPD No. :" comb — return them as "ipdNo" and "opdNo" (omit an empty one); an older printing has a single "IPD/OPD No." comb (6 boxes) — return that as "ipdOpdNo".
 - Newer printings carry "Height : ____ cm" beside the CAG No. boxes and "Weight : ____ kg" beside the Date boxes: return the numbers as "height" and "weight" (digits only); omit when blank or absent.
 - Clinical Diagnosis boxes: AWMI, IW, PW, RV MI, UA, CSA, NSTEMI, Non-anginal chest pain; Thrombolysed Yes/No and, if yes, STK / TNK / RTP; the boxed "Diagnosis date" as dx.dxDate.
 - "CAG s/o" ruled line: the handwritten CAG conclusion (e.g. "SVD - LAD", "DVD - LAD+RCA") as "cagFinding", and the boxed "CAG date" as "cagDate".
@@ -6984,7 +6984,7 @@ const PSLOTS = [
     hint: "Per-vessel hardware grid — guides, wires, balloons, stents, adjuncts", prompt: PROMPT_U },
   // 13.52: the heart drawing with the stent marked and its sticker pasted —
   // a second source, checked against the other sheets; optional
-  { slot: "qd", title: "PTCA diagram & stent sticker",
+  { slot: "qd", title: "Diagram stent sheet",
     hint: "Heart drawing with the stent marked, its sticker, name, Cath No. and date — cross-checked against the other sheets; optional",
     prompt: PROMPT_QD, diagram: true },
 ];
@@ -7108,7 +7108,7 @@ function unsureLabel(p) {
    colour by kind: Pro purple, Flash teal, Flash-Lite amber (lighter and less
    accurate on handwriting), anything else grey */
 const READBY_SHEET = { p1: "1", a1: "2", a2: "3", a3: "4", d1: "diagram", d: "diagram",
-  q1: "1", q2: "2", q3: "3", q4: "4", qu: "utilization", qd: "diagram" };
+  q1: "1", q2: "2", q3: "3", q4: "4", qu: "utilization", qd: "diagram stent sheet" };
 const READBY_ORDER = ["p1", "a1", "a2", "a3", "d1", "d", "q1", "q2", "q3", "q4", "qu", "qd"];
 function readByColour(model) { const t = mcTier(model); return t === "high" ? "#6d28d9" : t === "mid" ? "#0f766e" : t === "low" ? "#b45309" : "#5f6470"; }
 function readByShort(model) { return String(mcLabel(model) || model || "?").replace(/^Gemini\s+/, ""); }
@@ -8882,7 +8882,7 @@ async function retryFailed() {
   nowHave.forEach(function (s) { mergeInto(merged, stripForMerge(s.slot, S.res[s.slot])); });
   // keep any hand-typed corrections the user already made on top of the rescan
   mergeInto(merged, ptca ? S.P : S.D);
-  if (ptca) { S.P = merged; ptcaAfterMerge(S.P); ptcaNumbersFill(S.P, S.res); } else { S.D = merged; cagNumbersFill(S.D, S.res); }
+  if (ptca) { S.P = merged; ptcaAfterMerge(S.P); ptcaNumbersFill(S.P, S.res); ptcaDateFill(S.P, S.res); } else { S.D = merged; cagNumbersFill(S.D, S.res); }
   const stillBad = AS.filter(function (s) { return S.imgs[s.slot] && !S.res[s.slot]; });
   S.busy = false; S.phase = ""; S.scanning = null;
   S.err = stillBad.length
@@ -9162,6 +9162,20 @@ function ptcaNumberSources(res) {
 /* at merge: fill the PTCA No. from the other sheets when the front page has
    no full number, tidy both numbers into their one written form, and flag
    them when the sheets disagree */
+/* 13.52: a PTCA's date is the day of the PTCA — the utilization sheet's,
+   else the diagram stent sheet's. The front page's Date box is often the CAG
+   date: when it differs it is kept (P.dateFront) and the date is marked to check. */
+function ptcaDateFill(P, res) {
+  const u = res && res.qu && res.qu.util, g = res && res.qd && res.qd.pdiag;
+  const pick = (u && has(u.date) && pdDateKey(u.date)) ? { v: u.date, where: "utilization sheet" } : (g && has(g.date) && pdDateKey(g.date)) ? { v: g.date, where: "diagram stent sheet" } : null;
+  if (!pick) return;
+  if (has(P.date) && pdDateKey(P.date) && pdDateKey(P.date) !== pdDateKey(pick.v)) {
+    P.dateFront = P.date;
+    P.dateNote = "PTCA date taken from the " + pick.where + " (" + pick.v + "); the front page reads " + P.date + (has(P.cagDate) && pdDateKey(P.cagDate) === pdDateKey(P.date) ? " — the CAG date" : " — probably the CAG date");
+    P.unsure = unsureUnion(P.unsure, ["date"]);
+  }
+  P.date = pick.v;
+}
 function ptcaNumbersFill(P, res) {
   const src = ptcaNumberSources(res);
   if (src.length) P.numSrc = src;
@@ -9445,6 +9459,7 @@ function buildPtcaReport() {
   S.P = merged;
   ptcaAfterMerge(S.P);
   ptcaNumbersFill(S.P, S.res);
+  ptcaDateFill(S.P, S.res);
   // the target-vessel plan: which balloon predilated which lesion, which
   // stent went where, which balloon postdilated which stent — derived from
   // the PTCA-to boxes, the technique ticks and the utilization grid
@@ -9779,8 +9794,13 @@ function invPayload(rec) {
   try {
     const P = JSON.parse(rec.caseJson || "null");
     if (!P || typeof P !== "object" || P.planned) return {};
+    const g = P.pdiag && P.pdiag.present ? P.pdiag : null;
     return { invUse: invUseOf(P).map(function (x) { return { kind: x.kind, type: x.type, brand: x.brand, size: x.size, units: x.units, reused: !!x.reused, raw: x.raw, where: x.where }; }),
-      invDate: isoFromLoose(P.date) || isoFromLoose((P.util || {}).date) || "" };
+      // 13.52: the PTCA's own date is the utilization sheet's, else the diagram stent sheet's
+      invDate: isoFromLoose((P.util || {}).date) || isoFromLoose(g && g.date) || isoFromLoose(P.date) || "",
+      // 13.52: the stickers on the diagram stent sheet (the sheet takes the technicians' sticker photo instead once it is read)
+      diagStickers: g ? (g.stickers || []).map(function (x) { return { brand: x.brand || "", product: x.product || "", ref: x.ref || "", lot: x.lot || "", serial: x.serial || "", dia: x.dia || "", len: x.len || "", expiry: x.expiry || "", position: x.position || "" }; }) : undefined,
+      diagDate: (P.util || {}).date || (g && g.date) || P.date || "" };
   } catch (e) { return {}; }
 }
 /* Sends one case to the shared sheet. The reply is read, so a refused save
@@ -10059,7 +10079,7 @@ function rvStep(d) { const r = rvS(), L = unsureList().length; if (!L) return; r
    fields are */
 const RV_JUMP = { p1: "Patient", a1: "Angiogram", a2: "vk:lcx", a3: "vk:pda", d1: "j:d1",
   q1: "Patient", q2: "Examination", q3: "Procedure", q4: "j:q4",
-  qu: "Utilization sheet (technician's hardware grid)", qd: "PTCA diagram & stent sticker" };
+  qu: "Utilization sheet (technician's hardware grid)", qd: "Diagram stent sheet" };
 function rvSlotEl(slot) {
   const w = RV_JUMP[slot]; if (!w) return null;
   const app = document.getElementById("app") || document;
@@ -12734,6 +12754,7 @@ function viewPtcaReview() {
   h += SECT("Patient",
     ROW(F("Name", "P.name", "1 1 100%")) +
     ROW(F("PTCA / Cath No.", "P.ptcaNo") + FD("Date of PTCA", "P.date") + F("IPD No.", "P.ipdNo") + F("OPD No.", "P.opdNo") + (has(P.ipdOpdNo) ? F("IPD/OPD No. (older form)", "P.ipdOpdNo") : "")) +
+    (has(P.dateNote) ? `<p class="hint" style="color:#8a4b00;margin:-4px 0 8px">${esc2(P.dateNote)}</p>` : "") +
     ROW(F("Age", "P.age") + F("Sex", "P.sex") + F("Height (cm)", "P.height") + F("Weight (kg)", "P.weight")));
 
   const cf = S.cagFetch || {};
@@ -12872,7 +12893,7 @@ function viewPtcaReview() {
     ROW(F("Other hardware", "P.util.otherHardware", "1 1 100%")) +
     ROW(F("Notes", "P.util.notes", "1 1 100%")) + invUseHintHtml(P);
   h += SECT("Utilization sheet (technician's hardware grid)", utilSheetPanel(P) + utilExpandedNote(P) + ut);
-  h += SECT("PTCA diagram & stent sticker", ptcaDiagramPanel(P));
+  h += SECT("Diagram stent sheet", ptcaDiagramPanel(P));
 
   /* ---- the technique checklists from pages 3–4 ---- */
   const T = P.tech;
@@ -13000,7 +13021,7 @@ function viewLogs() {
 const BATCH_SLOT_TITLE = { p1: "Sheet 1 (clinical proforma)", a1: "Sheet 2 (angiogram page 1)",
   a2: "Sheet 3 (angiogram page 2)", a3: "Sheet 4 (angiogram page 3)", d: "Sheet 5 (coronary diagram)",
   q1: "PTCA sheet 1 (front page)", q2: "PTCA sheet 2 (investigations)", q3: "PTCA sheet 3 (procedure & technique)",
-  q4: "PTCA sheet 4 (bif / thrombus / calcium)", qu: "PTCA utilization report", qd: "PTCA diagram & stent sticker" };
+  q4: "PTCA sheet 4 (bif / thrombus / calcium)", qu: "PTCA utilization report", qd: "Diagram stent sheet" };
 const BATCH_CAG_SLOTS = ["p1", "a1", "a2", "a3"], BATCH_PTCA_SLOTS = ["q1", "q2", "q3", "q4"];
 function batchIsPtca(c) { return String((c || {}).type || "").toUpperCase() === "PTCA"; }
 /* the prompts the batch scanner reads with — the app's own, sent to the
@@ -13940,9 +13961,21 @@ function techInvPhotosHtml() {
         <span>LOT ${esc2(x.lot || "?")} · ${esc2([x.ptcaNo ? "PTCA " + x.ptcaNo : "", x.patient, x.date ? techDate(x.date) : ""].filter(Boolean).join(" · "))}</span>
         ${x.near ? `<span class="why">a box in stock has LOT ${esc2(x.near.lot)} (one character apart, on ${esc2(x.near.photo || "a photo")}) — check the sticker and that box, and press the one that is right</span>` : `<span class="why">no box of this size has a LOT close to it — check the sticker's LOT; if it is right, the box came before the stock photos or was never photographed</span>`}</div>
         <div class="btns" style="margin:0">${btns}</div></div>`; }).join("")}</details>`;
-  if (rep.length) h += `<details class="boxlist rep"${T.repOpen ? " open" : ""} ontoggle="S.tech.repOpen=this.open"><summary><b>Repeats, not counted (${rep.length})</b> <span class="hint">the same LOT and size already in stock from another photo</span></summary>
-      <p class="hint">Photos of one shelf overlap, so a box seen again is counted once. If it really is another box (more of that LOT came in), press <b>Another box — count it</b>.</p>
-      ${rep.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','in stock')" ${T.saving ? "disabled" : ""}>Another box — count it</button>`); }).join("")}</details>`;
+  // 13.52: a repeat whose own number (Abbott (91), Terumo (93), or a serial) is the
+  // counted box's own number is proved the same box — folded away, no button
+  const repProved = function (b) {
+    const o = bx.filter(function (x) { return x.id === b.same; })[0];
+    if (!o) return false;
+    const u = techBoxUnit(b), v = techBoxUnit(o);
+    if (u && v) return u === v && String(b.lot || "") === String(o.lot || "");
+    return !!(b.serial && o.serial && String(b.serial).toUpperCase() === String(o.serial).toUpperCase());
+  };
+  const repOk = rep.filter(repProved), repAsk = rep.filter(function (b) { return !repProved(b); });
+  if (repAsk.length) h += `<details class="boxlist rep"${T.repOpen ? " open" : ""} ontoggle="S.tech.repOpen=this.open"><summary><b>Repeats to look at (${repAsk.length})</b> <span class="hint">taken as a box already counted from another photo — not proved by a barcode</span></summary>
+      <p class="hint">Photos of one shelf overlap, so a box seen again is counted once. These have no barcode number to prove it; if it really is another box (more of that LOT came in), press <b>Another box — count it</b>.</p>
+      ${repAsk.map(function (b) { return techBoxRowHtml(b, `<button class="b" onclick="techBoxSave('${esc2(b.id)}','in stock')" ${T.saving ? "disabled" : ""}>Another box — count it</button>`); }).join("")}</details>`;
+  if (repOk.length) h += `<details class="boxlist"><summary><b style="color:#1a7f37">✓ Same box, proved by barcode (${repOk.length})</b> <span class="hint">seen on two overlapping photos; its own barcode number matches the box counted — counted once</span></summary>
+      ${repOk.map(function (b) { return techBoxRowHtml(b, ""); }).join("")}</details>`;
   if (bgs.length) h += `<details class="boxlist"><summary><b>In the background, not counted (${bgs.length})</b> <span class="hint">boxes behind the ones photographed — photograph them on their own to count them</span></summary>
       ${bgs.map(function (b) { return techBoxRowHtml(b, ""); }).join("")}</details>`;
   h += techStockPhotosHtml();
@@ -14221,8 +14254,8 @@ function invCounted(x) { return !!(x.counted || x.received > 0 || x.adjusted); }
 function techReviewHtml() {
   const T = S.tech, inv = T.inv;
   if (!inv) return "";
-  const rv = inv.review || [], ns = inv.noSheet || [];
-  if (!rv.length && !ns.length) return "";
+  const rv = inv.review || [], ns = inv.noSheet || [], dd = inv.diagDiff || [];
+  if (!rv.length && !ns.length && !dd.length) return "";
   let h = `<div class="card rvcard" id="techReview">`;
   if (rv.length) {
     h += `<div class="cardhead"><div><b>Stents to check</b><p class="hint">On the utilization sheet but no sticker. Accept: fill in the sticker's details and the stent is taken off. Reject: it was not used.</p></div></div><div class="rvgrid">`;
@@ -14240,6 +14273,9 @@ function techReviewHtml() {
   }
   if (ns.length) h += `<p class="hint rvns"><b>Stickers with no utilization sheet saved yet</b> (their stents are taken off already): ${esc2(ns.map(function (x) {
     return [x.ptcaNo ? "PTCA " + x.ptcaNo : "", x.patient, x.date ? techDate(x.date) : "", x.n + " stent" + (x.n === 1 ? "" : "s")].filter(Boolean).join(" · "); }).join("; "))}.</p>`;
+  // 13.52: the diagram stent sheet's stickers against the technicians' sticker photo (the photo is the one counted)
+  if (dd.length) h += `<div class="rvdiag"><b>Diagram stent sheet and technicians' stickers differ</b> <span class="hint">The technicians' sticker photo is the one counted. Check the sticker pages.</span>${dd.map(function (x) {
+    return `<p class="hint" style="margin:4px 0"><b>${esc2([x.ptcaNo ? "PTCA " + x.ptcaNo : "", x.patient].filter(Boolean).join(" · "))}</b>: ${esc2(x.diffs.join("; "))}</p>`; }).join("")}</div>`;
   return h + `</div>`;
 }
 const RV_FIELDS = [["brand", "Brand", "2 1 150px"], ["size", "Size", "1 1 90px"], ["lot", "LOT", "1 1 110px"], ["ref", "REF", "1 1 110px"],
