@@ -1490,7 +1490,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -6376,6 +6376,39 @@ function boxRockstar25Nov_(runId) {
 
 /* 13.52, once: the 20 Nov NC Rockstar 2.00–2.50 stack photo (sent to Claude in
    the chat) put in "Stock in processed", so its boxes can be shown */
+/* 13.52, once: the used-stent sticker pages Dr Yadav photographed on 25 Nov
+   (sent to Claude in the chat, not uploaded through the app) for the four
+   cases still in "Stents to check": PTCA 2379 AP-661, 2390 AP-665,
+   2395 AP-666, 2397 AP-667. The stock follows as for any sticker. */
+var STICKERS_25NOV = [
+  ["CLAUDE-25NOVS-1", "Girijashankar Yadav", "2379AP661", "18/11/26", "Xience Alpine", "Abbott", "3.5", "38", "1120350-38", "6080641", "(01)08717648205859", "LAD", "PMJAY · POBA to D1 · Cordis 6F XB 3 guide LOT 18551483"],
+  ["CLAUDE-25NOVS-2", "Girijashankar Yadav", "2379AP661", "18/11/26", "Xience Alpine", "Abbott", "2.5", "15", "1120250-15", "6042841", "(01)08717648205514", "Ramus", "PMJAY"],
+  ["CLAUDE-25NOVS-3", "Mohd. Abrar Shaikh", "2390AP665", "19/11/26", "Xience Alpine", "Abbott", "3", "33", "1120300-33", "6081241", "(01)08717648205460", "LAD", "PMJAY · Cordis 6F XB 3 guide LOT 18551483"],
+  ["CLAUDE-25NOVS-4", "Pravin Khetani", "2395AP666", "20/11/26", "Xience Alpine", "Abbott", "3", "38", "1120300-38", "6072141", "(01)08717648205477", "LAD", "PMJAY · CTO ISR with IVUS · Cordis 6F XB 3 guide LOT 18551483"],
+  ["CLAUDE-25NOVS-5", "Rahul Sorte", "2397AP667", "20/11/26", "Ultimaster Tansei", "Terumo", "3", "33", "DE-RQ3033KSM", "260130", "", "LAD", "PMJAY"],
+  ["CLAUDE-25NOVS-6", "Rahul Sorte", "2397AP667", "20/11/26", "Ultimaster Tansei", "Terumo", "3", "38", "DE-RQ3038KSM", "260521", "", "LCx", "PMJAY · the utilization sheet's row read as D1 is LCx (Dr Yadav 25 Nov)"]
+];
+function stickers25Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("STICKERS_25NOV")) return false;
+  pr.setProperty("STICKERS_25NOV", "started " + cathNow_());
+  var who = "Claude (sticker pages of 25 Nov)", have = {}, rows = [];
+  stentRowsAll_().forEach(function (x) { have[x.id] = true; });
+  STICKERS_25NOV.forEach(function (s) {
+    if (have[s[0]]) return;
+    var st = stentNormItem_({ device: "Stent", brand: s[4], manufacturer: s[5], diameter: s[6], length: s[7], ref: s[8], lot: s[9], serial: "", expiry: "",
+      codes: s[10] ? [s[10]] : [], other: s[11] });
+    var row = stentRowOf_(s[0], "CLAUDE-25NOVS", { name: s[1], ptcaNo: s[2], ipNo: "", date: s[3] }, st, "", "", "Claude");
+    row[STENT_KEYS.indexOf("edited")] = "added by " + who + " " + cathNow_();
+    row[STENT_KEYS.indexOf("notes")] = s[11] + " · " + s[12];
+    rows.push(row);
+  });
+  if (rows.length) { stentWriteRows_(rows); invAfterSticker_(who); }
+  pr.setProperty("STICKERS_25NOV", JSON.stringify({ at: cathNow_(), added: rows.length }));
+  batchLogRow_(runId, "", "", "stickers of 25 Nov", "written", rows.length + " sticker(s) added (PTCA 2379, 2390, 2395, 2397)");
+  return true;
+}
+
 function boxPhoto20Nov9_(runId) {
   var pr = PropertiesService.getScriptProperties();
   if (pr.getProperty("BOX_PHOTO_20NOV9")) return false;
