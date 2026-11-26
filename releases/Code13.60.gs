@@ -313,7 +313,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov; a sticker photo's barcodes (read on the phone) are given to its stickers ("Scanned barcode", the LOT corrected by them) and every sticker — stent or any other device — marks its very box used (own number (91)/(93)/(21), serial, else LOT among boxes photographed by then); a barcode naming a box not in stock is flagged; a removed sticker gives its box back. 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov; a sticker photo's barcodes (read on the phone) are given to its stickers ("Scanned barcode", the LOT corrected by them) and every sticker — stent or any other device — marks its very box used (own number (91)/(93)/(21), serial, else LOT among boxes photographed by then); a barcode naming a box not in stock is flagged; a removed sticker gives its box back; the "Devices used" tab — every sticker (with its barcode and own number), every utilization-sheet line of every device, every device taken off by hand or matched on a used-instruments photo — kept for ever (never deleted: a record that goes is marked removed), with a filter, and searched from the app (devSearch). 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -378,6 +378,12 @@ function handle(e) {
     try {
       if (!editAllowed(req.key)) return out({ ok: false, error: "needs the edit key" });
       return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, caseUpload_(req)));
+    } catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
+  }
+  if (action === "devSearch") {
+    try {
+      if (!techAllowed(req.tkey) && !editAllowed(req.key)) return out({ ok: false, error: techRefused_(), canTech: false });
+      return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, devSearch_(req)));
     } catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
   }
   if (action === "invGet" || action === "stentList" || action === "stentUploads" || action === "stentPhoto" || action === "stentReadBill" || action === "stentUpload") {
@@ -1503,7 +1509,8 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId) || boxX12Fix25Nov_(runId) || boxUltShelf26Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId) || boxX12Fix25Nov_(runId) || boxUltShelf26Nov_(runId);
+    try { devRegSync_(false); } catch (eD) { batchLogRow_(runId, "", "", "devices used register", "error", String(eD && eD.message || eD)); } } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -5090,6 +5097,116 @@ function stentBoxUse_(by) {
   return { taken: taken, back: back, flags: flags.length };
 }
 function stentBoxFlags_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("STICKER_BOX_FLAGS") || "[]") || []; } catch (e) { return []; } }
+/* ---- 13.60: the permanent register of devices used ("Devices used" tab) ----
+   One row per device used, kept for ever: every sticker (stents and any other
+   device, with its scanned barcode and own number), every line of a saved
+   PTCA's utilization sheet (stents and all other devices), every device taken
+   off by hand, and every box matched on a photo of the day's used
+   instruments. Rows are never deleted: a record whose source goes (a sticker
+   removed, a case saved again differently) stays, marked "removed" with the
+   day; a corrected one is updated in place (first recorded kept). The tab
+   carries a filter on its header (Data → filter, or the funnel icons); the
+   app searches it (Stents & inventory → Search). Photos keep their own rule
+   (a year); the text read from them, barcodes included, stays here. */
+var DEVREG_TAB = "Devices used";
+var DEVREG_HEAD = ["Key", "Record", "Status", "Case date", "PTCA / Cath No", "Patient", "Device", "Brand", "Size", "LOT", "Own number", "Serial",
+  "REF", "GTIN", "Expiry", "Barcode text", "Box id", "Vessel / where", "Source", "Photo", "First recorded", "Last changed", "Notes"];
+var DEVREG_STATUS = 2, DEVREG_FIRST = 20, DEVREG_LAST = 21;
+function devUnitText_(t) {
+  var p = t ? boxScanParse_(t) : null;
+  if (!p || !p.unit) return "";
+  var m = /^(\d\d):(.*)$/.exec(p.unit);
+  return m ? "(" + m[1] + ") " + m[2] : p.unit.replace(/^SN:/, "");
+}
+function devRecords_() {
+  var recs = [];
+  var items = invItems_(), byItem = {}; items.forEach(function (it) { byItem[it.id] = it; });
+  var boxes = boxRowsAll_(), boxBySt = {};
+  boxes.forEach(function (b) { var m = /^STICKER (.+)$/.exec(String(b.same || "")); if (m) boxBySt[m[1]] = b; });
+  // stickers
+  stentRowsAll_().forEach(function (s) {
+    var b = boxBySt[s.id], scan = s.scan || (b && b.scan) || "";
+    recs.push(["STK " + s.id, stentIsDiag_(s) ? "Sticker (diagram stent sheet)" : "Sticker", "", invStickerDate_(s), s.ptcaNo, s.patient, s.device || "Stent", s.brand,
+      invStickerSize_(s), s.lot, devUnitText_(scan), s.serial, s.ref, s.gtin, s.expiry, scan || s.codes, b ? b.id : "", s.other, s.up, s.photo || stentPhotoUrl_(s.fileId),
+      "", "", [s.notes, s.edited].filter(Boolean).join(" · ")]);
+  });
+  // the utilization sheets (and devices taken off by hand)
+  var REC = { used: "Utilization sheet", sheet: "Utilization sheet (stent)", rejected: "Utilization sheet (stent) — not used", handuse: "Taken off by hand" };
+  var seen = {};
+  invMovesAll_().forEach(function (m) {
+    if (!REC[m.kind] || /^(STICKER|BOX|STOCK) /.test(m.caseKey)) return;
+    var it = byItem[m.item] || {};
+    var base = "MOVE " + (m.caseKey || m.t) + "|" + m.kind + "|" + invKey_(it.kind || "", it.brand || "", it.size || "") + "|" + invNorm_(m.raw);
+    seen[base] = (seen[base] || 0) + 1;
+    var date = m.caseDate || String(m.t || "").slice(0, 10);
+    recs.push([base + "#" + seen[base], REC[m.kind], "", date, m.ptcaNo, m.patient, INV_KIND_LABEL[it.kind] || it.type || "", it.brand || "", it.size || "",
+      "", "", "", "", "", "", "", "", m.where, m.caseKey || "by hand", "", "", "", [m.raw ? "written “" + m.raw + "”" : "", m.units > 1 ? m.units + " units" : "", m.note, m.by ? "by " + m.by : ""].filter(Boolean).join(" · ")]);
+  });
+  // boxes matched on the photos of the day's used instruments
+  boxes.forEach(function (b) {
+    if (b.status !== "used" || /^STICKER /.test(String(b.same || ""))) return;
+    var d = /^used (\d{4}-\d{2}-\d{2})/.exec(String(b.why || ""));
+    var pt = String(b.usedIn || "");
+    recs.push(["BOX " + b.id, "Box used (photo of used instruments)", "", d ? d[1] : String(b.readAt || "").slice(0, 10), pt, "", INV_KIND_LABEL[b.kind || "stent"] || b.kind, b.brand,
+      boxSizeText_(b), b.lot, devUnitText_(b.scan), b.serial, b.ref, b.gtin, b.expiry, b.scan || b.codes, b.id, b.place, b.photo || b.up, stentPhotoUrl_(b.fileId), "", "", b.why]);
+  });
+  return recs.map(function (r) { return r.map(function (v) { return String(v == null ? "" : v); }); });
+}
+function devRegSync_(force) {
+  var pr = PropertiesService.getScriptProperties();
+  var last = Number(pr.getProperty("DEVREG_AT") || 0);
+  if (!force && Date.now() - last < 15 * 60000) return null;
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) return null;
+  try {
+    var sh = sheet(DEVREG_TAB, DEVREG_HEAD); ensureCols(sh, DEVREG_HEAD.length);
+    var n = sh.getLastRow() - 1, old = n > 0 ? sh.getRange(2, 1, n, DEVREG_HEAD.length).getValues().map(function (r) { return r.map(function (v) { return String(v == null ? "" : v); }); }) : [];
+    var at = {}; old.forEach(function (r, i) { if (r[0]) at[r[0]] = i; });
+    var now = cathNow_(), add = [], ch = 0, gone = 0, here = {};
+    var same = function (a, b) { for (var k = 0; k < DEVREG_HEAD.length; k++) { if (k === DEVREG_STATUS || k === DEVREG_FIRST || k === DEVREG_LAST) continue; if (a[k] !== b[k]) return false; } return true; };
+    devRecords_().forEach(function (r) {
+      here[r[0]] = 1;
+      var i = at[r[0]];
+      if (i == null) { r[DEVREG_STATUS] = "current"; r[DEVREG_FIRST] = now; r[DEVREG_LAST] = now; add.push(r); at[r[0]] = -1; return; }
+      if (i < 0) return;
+      var o = old[i];
+      if (same(o, r) && o[DEVREG_STATUS] === "current") return;
+      r[DEVREG_STATUS] = "current"; r[DEVREG_FIRST] = o[DEVREG_FIRST] || now; r[DEVREG_LAST] = now; old[i] = r; ch++;
+    });
+    old.forEach(function (o) { if (o[0] && !here[o[0]] && o[DEVREG_STATUS] === "current") { o[DEVREG_STATUS] = "removed " + now.slice(0, 10); o[DEVREG_LAST] = now; ch++; gone++; } });
+    if (ch) sh.getRange(2, 1, old.length, DEVREG_HEAD.length).setNumberFormat("@").setValues(old);
+    if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, DEVREG_HEAD.length).setNumberFormat("@").setValues(add);
+    if (add.length || !sh.getFilter()) {
+      try {
+        sh.setFrozenRows(1);
+        var f = sh.getFilter(), rows = sh.getLastRow();
+        if (f && f.getRange().getNumRows() < rows) { f.remove(); f = null; }
+        if (!f && rows > 1) sh.getRange(1, 1, rows, DEVREG_HEAD.length).createFilter();
+      } catch (eF) {}
+    }
+    pr.setProperty("DEVREG_AT", String(Date.now()));
+    return { added: add.length, changed: ch - gone, removed: gone, total: old.length + add.length };
+  } finally { lock.releaseLock(); }
+}
+/* the app's search: every word must be found (size "2.75x12" = "2.75 × 12", "(91) 5345" = "915345") */
+function devSearch_(req) {
+  var sync = null; try { sync = devRegSync_(false); } catch (e) {}
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(DEVREG_TAB);
+  if (!sh || sh.getLastRow() < 2) return { rows: [], total: 0, head: DEVREG_HEAD };
+  var vals = sh.getRange(2, 1, sh.getLastRow() - 1, DEVREG_HEAD.length).getValues();
+  var q = String(req.q || "").toLowerCase().replace(/×/g, "x").split(/\s+/).filter(Boolean).slice(0, 12);
+  var all = req.removed === true, hits = [];
+  vals.forEach(function (v) {
+    var r = v.map(function (x) { return String(x == null ? "" : x); });
+    if (!r[0] || (!all && r[DEVREG_STATUS] !== "current")) return;
+    var hay = r.slice(1).join(" ").toLowerCase().replace(/×/g, "x"), nh = invNorm_(hay);
+    if (!q.every(function (t) { return hay.indexOf(t) >= 0 || (invNorm_(t) && nh.indexOf(invNorm_(t)) >= 0); })) return;
+    var o = {}; DEVREG_HEAD.forEach(function (h, i) { o[h] = r[i]; });
+    hits.push(o);
+  });
+  hits.sort(function (a, b) { return String(b["Case date"]).localeCompare(String(a["Case date"])); });
+  return { rows: hits.slice(0, 300), total: hits.length, synced: sync };
+}
 /* a photo read again from the start (its file is wherever it now is) */
 function stentRetry_(req) {
   var tab = stentUpRows_();

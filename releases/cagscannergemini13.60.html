@@ -14121,7 +14121,7 @@ function batchPanel() {
    - Sticker photos: what the inbox scanner has read, failed or still has to
      read; photos can be uploaded from here and read at once. */
 // 13.48: the Stents tab is gone — stents are seen in the Inventory, grouped by company
-const TECH_TABS = [["inv", "Inventory"], ["bill", "Match a bill"], ["photos", "Used-stent photos"]];
+const TECH_TABS = [["inv", "Inventory"], ["bill", "Match a bill"], ["photos", "Used-stent photos"], ["search", "Search"]];
 function techOn() { return !!(S.cfg.sheetUrl && String(S.cfg.techKey || "").trim()); }
 function openTech(tab) {
   S.step = "tech";
@@ -14228,6 +14228,7 @@ function viewTech() {
   }).join("") + `</div>`;
   if (T.tab === "inv" || T.tab === "stents") h += techInvHtml();
   else if (T.tab === "bill") h += techBillHtml();
+  else if (T.tab === "search") h += techSearchHtml();
   else h += techPhotosHtml();
   h += techBoxShowHtml();
   return h;
@@ -14663,6 +14664,64 @@ async function techToStock(ids) {
 /* 13.45: an item no stock was ever entered for */
 function invCounted(x) { return !!(x.counted || x.received > 0 || x.adjusted); }
 /* ---------------- 13.45: stents on a utilization sheet with no sticker ---------------- */
+/* ---- 13.60: search the permanent register of devices used ("Devices used" tab) ---- */
+function techSearchHtml() {
+  const Q = S.tech.search || (S.tech.search = { q: "", removed: false, busy: false, res: null, err: "" });
+  const r = Q.res;
+  let h = `<div class="card"><div class="cardhead"><div><b>Search the devices used</b>
+    <p class="hint">Every sticker (with its barcode), every line of every utilization sheet and every device taken off — kept for ever in the sheet's <b>Devices used</b> tab. Search by patient, PTCA / Cath number, brand, size (2.75x12), LOT, the box's own number, or a date (2026-11-20). Every word must match.</p></div></div>
+    <div class="row" style="gap:8px;align-items:flex-end">
+      <label class="fld" style="flex:1 1 260px"><span>Search</span><input id="devQ" value="${esc2(Q.q)}" placeholder="e.g. Sorte · 2397 · Xience 3x15 · 6051241" onkeydown="if(event.key==='Enter')techDevSearch()"></label>
+      <button class="b primary" onclick="techDevSearch()" ${Q.busy ? "disabled" : ""}>${Q.busy ? "Searching…" : "Search"}</button>
+      <button class="b" onclick="document.getElementById('devScan').click()" ${Q.busy ? "disabled" : ""} title="Photograph a box or sticker: its barcode becomes the search">Scan a barcode</button>
+      <input type="file" accept="image/*" capture="environment" id="devScan" hidden onchange="techDevScan(this)">
+      <label class="hint" style="display:flex;gap:4px;align-items:center"><input type="checkbox" ${Q.removed ? "checked" : ""} onchange="S.tech.search.removed=this.checked"> include removed records</label>
+    </div>`;
+  if (Q.err) h += `<div class="warn err">${esc2(Q.err)}</div>`;
+  if (r) {
+    h += `<p class="hint">${r.total} record${r.total === 1 ? "" : "s"}${r.total > r.rows.length ? " — the newest " + r.rows.length + " shown; add a word to narrow it" : ""}.</p>`;
+    h += r.rows.map(function (x) {
+      const size = x["Size"], what = [x["Brand"], size].filter(Boolean).join(" ") || x["Device"];
+      const ids = [x["LOT"] ? "LOT " + x["LOT"] : "", x["Own number"] ? "own no. " + x["Own number"] : "", x["Serial"] ? "SN " + x["Serial"] : "", x["Expiry"] ? "exp " + x["Expiry"] : ""].filter(Boolean).join(" · ");
+      return `<div class="pick"><div class="who"><b>${esc2(what)} <span class="tag" style="color:#fff;background:${/^Sticker/.test(x["Record"]) ? "#0e7490" : /^Box/.test(x["Record"]) ? "#7c3aed" : "#5f6470"}">${esc2(x["Record"])}</span>${x["Status"] !== "current" ? ` <span class="tag" style="color:#fff;background:#c00000">${esc2(x["Status"])}</span>` : ""}</b>
+        <span>${esc2([x["Case date"] ? techDate(x["Case date"]) : "", x["PTCA / Cath No"] ? "PTCA " + x["PTCA / Cath No"] : "", x["Patient"], x["Vessel / where"]].filter(Boolean).join(" · "))}</span>
+        ${ids ? `<span>${esc2(ids)}</span>` : ""}
+        ${x["Barcode text"] ? `<span class="hint" style="word-break:break-all">barcode ${esc2(x["Barcode text"].split("\n")[0])}</span>` : ""}
+        ${x["Notes"] ? `<span class="hint">${esc2(x["Notes"])}</span>` : ""}</div>
+        <div class="btns" style="margin:0">${x["Photo"] ? `<a class="b" href="${esc2(x["Photo"])}" target="_blank" rel="noopener">Photo</a>` : ""}</div></div>`;
+    }).join("");
+  }
+  return h + `</div>`;
+}
+async function techDevSearch(q) {
+  const Q = S.tech.search;
+  const el = document.getElementById("devQ");
+  Q.q = q != null ? q : el ? el.value.trim() : Q.q;
+  if (!Q.q) { Q.err = "Type something to search for."; render(); return; }
+  Q.busy = true; Q.err = ""; render();
+  try { Q.res = await sheetApi("devSearch", { q: Q.q, removed: !!Q.removed }, 60000); }
+  catch (e) { Q.err = e.message || String(e); }
+  Q.busy = false; render();
+}
+async function techDevScan(input) {
+  const f = input.files && input.files[0];
+  input.value = "";
+  if (!f) return;
+  const Q = S.tech.search;
+  Q.busy = true; Q.err = ""; render();
+  let codes = [];
+  try { codes = await techScanBarcodes(f, null, 20000); } catch (e) { Q.err = "The barcode reader could not start: " + (e.message || e); }
+  Q.busy = false;
+  // the first device barcode: its LOT and own number (or serial) are the search
+  let q = "";
+  for (const c of codes) {
+    const g = /^\(\d/.test(c.t) ? gs1Parse(c.t) : null;
+    if (g && g["10"]) { q = g["10"] + (g["91"] || g["93"] ? " " + (g["91"] || g["93"]) : g["21"] ? " " + g["21"] : ""); break; }
+    if (/^[0-9A-Z]{14,30}$/.test(c.t)) { q = c.t; break; }
+  }
+  if (!q) { if (!Q.err) Q.err = codes.length ? "That barcode is not a device's (no LOT or serial in it)." : "No barcode could be read — photograph it closer, flat and sharp."; render(); return; }
+  await techDevSearch(q);
+}
 function techReviewHtml() {
   const T = S.tech, inv = T.inv;
   if (!inv) return "";
