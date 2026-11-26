@@ -8549,7 +8549,7 @@ function poolSummary() {
     out.push({ att: true, text: "No API key yet, so the pages were placed in the order they came. Add your key in Settings, then tap Sort again." });
   }
   const keptN = items.filter(function (it) { return it.state === "kept"; }).length;
-  if (keptN) out.push({ att: false, text: keptN + " page" + (keptN === 1 ? " is" : "s are") + " kept as taken \u2014 nothing is sent to Gemini yet. Upload to Drive reads them tonight at half price; Read now sorts and reads them at once, at full price." });
+  if (keptN) out.push({ att: false, text: keptN + " page" + (keptN === 1 ? " is" : "s are") + " kept as taken \u2014 nothing is sent to Gemini until you press \u26a1 Read NOW (step 2)." });
   if (!sorting && !keptN) {
     const have = activeSlots().filter(function (s) { return S.imgs[s.slot]; });
     // the diagram sheet is optional, so its absence is a note, not a missing sheet
@@ -8659,8 +8659,7 @@ function viewPool(busy) {
   if (!n) {
     h += `<p class="hint">Take the sheets one after another, or pick them all from the gallery. A folded corner, a
       sideways photo or the same sheet twice is fine — keep the page number at the bottom in frame — the clearest photo of each sheet is used, and a sheet that
-      is missing is left empty for you to add. Photos are only kept here \u2014 nothing is read until you choose,
-      below, to upload them for tonight's half-price read or to read them now at full price.</p>`;
+      is missing is left empty for you to add. Photos are only kept here \u2014 nothing is read until you press \u26a1 Read NOW (step 2).</p>`;
   } else {
     h += `<div class="tray">` + items.map(function (it) {
       const t = tileInfo(it);
@@ -10799,7 +10798,7 @@ function ppTabHtml() {
   }
   h += `<div class="stephead"><span class="stepn">2</span><b>Merge the pages into one file (offline)</b></div>
     <p class="hint">Joins the pages, in the order shown, into one PDF on this phone \u2014 no internet, no Gemini, free.</p>
-    <button class="b wide" style="border-color:#2a7a3a;color:#1e5a2a;font-weight:600" onclick="ppMerge()" ${n && !busy && !merged ? "" : "disabled"}>${merged ? "\u2713 Merged: " + merged.pages + " page" + (merged.pages === 1 ? "" : "s") + ", " + merged.kb + " KB" : n ? "Merge " + n + " page" + (n === 1 ? "" : "s") + " into one PDF" : "Merge pages into one PDF (add pages first)"}</button>
+    <button class="b wide" style="border-color:#2a7a3a;color:#1e5a2a;font-weight:600;${merged ? "background:#eaf5ec;opacity:1" : ""}" onclick="ppMerge()" ${n && !busy && !merged ? "" : "disabled"}>${merged ? "\u2713 Merged: " + merged.pages + " page" + (merged.pages === 1 ? "" : "s") + ", " + merged.kb + " KB" : n ? "Merge " + n + " page" + (n === 1 ? "" : "s") + " into one PDF" : "Merge pages into one PDF (add pages first)"}</button>
     ${merged ? `<p class="hint" style="text-align:center"><a href="${merged.url}" target="_blank" rel="noopener">Open the merged PDF to check it</a> \u00b7 adding, moving or removing a page undoes the merge</p>` : ""}
     <div class="stephead"><span class="stepn">3</span><b>Upload to be read tonight \u2014 half price</b></div>`;
   if (night && !night.on) {
