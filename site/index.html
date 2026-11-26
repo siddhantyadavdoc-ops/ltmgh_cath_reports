@@ -7164,6 +7164,7 @@ function unsurePanel() {
 function freshPool() { return { items: [], seq: 0, busy: false, hold: {} }; }
 
 const S = {
+  later: { busy: false, said: "", bad: false },   // 13.54: "Upload to Drive - read later"
   step: "capture", mode: "CAG", D: BLANK(), P: PBLANK(),
   cagFetch: { busy: false, q: "" },
   regDl: "",              // id of the shared case whose report is being fetched
@@ -10528,16 +10529,84 @@ function viewCapture() {
   const nScanned = scannedCount();
   const nPhotos = photoCount();
   const left = nPhotos - nScanned;
-  h += `<button class="b wide" onclick="scanRemaining()" ${left && !S.busy ? "" : "disabled"}>
-      ${left ? "Scan remaining " + left + " sheet" + (left === 1 ? "" : "s") + ", one at a time"
-             : "All photographed sheets scanned"}</button>
-    <button class="b primary wide" onclick="${S.mode === "PTCA" ? "buildPtcaReport()" : "buildReport()"}" ${nScanned && !S.busy ? "" : "disabled"}>
+  h += laterOrNowHtml(nPhotos, left);
+  h += `<button class="b primary wide" onclick="${S.mode === "PTCA" ? "buildPtcaReport()" : "buildReport()"}" ${nScanned && !S.busy ? "" : "disabled"}>
       ${nScanned ? "Merge " + nScanned + " scanned sheet" + (nScanned === 1 ? "" : "s") + " into one " + (S.mode === "PTCA" ? "PTCA report" : "report")
                  : "Merge scanned sheets into one report"}</button>
     <button class="b wide" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scan — fill in manually</button>
-    <p class="hint" style="text-align:center">Each sheet takes 10–40 seconds. Scanned sheets are held
-      until you merge, so you can retry a stubborn sheet as often as you like.</p>`;
+    <p class="hint" style="text-align:center">Sheets read now are held until you merge, so you can retry a
+      stubborn sheet as often as you like. Sheets uploaded to Drive are read by the night scan instead.</p>`;
   return h;
+}
+
+/* 13.54 — after the sheets are photographed there are two ways on, and the
+   screen says plainly how they differ:
+   · Upload to Drive — the photos go to the shared Drive inbox and are read
+     tonight through Google's half-price queue; nothing is read on the phone,
+     the case turns up in Inbox scans by the next morning.
+   · Read now — each sheet is read here and now, one at a time, at once, at the
+     full price (the half-price queue is not used). */
+function laterWindow() {
+  const sc = S.batch && S.batch.status && S.batch.status.schedule;
+  return (sc && sc.window) || techNightWin();
+}
+function laterOrNowHtml(nPhotos, left) {
+  const can = !!(S.cfg.sheetUrl && S.cfg.editKey);
+  const busy = S.busy || S.pdf.busy || S.later.busy;
+  const what = S.mode === "PTCA" ? "PTCA" : "CAG";
+  const N = nPhotos, sw = N + " sheet" + (N === 1 ? "" : "s");
+  let h = `<div class="card" style="border:2px solid #bcd0e6">
+    <div class="cardhead"><b>${N ? "Both ways to read these " + sw : "Two ways to read the sheets"}</b></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <div style="flex:1 1 230px;border:1px solid #cfe3cf;background:#f4faf4;border-radius:10px;padding:10px">
+        <b>Upload to Drive — read later</b>
+        <p class="hint" style="margin:4px 0 8px"><b>Half price.</b> The photos are saved in the shared Drive inbox and read
+          tonight (${esc2(laterWindow())}) through Google's half-price queue. Nothing is read now. The ${what} case
+          is in <b>Inbox scans</b> by the next morning, ready to check.</p>
+        <button class="b primary wide" onclick="uploadForLater()" ${N && can && !busy ? "" : "disabled"}>${S.later.busy ? "Uploading…" : "Upload " + (N ? sw : "sheets") + " to Drive"}</button>
+        ${can ? "" : `<p class="hint" style="margin:6px 0 0;color:#8a6a12">Needs the shared sheet URL and the edit key (Settings).</p>`}
+      </div>
+      <div style="flex:1 1 230px;border:1px solid #e3d6bf;background:#fbf7ef;border-radius:10px;padding:10px">
+        <b>Read now — full price</b>
+        <p class="hint" style="margin:4px 0 8px"><b>Full price.</b> Each sheet is read here, one at a time, right away
+          (10–40 seconds a sheet) — the half-price queue is not used. Use it when the report is needed now.</p>
+        <button class="b wide" onclick="scanRemaining()" ${left && !S.busy && !S.later.busy ? "" : "disabled"}>${left ? "Read " + left + " sheet" + (left === 1 ? "" : "s") + " now" : N ? "All sheets read" : "Read now"}</button>
+      </div>
+    </div>
+    ${S.later.said ? `<p class="${S.later.bad ? "hint" : "hint"}" style="margin:8px 0 0;${S.later.bad ? "color:#a33" : "color:#2a6b2a"}">${esc2(S.later.said)}</p>` : ""}
+  </div>`;
+  return h;
+}
+async function uploadForLater() {
+  if (S.busy || S.pdf.busy || S.later.busy) return;
+  if (!S.cfg.sheetUrl || !S.cfg.editKey) { flash("err", "Set the shared sheet URL and the edit key in Settings first."); return; }
+  const slots = activeSlots().filter(function (s) { return S.imgs[s.slot] && S.imgs[s.slot].b64; });
+  if (!slots.length) return;
+  const type = S.mode === "PTCA" ? "PTCA" : "CAG";
+  const d = new Date(), z = function (n) { return (n < 10 ? "0" : "") + n; };
+  const stem = "app_" + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds());
+  const L = S.later;
+  L.busy = true; L.said = ""; L.bad = false; render();
+  let ok = 0, err = "";
+  for (let i = 0; i < slots.length; i++) {
+    L.said = "Uploading sheet " + (i + 1) + " of " + slots.length + "…"; render();
+    const im = S.imgs[slots[i].slot];
+    try {
+      await sheetApi("caseUpload", { type: type, stem: stem, n: i + 1, b64: im.b64, mime: im.mime || "image/jpeg", by: S.cfg.userName || "" }, 120000);
+      ok++;
+    } catch (e) { err = e.message || String(e); break; }
+  }
+  L.busy = false;
+  if (ok === slots.length) {
+    L.said = ""; L.bad = false;
+    clearScanSession();
+    S.step = "capture";
+    render();
+    flash("ok", ok + " sheet" + (ok === 1 ? "" : "s") + " uploaded to Drive. They are read tonight (" + laterWindow() + ") at half price — look in Inbox scans tomorrow.");
+  } else {
+    L.said = ok + " of " + slots.length + " sheets uploaded, then: " + err + ". The sheets are still here. Do not upload again \u2014 that would send the first ones twice. Use Read now, or ask the editor to look in the Drive inbox.";
+    L.bad = true; render();
+  }
 }
 
 /* Scanning cost is driven by the model rate and the size of the photo sent:
@@ -11762,7 +11831,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.53", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.54", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
