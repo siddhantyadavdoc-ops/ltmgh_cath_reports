@@ -8070,6 +8070,7 @@ function poolItemFrom(src, meta) {
 function addPoolItem(it) {
   for (const x of S.pool.items) if (x.srcHash === it.srcHash) return x;
   it.id = ++S.pool.seq;
+  it.state = "kept";            // 13.56: a page is only kept - nothing is sent to Gemini until "Read now"
   S.pool.items.push(it);
   return it;
 }
@@ -8507,6 +8508,7 @@ document.addEventListener("visibilitychange", function () { if (document.hidden 
 function tileInfo(it) {
   const src = itemShort(it);
   if (it.state === "queued" || it.state === "sorting") return { cls: "idle", head: "Identifying…", src: src };
+  if (it.state === "kept") return { cls: "idle", head: "Kept", src: src };
   const s = slotOfItem(it);
   if (s) {
     const im = S.imgs[s.slot];
@@ -8524,6 +8526,7 @@ function tileInfo(it) {
 function optionLabel(it) {
   let what;
   if (it.state === "queued" || it.state === "sorting") what = "identifying…";
+  else if (it.state === "kept") what = "kept, not read yet";
   else if (it.state === "done" && it.cls) what = it.cls.sheet ? "looks like Sheet " + it.cls.sheet : "not a proforma page";
   else if (it.state === "failed") what = "not identified";
   else if (it.state === "nokey") what = "not sorted";
@@ -8541,7 +8544,9 @@ function poolSummary() {
   if (items.some(function (it) { return it.state === "nokey"; })) {
     out.push({ att: true, text: "No API key yet, so the pages were placed in the order they came. Add your key in Settings, then tap Sort again." });
   }
-  if (!sorting) {
+  const keptN = items.filter(function (it) { return it.state === "kept"; }).length;
+  if (keptN) out.push({ att: false, text: keptN + " page" + (keptN === 1 ? " is" : "s are") + " kept as taken \u2014 nothing is sent to Gemini yet. Upload to Drive reads them tonight at half price; Read now sorts and reads them at once, at full price." });
+  if (!sorting && !keptN) {
     const have = activeSlots().filter(function (s) { return S.imgs[s.slot]; });
     // the diagram sheet is optional, so its absence is a note, not a missing sheet
     const missing = activeSlots().filter(function (s) { return !S.imgs[s.slot] && !s.diagram; });
@@ -8592,6 +8597,7 @@ function slotNote(slot) {
   const im = S.imgs[slot];
   if (!im) {
     if (!(S.pool.items.length && !S.pool.busy && !S.pdf.busy && !S.pool.hold[slot])) return null;
+    if (S.pool.items.some(function (x) { return x.state === "kept"; })) return null;   // kept pages are not sorted yet
     return isDiagramSlot(slot)
       ? { text: "No diagram sheet among the pages added above — add it here if one was drawn; the report is cross-checked against it." }
       : { att: true, text: "None of the pages added above looks like this sheet — take a photo of it here." };
@@ -8633,7 +8639,7 @@ function viewPool(busy) {
   const notes = poolSummary();
   let h = `<div class="card">
     <div class="cardhead"><div><b>All sheets at once</b>
-      <p class="hint">Photos or a PDF, in any order — each page is recognised from its printed page number and put in its sheet below</p></div>
+      <p class="hint">Photos or a PDF, in any order — they are kept as taken; each page is recognised from its printed page number when it is read</p></div>
     <span class="${n ? "live" : "dim"}">${n ? n + " page" + (n === 1 ? "" : "s") : "None"}</span></div>
     <input type="file" accept="image/*" capture="environment" id="poolcam" hidden onchange="pickPool(this,'camera')">
     <input type="file" accept="image/*,application/pdf,.pdf" multiple id="poolfile" hidden onchange="pickPool(this,'photo')">
@@ -8649,8 +8655,8 @@ function viewPool(busy) {
   if (!n) {
     h += `<p class="hint">Take the sheets one after another, or pick them all from the gallery. A folded corner, a
       sideways photo or the same sheet twice is fine — keep the page number at the bottom in frame — the clearest photo of each sheet is used, and a sheet that
-      is missing is left empty for you to add. Recognising a page is one short request; nothing is scanned until
-      you tap Scan.</p>`;
+      is missing is left empty for you to add. Photos are only kept here \u2014 nothing is read until you choose,
+      below, to upload them for tonight's half-price read or to read them now at full price.</p>`;
   } else {
     h += `<div class="tray">` + items.map(function (it) {
       const t = tileInfo(it);
@@ -10492,7 +10498,7 @@ function viewCapture() {
     const bad = S.errs[s.slot];
     const live = S.busy && S.scanning === s.slot;
     // Missing: pages were added above, sorting has finished, and none of them is this sheet.
-    const missing = !im && poolN > 0 && !S.pool.busy && !S.pdf.busy && !S.pool.hold[s.slot] && !s.diagram;
+    const missing = !im && poolN > 0 && !S.pool.items.some(function (x) { return x.state === "kept"; }) && !S.pool.busy && !S.pdf.busy && !S.pool.hold[s.slot] && !s.diagram;
     const state = got ? "Scanned" : bad ? "Failed" : im ? "Ready" : missing ? "Missing" : s.diagram ? "Optional" : "Empty";
     const cls = got ? "live" : im ? "live" : missing ? "miss" : "dim";
     const note = slotNote(s.slot);
@@ -10508,7 +10514,7 @@ function viewCapture() {
         <button class="b" onclick="document.getElementById('${s.slot}cam').click()" ${busy ? "disabled" : ""}>Take photo</button>
         <button class="b" onclick="document.getElementById('${s.slot}file').click()" ${busy ? "disabled" : ""}>Choose image or PDF</button>
         ${im ? `<button class="b primary" onclick="scanOne('${s.slot}')" ${busy ? "disabled" : ""}>
-          ${got ? "Scan again" : bad ? "Retry this sheet" : "Scan this sheet"}</button>` : ""}
+          ${got ? "Read again now" : bad ? "Retry this sheet now" : "Read this sheet now (full price)"}</button>` : ""}
         ${im ? `<button class="b" onclick="rotateSlot('${s.slot}')" ${busy ? "disabled" : ""} aria-label="Rotate this photo a quarter turn">Rotate</button>` : ""}
         ${im ? `<button class="b danger" onclick="clearSlot('${s.slot}')" ${busy ? "disabled" : ""}>Clear</button>` : ""}
       </div>
@@ -10550,7 +10556,10 @@ function laterWindow() {
   const sc = S.batch && S.batch.status && S.batch.status.schedule;
   return (sc && sc.window) || techNightWin();
 }
-function laterOrNowHtml(nPhotos, left) {
+function laterOrNowHtml(nPhotosSlots, leftSlots) {
+  const nKept = S.pool.items.filter(function (it) { return it.state === "kept"; }).length;
+  const nPhotos = casePages().length;
+  const left = nKept + leftSlots;
   const can = !!(S.cfg.sheetUrl && S.cfg.editKey);
   const busy = S.busy || S.pdf.busy || S.later.busy;
   const what = S.mode === "PTCA" ? "PTCA" : "CAG";
@@ -10570,7 +10579,7 @@ function laterOrNowHtml(nPhotos, left) {
         <b>Read now — full price</b>
         <p class="hint" style="margin:4px 0 8px"><b>Full price.</b> Each sheet is read here, one at a time, right away
           (10–40 seconds a sheet) — the half-price queue is not used. Use it when the report is needed now.</p>
-        <button class="b wide" onclick="scanRemaining()" ${left && !S.busy && !S.later.busy ? "" : "disabled"}>${left ? "Read " + left + " sheet" + (left === 1 ? "" : "s") + " now" : N ? "All sheets read" : "Read now"}</button>
+        <button class="b wide" onclick="readNow()" ${left && !S.busy && !S.later.busy ? "" : "disabled"}>${left ? "Read " + (nKept ? nPhotos : left) + " sheet" + ((nKept ? nPhotos : left) === 1 ? "" : "s") + " now" : N ? "All sheets read" : "Read now"}</button>
       </div>
     </div>
     ${S.later.said ? `<p class="${S.later.bad ? "hint" : "hint"}" style="margin:8px 0 0;${S.later.bad ? "color:#a33" : "color:#2a6b2a"}">${esc2(S.later.said)}</p>` : ""}
@@ -10611,10 +10620,26 @@ function pdfFromJpegs(items) {
   parts.forEach(function (u) { out.set(u, o); o += u.length; });
   return out;
 }
-async function casePdfB64(slots) {
+/* every page of the case in sheet order: the kept pages (placed by sheet number
+   once they have been recognised, else as taken) and photos taken on a sheet's own card */
+function casePages() {
+  const out = [];
+  S.pool.items.forEach(function (it) {
+    if (it.off || !it.b64) return;
+    const sh = it.cls && it.cls.sheet ? it.cls.sheet : 0;
+    out.push({ key: sh ? sh : 100 + it.id, b64: it.b64, mime: "image/jpeg", w: it.w, h: it.h });
+  });
+  activeSlots().forEach(function (s, i) {
+    const im = S.imgs[s.slot];
+    if (im && im.b64 && im.poolId == null) out.push({ key: i + 1, b64: im.b64, mime: im.mime || "image/jpeg" });
+  });
+  out.sort(function (a, b) { return a.key - b.key; });
+  return out;
+}
+async function casePdfB64(pages) {
   const items = [];
-  for (let i = 0; i < slots.length; i++) {
-    const im = S.imgs[slots[i].slot];
+  for (let i = 0; i < pages.length; i++) {
+    const im = pages[i];
     const el = await loadImg("data:" + (im.mime || "image/jpeg") + ";base64," + im.b64);
     let jb = im.b64, w = el.naturalWidth, h = el.naturalHeight;
     if (!/^image\/jpe?g$/i.test(im.mime || "image/jpeg")) {         // PDF needs JPEG data: redraw once
@@ -10626,19 +10651,31 @@ async function casePdfB64(slots) {
   }
   return bytesToB64(pdfFromJpegs(items));
 }
-function uploadHash(slots) {
+function uploadHash(pages) {
   let h = 0;
-  slots.forEach(function (s) {
-    const b = S.imgs[s.slot].b64;
+  pages.forEach(function (pg) {
+    const b = pg.b64;
     h = (h * 31 + b.length) | 0;
     for (let i = 0; i < b.length; i += Math.max(1, b.length >> 9)) h = (h * 31 + b.charCodeAt(i)) | 0;
   });
-  return String(h) + ":" + slots.length;
+  return String(h) + ":" + pages.length;
+}
+/* "Read now - full price": the kept pages are recognised and sorted into their
+   sheets (one short request each), then every sheet is read, one at a time */
+async function readNow() {
+  if (S.busy || S.pdf.busy || S.later.busy) return;
+  if (!S.cfg.apiKey) { S.step = "settings"; flash("err", "Add your Google AI Studio API key first."); return; }
+  if (!confirm("Read these sheets now, at the full price?\n\nOK = read them now.\nCancel = nothing is sent; you can still use Upload to Drive (half price, read tonight).")) return;
+  S.pool.items.forEach(function (it) { if (it.state === "kept") { it.state = "queued"; it.err = ""; } });
+  render();
+  await sortPool();
+  if (S.pool.busy) return;
+  await scanRemaining();
 }
 async function uploadForLater() {
   if (S.busy || S.pdf.busy || S.later.busy) return;
   if (!S.cfg.sheetUrl || !S.cfg.editKey) { flash("err", "Set the shared sheet URL and the edit key in Settings first."); return; }
-  const slots = activeSlots().filter(function (s) { return S.imgs[s.slot] && S.imgs[s.slot].b64; });
+  const slots = casePages();
   if (!slots.length) return;
   const type = S.mode === "PTCA" ? "PTCA" : "CAG";
   const L = S.later;
@@ -11888,7 +11925,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.55", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.56", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
