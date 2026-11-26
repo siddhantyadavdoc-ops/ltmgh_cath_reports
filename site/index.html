@@ -10561,8 +10561,8 @@ function laterOrNowHtml(nPhotos, left) {
       <div style="flex:1 1 230px;border:1px solid #cfe3cf;background:#f4faf4;border-radius:10px;padding:10px">
         <b>Upload to Drive — read later</b>
         <p class="hint" style="margin:4px 0 8px"><b>Half price.</b> The photos are saved in the shared Drive inbox and read
-          tonight (${esc2(laterWindow())}) through Google's half-price queue. Nothing is read now. The ${what} case
-          is in <b>Inbox scans</b> by the next morning, ready to check.</p>
+          tonight (${esc2(laterWindow())}) through Google's half-price queue. Nothing is read now. The sheets go as one file and the
+          ${what} case is in <b>Inbox scans</b> by the next morning, ready to check.</p>
         <button class="b primary wide" onclick="uploadForLater()" ${N && can && !busy ? "" : "disabled"}>${S.later.busy ? "Uploading…" : "Upload " + (N ? sw : "sheets") + " to Drive"}</button>
         ${can ? "" : `<p class="hint" style="margin:6px 0 0;color:#8a6a12">Needs the shared sheet URL and the edit key (Settings).</p>`}
       </div>
@@ -10577,34 +10577,91 @@ function laterOrNowHtml(nPhotos, left) {
   </div>`;
   return h;
 }
+/* 13.55 - the sheets of one case are put together HERE, in order, into ONE PDF
+   and sent as ONE file: it arrives whole or not at all, so a dropped
+   connection can never leave half a case in the inbox, and pages of different
+   patients can never meet (a PDF is always one case). A retry sends the same
+   file name, which the sheet script recognises and does not store twice. */
+function pdfFromJpegs(items) {
+  // items: [{ bytes: Uint8Array (JPEG), w, h }] -> Uint8Array (a PDF, one page per photo)
+  const enc = new TextEncoder(), parts = [], offs = [];
+  let len = 0;
+  const put = function (x) { const u = typeof x === "string" ? enc.encode(x) : x; parts.push(u); len += u.length; };
+  const obj = function (n) { offs[n] = len; };
+  put("%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n");
+  const n = items.length;
+  obj(1); put("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  const kids = items.map(function (_, i) { return (3 + i * 3) + " 0 R"; }).join(" ");
+  obj(2); put("2 0 obj\n<< /Type /Pages /Kids [" + kids + "] /Count " + n + " >>\nendobj\n");
+  items.forEach(function (it, i) {
+    const pg = 3 + i * 3, ct = pg + 1, im = pg + 2;
+    const w = it.w, h = it.h;
+    obj(pg); put(pg + " 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + w + " " + h + "] /Resources << /XObject << /Im0 " + im + " 0 R >> >> /Contents " + ct + " 0 R >>\nendobj\n");
+    const cs = "q " + w + " 0 0 " + h + " 0 0 cm /Im0 Do Q";
+    obj(ct); put(ct + " 0 obj\n<< /Length " + cs.length + " >>\nstream\n" + cs + "\nendstream\nendobj\n");
+    obj(im); put(im + " 0 obj\n<< /Type /XObject /Subtype /Image /Width " + w + " /Height " + h + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + it.bytes.length + " >>\nstream\n");
+    put(it.bytes); put("\nendstream\nendobj\n");
+  });
+  const total = 3 + n * 3, xref = len;
+  let x = "xref\n0 " + total + "\n0000000000 65535 f \n";
+  for (let k = 1; k < total; k++) x += String(offs[k]).padStart(10, "0") + " 00000 n \n";
+  put(x + "trailer\n<< /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+  const out = new Uint8Array(len);
+  let o = 0;
+  parts.forEach(function (u) { out.set(u, o); o += u.length; });
+  return out;
+}
+async function casePdfB64(slots) {
+  const items = [];
+  for (let i = 0; i < slots.length; i++) {
+    const im = S.imgs[slots[i].slot];
+    const el = await loadImg("data:" + (im.mime || "image/jpeg") + ";base64," + im.b64);
+    let jb = im.b64, w = el.naturalWidth, h = el.naturalHeight;
+    if (!/^image\/jpe?g$/i.test(im.mime || "image/jpeg")) {         // PDF needs JPEG data: redraw once
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(el, 0, 0);
+      jb = cv.toDataURL("image/jpeg", 0.9).split(",")[1];
+    }
+    items.push({ bytes: b64ToBytes(jb), w: w, h: h });
+  }
+  return bytesToB64(pdfFromJpegs(items));
+}
+function uploadHash(slots) {
+  let h = 0;
+  slots.forEach(function (s) {
+    const b = S.imgs[s.slot].b64;
+    h = (h * 31 + b.length) | 0;
+    for (let i = 0; i < b.length; i += Math.max(1, b.length >> 9)) h = (h * 31 + b.charCodeAt(i)) | 0;
+  });
+  return String(h) + ":" + slots.length;
+}
 async function uploadForLater() {
   if (S.busy || S.pdf.busy || S.later.busy) return;
   if (!S.cfg.sheetUrl || !S.cfg.editKey) { flash("err", "Set the shared sheet URL and the edit key in Settings first."); return; }
   const slots = activeSlots().filter(function (s) { return S.imgs[s.slot] && S.imgs[s.slot].b64; });
   if (!slots.length) return;
   const type = S.mode === "PTCA" ? "PTCA" : "CAG";
-  const d = new Date(), z = function (n) { return (n < 10 ? "0" : "") + n; };
-  const stem = "app_" + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds());
   const L = S.later;
-  L.busy = true; L.said = ""; L.bad = false; render();
-  let ok = 0, err = "";
-  for (let i = 0; i < slots.length; i++) {
-    L.said = "Uploading sheet " + (i + 1) + " of " + slots.length + "…"; render();
-    const im = S.imgs[slots[i].slot];
-    try {
-      await sheetApi("caseUpload", { type: type, stem: stem, n: i + 1, b64: im.b64, mime: im.mime || "image/jpeg", by: S.cfg.userName || "" }, 120000);
-      ok++;
-    } catch (e) { err = e.message || String(e); break; }
+  // the same sheets sent again (after a dropped connection) keep the same file name - the sheet stores it once
+  const hash = type + uploadHash(slots);
+  if (L.hash !== hash) {
+    const d = new Date(), z = function (n) { return (n < 10 ? "0" : "") + n; };
+    L.hash = hash;
+    L.stem = "app_" + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + "-" + Math.random().toString(36).slice(2, 6);
   }
-  L.busy = false;
-  if (ok === slots.length) {
-    L.said = ""; L.bad = false;
+  L.busy = true; L.said = "Putting the " + slots.length + " sheet" + (slots.length === 1 ? "" : "s") + " into one file\u2026"; L.bad = false; render();
+  try {
+    const b64 = await casePdfB64(slots);
+    L.said = "Uploading " + Math.round(b64.length * 0.75 / 1024) + " KB\u2026"; render();
+    const up = await sheetApi("caseUpload", { type: type, stem: L.stem, b64: b64, mime: "application/pdf", pages: slots.length, by: S.cfg.userName || "" }, 180000);
+    L.busy = false; L.hash = ""; L.said = ""; L.bad = false;
     clearScanSession();
     S.step = "capture";
     render();
-    flash("ok", ok + " sheet" + (ok === 1 ? "" : "s") + " uploaded to Drive. They are read tonight (" + laterWindow() + ") at half price — look in Inbox scans tomorrow.");
-  } else {
-    L.said = ok + " of " + slots.length + " sheets uploaded, then: " + err + ". The sheets are still here. Do not upload again \u2014 that would send the first ones twice. Use Read now, or ask the editor to look in the Drive inbox.";
+    flash("ok", slots.length + " sheet" + (slots.length === 1 ? "" : "s") + " uploaded to Drive as one case" + (up && up.dup ? " (it had already arrived)" : "") + ". Read tonight (" + laterWindow() + ") at half price \u2014 look in Inbox scans tomorrow.");
+  } catch (e) {
+    L.busy = false;
+    L.said = "Not uploaded: " + (e.message || e) + " \u2014 nothing was sent in part. The sheets are still here; press Upload again when the connection is back (a repeat is not stored twice).";
     L.bad = true; render();
   }
 }
@@ -11831,7 +11888,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.54", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.55", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
