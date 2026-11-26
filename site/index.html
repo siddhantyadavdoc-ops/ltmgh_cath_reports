@@ -642,6 +642,70 @@ body.hasnav #appnav{display:flex}
 .costtbl input{width:110px}
 .costs .btns .b.on{background:#111;color:#fff}
 .thinkbox{border:1px solid #ddd;border-radius:8px;padding:6px 12px 2px;margin:10px 0 4px}
+/* 13.60 - scan screen */
+.sc-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:22px 0 12px;padding-bottom:10px;border-bottom:1px solid var(--hair)}
+.sc-eyebrow{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--wine);font-weight:700}
+.sc-what{font-size:12.5px;color:var(--steel);margin-top:3px;max-width:420px}
+.sc-seg button{padding:8px 22px;font-size:14px}
+.sc-file{display:flex;align-items:center;gap:12px;border:1px solid var(--hair);border-radius:10px;background:var(--panel);padding:11px 12px;margin-bottom:6px}
+.sc-file .t{flex:1;min-width:0}
+.sc-file .t b{display:block;font-size:13.5px}
+.sc-file .t span{display:block;font-size:12px;color:var(--steel);margin-top:2px}
+.sc-file .b{flex:0 0 auto}
+.sc-tabs{display:flex;margin-top:18px;border-bottom:1px solid var(--hair)}
+.sc-tab{flex:1 1 0;display:flex;flex-direction:column;justify-content:flex-start;background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-1px;padding:10px 6px 9px;text-align:left;cursor:pointer;font-family:inherit}
+.sc-tab:disabled{cursor:default;opacity:.6}
+.sc-tab .n{display:block;font-weight:700;font-size:14.5px;color:var(--steel)}
+.sc-tab .s{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;font-size:12px;color:var(--dim);margin-top:3px}
+.sc-tab.on .n{color:var(--ink)}
+.sc-tab.night.on{border-bottom-color:var(--live)}
+.sc-tab.now.on{border-bottom-color:#b8740f}
+.sc-panel{border:1px solid var(--hair);border-top:0;border-radius:0 0 10px 10px;padding:14px 13px;margin-bottom:13px;background:var(--paper)}
+.sc-panel.sc-foot{border-top:1px solid var(--hair);border-radius:10px}
+.sc-price{display:inline-block;white-space:nowrap;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;line-height:1.4}
+.sc-price.half{background:#e3f2ea;color:var(--live)}
+.sc-price.full{background:#fbefd9;color:#8a5200}
+.sc-step{display:flex;align-items:center;gap:9px;margin:20px 0 9px;font-weight:700;font-size:13.5px}
+.sc-panel>.sc-step:first-child{margin-top:2px}
+.sc-step i{font-style:normal;flex:0 0 auto;width:21px;height:21px;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.sc-step i.done{background:var(--live)}
+.sc-step .sc-count{margin-left:auto;font-weight:500;font-size:12px;color:var(--dim)}
+.sc-step .sc-price{margin-left:auto}
+.sc-lead{font-size:12.5px;color:var(--steel);margin:4px 0 10px;line-height:1.45}
+.sc-fine{font-size:11.5px;color:var(--dim);margin:7px 0 0}
+.sc-pages{border:1px solid var(--hair);border-radius:9px;overflow:hidden}
+.sc-pg{display:flex;align-items:center;gap:10px;padding:9px 10px;border-top:1px solid var(--hair)}
+.sc-pg:first-child{border-top:0}
+.sc-pg .th{flex:0 0 auto;width:38px;height:50px;object-fit:cover;border-radius:4px;border:1px solid var(--hair);background:var(--panel)}
+.sc-pg .ph{flex:0 0 auto;width:38px;height:50px;border-radius:4px;border:1.5px dashed #c5c9d0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--dim)}
+.sc-pg .nm{flex:1 1 auto;min-width:0}
+.sc-pg .nm b{display:block;font-size:13.5px;line-height:1.3}
+.sc-pg .nm>span{display:block;font-size:11.5px;color:var(--dim);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc-pg.next{flex-wrap:wrap;background:#f4f9f6;box-shadow:inset 3px 0 0 var(--live)}
+.sc-pg.next .ph{border-color:var(--live);color:var(--live)}
+.sc-nextlbl{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--live)}
+.sc-addbtns{display:flex;gap:8px;flex:1 1 100%;padding-left:48px}
+.sc-addbtns .b{flex:1 1 0}
+.sc-pg.todo{background:var(--panel)}
+.sc-pg.todo .nm b{font-weight:500;color:var(--dim)}
+.sc-pg.todo .ph{border-style:dotted}
+.sc-kind{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.06em;padding:1px 5px;border-radius:3px;margin-right:6px;vertical-align:1px;color:#fff;background:#1c7a55}
+.sc-kind.PTCA{background:#1f5fc2}
+.sc-ic{flex:0 0 auto;width:30px;height:30px;padding:0;border:1px solid var(--hair);border-radius:6px;background:var(--paper);color:var(--steel);font-size:13px;cursor:pointer}
+.sc-ic:disabled{opacity:.3;cursor:default}
+.sc-ic.del{color:var(--wine)}
+.sc-merged{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #b9dcc9;background:#eef7f2;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:600;color:var(--live)}
+.sc-merged a{color:var(--live);font-weight:600}
+.sc-note{font-size:12.5px;padding:8px 10px;border-radius:7px;margin:8px 0 0;line-height:1.4}
+.sc-note.ok{background:#eef7f2;color:#1b5e40}
+.sc-note.err{background:var(--wineSoft);color:var(--wine)}
+.sc-note.warn{background:#fdf6e3;color:#7a5a0c}
+.b.night{background:var(--live);border-color:var(--live);color:#fff}
+.b.full{background:#fbefd9;border-color:#d9a24a;color:#7a4e00}
+.b.night:disabled,.b.full:disabled{opacity:.45}
+.sc-skip{display:block;width:100%;margin:18px 0 4px;padding:10px;background:none;border:0;font:500 13px inherit;font-family:inherit;color:var(--steel);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.sc-skip:disabled{opacity:.4}
+.sc-slot{background:var(--paper)}
 .stephead{display:flex;align-items:center;gap:8px;margin:16px 0 6px}
 .stepn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#333;color:#fff;font-size:12px;font-weight:700}
 </style>
@@ -6999,7 +7063,12 @@ function activeSortPrompt() { return S.mode === "PTCA" ? SORT_PROMPT_PTCA : SORT
 function setMode(m) {
   m = m === "PTCA" ? "PTCA" : "CAG";
   if (S.mode === m) return;
-  if (S.busy || S.pdf.busy) { flash("err", "Wait for the current scan to finish before switching."); return; }
+  if (S.busy || S.pdf.busy || (S.later && (S.later.busy || S.later.topBusy))) { flash("err", "Wait for the current scan or upload to finish before switching."); return; }
+  // 13.60: pages added page by page were named for the other kind of case
+  if (S.pp && S.pp.pages.length) {
+    if (!confirm("Switch to " + m + "?\n\nThe " + S.pp.pages.length + " " + S.mode + " page" + (S.pp.pages.length === 1 ? "" : "s") + " added below will be removed.")) return;
+    ppDirty(); S.pp = freshPp();
+  }
   S.mode = m;
   S.cfg.mode = m;
   saveCfg();
@@ -8549,7 +8618,7 @@ function poolSummary() {
     out.push({ att: true, text: "No API key yet, so the pages were placed in the order they came. Add your key in Settings, then tap Sort again." });
   }
   const keptN = items.filter(function (it) { return it.state === "kept"; }).length;
-  if (keptN) out.push({ att: false, text: keptN + " page" + (keptN === 1 ? " is" : "s are") + " kept as taken \u2014 nothing is sent to Gemini until you press \u26a1 Read NOW (step 2)." });
+  if (keptN) out.push({ att: false, text: keptN + " page" + (keptN === 1 ? " is" : "s are") + " kept as taken \u2014 nothing is sent to Gemini until you press Read pages now (step 2)." });
   if (!sorting && !keptN) {
     const have = activeSlots().filter(function (s) { return S.imgs[s.slot]; });
     // the diagram sheet is optional, so its absence is a note, not a missing sheet
@@ -8659,7 +8728,7 @@ function viewPool(busy) {
   if (!n) {
     h += `<p class="hint">Take the sheets one after another, or pick them all from the gallery. A folded corner, a
       sideways photo or the same sheet twice is fine — keep the page number at the bottom in frame — the clearest photo of each sheet is used, and a sheet that
-      is missing is left empty for you to add. Photos are only kept here \u2014 nothing is read until you press \u26a1 Read NOW (step 2).</p>`;
+      is missing is left empty for you to add. Photos are only kept here \u2014 nothing is read until you press Read pages now (step 2).</p>`;
   } else {
     h += `<div class="tray">` + items.map(function (it) {
       const t = tileInfo(it);
@@ -10480,28 +10549,20 @@ function viewCapture() {
   // Identifying pages does not: sorting never touches a sheet being scanned.
   const busy = S.busy || S.pdf.busy;
   const poolN = S.pool.items.length;
+  h += scanModeHtml(busy);
   h += caseFileCardHtml();
-  h += `<div class="modebar"><span class="lbl">Proforma</span>
-    <div class="segbtns">
-      <button class="${S.mode !== "PTCA" ? "on" : ""}" onclick="setMode('CAG')" ${busy ? "disabled" : ""}>CAG</button>
-      <button class="${S.mode === "PTCA" ? "on" : ""}" onclick="setMode('PTCA')" ${busy ? "disabled" : ""}>PTCA / Stenting</button>
-    </div>
-    <span class="hint" style="margin:0">${S.mode === "PTCA"
-      ? "4-sheet PTCA & stenting proforma + the technician's utilization sheet (+ the diagram sheet with the stent sticker, optional, cross-checked) — bloods, echo and CAG findings fill in from the registry; hardware from the utilization grid"
-      : "4-sheet CAG proforma + the coronary diagram as sheet 5 — the drawing is cross-checked against the ticks; where they differ the report prints the tick with the diagram's figure in blue"}</span></div>`;
   h += scanTabsHtml();
+  h += `<div class="sc-panel">`;
   if (S.scanTab !== "now") {
-    h += ppTabHtml();
-    h += `<button class="b wide" style="margin-top:14px" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scan \u2014 fill in manually</button>`;
+    h += ppTabHtml() + `</div>`;
+    h += `<button class="sc-skip" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scanning — fill in the form by hand</button>`;
     return h;
   }
-  h += `<div class="stephead"><span class="stepn">1</span><b>Add the pages</b></div>`;
-  const nWord = ["three", "four", "five", "six"][sheetCount() - 3] || String(sheetCount());
-  h += `<p class="hint">Two ways in: add all the sheets at once below — photos or a PDF, in any order — and they
-    are sorted into the ${nWord} sheets for you; or photograph each sheet on its own card. Photograph sheets flat and
-    evenly lit with all four corners in frame. Either way the sheets are read one at a time — each result is kept
-    as soon as it succeeds, so a sheet that fails only costs you that sheet.</p>`;
+  const kindN = S.mode === "PTCA" ? "PTCA" : "CAG";
+  h += `<div class="sc-step"><i>1</i>Add the ${kindN} pages</div>
+    <p class="sc-lead">Add every page at once (photos or a PDF, any order — they are sorted into sheets for you), or photograph each sheet on its own card below. Flat, evenly lit, all four corners in frame.</p>`;
   h += viewPool(busy);
+  h += `</div>`;
 
   activeSlots().forEach(function (s) {
     const im = S.imgs[s.slot];
@@ -10510,10 +10571,10 @@ function viewCapture() {
     const live = S.busy && S.scanning === s.slot;
     // Missing: pages were added above, sorting has finished, and none of them is this sheet.
     const missing = !im && poolN > 0 && !S.pool.items.some(function (x) { return x.state === "kept"; }) && !S.pool.busy && !S.pdf.busy && !S.pool.hold[s.slot] && !s.diagram;
-    const state = got ? "Scanned" : bad ? "Failed" : im ? "Ready" : missing ? "Missing" : s.diagram ? "Optional" : "Empty";
+    const state = got ? "Read" : bad ? "Failed" : im ? "Ready" : missing ? "Missing" : s.diagram ? "Optional" : "Empty";
     const cls = got ? "live" : im ? "live" : missing ? "miss" : "dim";
     const note = slotNote(s.slot);
-    h += `<div class="card${got ? " ready" : ""}${missing ? " missing" : ""}">
+    h += `<div class="card sc-slot${got ? " ready" : ""}${missing ? " missing" : ""}">
       <div class="cardhead"><div><b>${esc2(s.title)}</b><p class="hint">${esc2(s.hint)}</p></div>
       <span class="${cls}">${state}</span></div>
       ${im ? `<img class="thumb" src="${im.thumb || im.url}" alt="">` : ""}
@@ -10523,9 +10584,9 @@ function viewCapture() {
       <input type="file" accept="image/*,application/pdf,.pdf" id="${s.slot}file" hidden onchange="pickFile(this,'${s.slot}')">
       <div class="btns">
         <button class="b" onclick="document.getElementById('${s.slot}cam').click()" ${busy ? "disabled" : ""}>Take photo</button>
-        <button class="b" onclick="document.getElementById('${s.slot}file').click()" ${busy ? "disabled" : ""}>Choose image or PDF</button>
-        ${im ? `<button class="b primary" onclick="scanOne('${s.slot}')" ${busy ? "disabled" : ""}>
-          ${got ? "Read again now" : bad ? "Retry this sheet now" : "Read this sheet now (full price)"}</button>` : ""}
+        <button class="b" onclick="document.getElementById('${s.slot}file').click()" ${busy ? "disabled" : ""}>Choose file</button>
+        ${im ? `<button class="b full" onclick="scanOne('${s.slot}')" ${busy ? "disabled" : ""}>
+          ${got ? "Read again" : bad ? "Retry" : "Read this sheet"}</button>` : ""}
         ${im ? `<button class="b" onclick="rotateSlot('${s.slot}')" ${busy ? "disabled" : ""} aria-label="Rotate this photo a quarter turn">Rotate</button>` : ""}
         ${im ? `<button class="b danger" onclick="clearSlot('${s.slot}')" ${busy ? "disabled" : ""}>Clear</button>` : ""}
       </div>
@@ -10533,13 +10594,13 @@ function viewCapture() {
       ${poolN ? `<div class="row" style="margin:10px 0 0">
         <label class="fld" style="flex:1 1 170px"><span>Page for this sheet</span>
         <select onchange="pickForSlot('${s.slot}',this.value)" ${busy ? "disabled" : ""}>
-          <option value=""${im ? "" : " selected"}>\u2014 none \u2014</option>
+          <option value=""${im ? "" : " selected"}>— none —</option>
           ${im && im.poolId == null ? `<option value="own" selected disabled>Photo taken on this sheet</option>` : ""}
           ${S.pool.items.map(function (it) {
             return `<option value="${it.id}"${im && im.poolId === it.id ? " selected" : ""}>${esc2(optionLabel(it))}</option>`;
           }).join("")}
         </select></label></div>` : ""}
-      ${live ? `<p class="phase" id="phaseLine">${esc2(S.phase || "Reading\u2026")}</p>
+      ${live ? `<p class="phase" id="phaseLine">${esc2(S.phase || "Reading…")}</p>
         <button class="b wide danger" onclick="cancelExtract()">Cancel</button>` : ""}
       </div>`;
   });
@@ -10548,15 +10609,16 @@ function viewCapture() {
   const left = nPhotos - nScanned;
   const nKept = S.pool.items.filter(function (it) { return it.state === "kept"; }).length;
   const toRead = nKept ? casePages().length : left;
-  h += `<div class="stephead"><span class="stepn">2</span><b>Read each page now \u2014 full price</b></div>
-    <p class="hint">Every page is sent to Gemini now, one at a time (10\u201340 s a page). Charged at the full price \u2014 the half-price night queue is not used.</p>
-    <button class="b wide" style="background:#fbf3e4;border-color:#c98a1b;color:#7a4e00;font-weight:600" onclick="readNow()" ${toRead && !S.busy ? "" : "disabled"}>${toRead ? "\u26a1 Read " + toRead + " page" + (toRead === 1 ? "" : "s") + " NOW \u2014 full price" : nPhotos ? "\u2713 All pages read" : "\u26a1 Read NOW \u2014 full price (add pages first)"}</button>`;
-  h += `<div class="stephead"><span class="stepn">3</span><b>Merge the read pages into the report</b></div>
+  h += `<div class="sc-panel sc-foot">
+    <div class="sc-step"><i class="${toRead || !nPhotos ? "" : "done"}">${toRead || !nPhotos ? "2" : "✓"}</i>Read the pages <span class="sc-price full">Full price</span></div>
+    <p class="sc-lead">Each page goes to Gemini now, one at a time (10–40 s a page). The half-price night queue is not used.</p>
+    <button class="b wide full" onclick="readNow()" ${toRead && !S.busy ? "" : "disabled"}>${toRead ? "Read " + toRead + " page" + (toRead === 1 ? "" : "s") + " now" : nPhotos ? "✓ All pages read" : "Read pages now"}</button>
+    <div class="sc-step"><i>3</i>Make the report</div>
     <button class="b primary wide" onclick="${S.mode === "PTCA" ? "buildPtcaReport()" : "buildReport()"}" ${nScanned && !S.busy ? "" : "disabled"}>
-      ${nScanned ? "Merge " + nScanned + " read page" + (nScanned === 1 ? "" : "s") + " \u2192 make the " + (S.mode === "PTCA" ? "PTCA" : "CAG") + " report"
-                 : "Merge read pages \u2192 make the report (read pages first)"}</button>
-    <p class="hint" style="text-align:center">Read pages are held until you merge, so a stubborn page can be read again.</p>`;
-  h += `<button class="b wide" style="margin-top:14px" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scan \u2014 fill in manually</button>`;
+      ${nScanned ? "Make the " + kindN + " report from " + nScanned + " read page" + (nScanned === 1 ? "" : "s") : "Make the " + kindN + " report"}</button>
+    <p class="sc-lead" style="text-align:center;margin-top:6px">${nScanned ? "Read pages are kept until then — a page can be read again first." : "Available once at least one page has been read."}</p>
+  </div>`;
+  h += `<button class="sc-skip" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scanning — fill in the form by hand</button>`;
   return h;
 }
 
@@ -10678,22 +10740,28 @@ function uploadHash(pages) {
 /* 13.57 - a whole case that is already one file (the copier's PDF, or a few JPGs
    of one case): straight to Drive, nothing read here. The kind of case is chosen by
    the button, and said again in the question before anything is sent. */
+function scanModeHtml(busy) {
+  const ptca = S.mode === "PTCA";
+  return `<div class="sc-head">
+    <div><div class="sc-eyebrow">New case</div>
+      <div class="sc-what">${ptca ? "PTCA proforma (4 sheets) + utilization sheet + diagram stent sheet (optional)" : "CAG proforma (4 sheets) + coronary diagram (optional)"}</div></div>
+    <div class="segbtns sc-seg">
+      <button class="${!ptca ? "on" : ""}" onclick="setMode('CAG')" ${busy ? "disabled" : ""}>CAG</button>
+      <button class="${ptca ? "on" : ""}" onclick="setMode('PTCA')" ${busy ? "disabled" : ""}>PTCA</button>
+    </div></div>`;
+}
 function caseFileCardHtml() {
   const can = !!(S.cfg.sheetUrl && S.cfg.editKey);
   const L = S.later, busy = S.busy || S.pdf.busy || L.busy || L.topBusy;
-  const dis = can && !busy ? "" : "disabled";
-  return `<div class="card" style="border:2px solid #bcd0e6">
-    <div class="cardhead"><div><b>Upload a whole case file to Drive</b>
-      <p class="hint">Already have the full case as one PDF, or as JPGs? Send it straight to the shared Drive inbox \u2014 nothing is scanned here. It is read tonight (${esc2(laterWindow())}) at half price and is in Inbox scans by the next morning.</p></div></div>
-    <input type="file" accept="application/pdf,.pdf,image/*" multiple id="cagfile" hidden onchange="uploadCaseFile('CAG', this)">
-    <input type="file" accept="application/pdf,.pdf,image/*" multiple id="ptcafile" hidden onchange="uploadCaseFile('PTCA', this)">
-    <div class="btns">
-      <button class="b" style="flex:1 1 150px;border-color:#2f6f9f;color:#1d4f75;font-weight:600" onclick="document.getElementById('cagfile').click()" ${dis}>Upload a CAG case<br><span style="font-weight:400;font-size:12px">PDF or JPGs \u2192 CAG folder</span></button>
-      <button class="b" style="flex:1 1 150px;border-color:#8a4a9f;color:#5e2f73;font-weight:600" onclick="document.getElementById('ptcafile').click()" ${dis}>Upload a PTCA case<br><span style="font-weight:400;font-size:12px">PDF or JPGs \u2192 PTCA folder</span></button>
-    </div>
-    ${can ? "" : `<p class="hint" style="color:#8a6a12">Needs the shared sheet URL and the edit key (Settings).</p>`}
-    ${L.topSaid ? `<p class="hint" style="margin:8px 0 0;color:${L.topBad ? "#a33" : "#2a6b2a"}">${esc2(L.topSaid)}</p>` : ""}
-  </div>`;
+  const kind = S.mode === "PTCA" ? "PTCA" : "CAG";
+  return `<div class="sc-file">
+    <input type="file" accept="application/pdf,.pdf,image/*" multiple id="casefile" hidden onchange="uploadCaseFile('${kind}', this)">
+    <div class="t"><b>Whole case in one file?</b>
+      <span>One PDF, or JPGs of one case → the ${kind} folder in Drive. Read tonight at half price.</span></div>
+    <button class="b" onclick="document.getElementById('casefile').click()" ${can && !busy ? "" : "disabled"}>${L.topBusy ? "Uploading…" : "Upload " + kind + " file"}</button>
+  </div>
+  ${can ? "" : `<p class="sc-note warn">Uploading needs the shared sheet URL and the edit key — set them in Settings.</p>`}
+  ${L.topSaid ? `<p class="sc-note ${L.topBad ? "err" : "ok"}">${esc2(L.topSaid)}</p>` : ""}`;
 }
 async function uploadCaseFile(type, input) {
   const files = Array.from(input.files || []);
@@ -10743,14 +10811,14 @@ async function uploadCaseFile(type, input) {
           merged, report made. */
 function scanTabsHtml() {
   const t = S.scanTab === "now" ? "now" : "night";
-  const tab = function (k, top, sub, col) {
-    const on = t === k;
-    return `<button onclick="setScanTab('${k}')" ${S.busy || S.later.busy ? "disabled" : ""} style="flex:1 1 0;text-align:left;padding:10px 12px;border-radius:10px 10px 0 0;border:2px solid ${on ? col : "#d8dde3"};border-bottom:${on ? "2px solid #fff" : "2px solid " + col};background:${on ? "#fff" : "#f1f3f5"};cursor:pointer">
-      <div style="font-weight:700;color:${on ? col : "#555"}">${top}</div><div style="font-size:12px;color:#666">${sub}</div></button>`;
-  };
-  return `<div style="display:flex;gap:6px;margin-top:16px">
-    ${tab("night", "\ud83c\udf19 Upload page by page", "Read tonight \u00b7 half price", "#2a7a3a")}
-    ${tab("now", "\u26a1 Scan page by page NOW", "Read now \u00b7 full price", "#b06e00")}</div>`;
+  const dis = S.busy || S.later.busy ? "disabled" : "";
+  const night = S.later.night;
+  return `<div class="sc-tabs" role="tablist">
+    <button role="tab" class="sc-tab night${t === "night" ? " on" : ""}" onclick="setScanTab('night')" ${dis}>
+      <span class="n">Upload page by page</span><span class="s"><span class="sc-price half">Half price</span> read tonight${night && !night.on ? " · off" : ""}</span></button>
+    <button role="tab" class="sc-tab now${t === "now" ? " on" : ""}" onclick="setScanTab('now')" ${dis}>
+      <span class="n">Read now</span><span class="s"><span class="sc-price full">Full price</span> report now</span></button>
+  </div>`;
 }
 function setScanTab(k) { S.scanTab = k; render(); if (k === "night") nightStatusLoad(); }
 function nightStatusLoad() {
@@ -10774,68 +10842,70 @@ function ppTabHtml() {
   const busy = S.busy || L.busy || P.busy;
   const merged = P.merged && P.merged.hash === ppHash() ? P.merged : null;
   const can = !!(S.cfg.sheetUrl && S.cfg.editKey);
-  const night = L.night;
-  let h = `<div class="card" style="border:2px solid #2a7a3a;border-top-left-radius:0;margin-top:-2px">
-    <p class="hint" style="margin-top:0">Add the ${kind} pages <b>one at a time</b>. Nothing is read on this phone and nothing is charged now \u2014 the merged case is read tonight at half price.</p>
-    <div class="stephead"><span class="stepn">1</span><b>Add pages, one at a time</b></div>
+  const night = L.night, off = night && !night.on;
+  const exp = ppExpected(kind);
+  let h = `<p class="sc-lead" style="margin-top:0">Photograph or choose the ${kind} pages one at a time. Nothing is read or charged on this phone — the case is read tonight${night && night.window ? " (" + esc2(night.window) + ")" : ""} at half price and is in Inbox scans by morning.</p>
     <input type="file" accept="image/*" capture="environment" id="ppcam" hidden onchange="ppAdd(this)">
     <input type="file" accept="image/jpeg,image/png,application/pdf,.pdf" id="ppfile" hidden onchange="ppAdd(this)">
-    <div class="btns">
-      <button class="b primary" onclick="document.getElementById('ppcam').click()" ${busy ? "disabled" : ""}>\ud83d\udcf7 Take photo of ${esc2(ppPageName(n, kind))}</button>
-      <button class="b" onclick="document.getElementById('ppfile').click()" ${busy ? "disabled" : ""}>Choose ${esc2(ppPageName(n, kind))} (JPG or 1-page PDF)</button>
-    </div>
-    <p class="hint">One page per photo or file. A PDF with more than one page is refused here \u2014 send that with <b>Upload a ${kind} case</b> above.</p>
-    ${P.said ? `<p class="hint" style="color:${P.bad ? "#a33" : "#2a6b2a"}">${esc2(P.said)}</p>` : ""}`;
-  if (n) {
-    h += `<div class="tray">` + P.pages.map(function (pg, i) {
-      return `<figure class="tile used" style="position:relative"><img src="${pg.thumb}" alt="">
-        <figcaption><b>${esc2(ppPageName(i, kind))}</b><br>${esc2(pg.src)}</figcaption>
-        <div style="display:flex;gap:4px;justify-content:center;margin-top:4px">
-          <button class="b" style="padding:2px 8px" onclick="ppMove(${i},-1)" ${i && !busy ? "" : "disabled"} aria-label="Move up">\u2191</button>
-          <button class="b" style="padding:2px 8px" onclick="ppMove(${i},1)" ${i < n - 1 && !busy ? "" : "disabled"} aria-label="Move down">\u2193</button>
-          <button class="b danger" style="padding:2px 8px" onclick="ppDel(${i})" ${busy ? "disabled" : ""} aria-label="Remove">\u2715</button></div></figure>`;
-    }).join("") + `</div>`;
-  }
-  h += `<div class="stephead"><span class="stepn">2</span><b>Merge the pages into one file (offline)</b></div>
-    <p class="hint">Joins the pages, in the order shown, into one PDF on this phone \u2014 no internet, no Gemini, free.</p>
-    <button class="b wide" style="border-color:#2a7a3a;color:#1e5a2a;font-weight:600;${merged ? "background:#eaf5ec;opacity:1" : ""}" onclick="ppMerge()" ${n && !busy && !merged ? "" : "disabled"}>${merged ? "\u2713 Merged: " + merged.pages + " page" + (merged.pages === 1 ? "" : "s") + ", " + merged.kb + " KB" : n ? "Merge " + n + " page" + (n === 1 ? "" : "s") + " into one PDF" : "Merge pages into one PDF (add pages first)"}</button>
-    ${merged ? `<p class="hint" style="text-align:center"><a href="${merged.url}" target="_blank" rel="noopener">Open the merged PDF to check it</a> \u00b7 adding, moving or removing a page undoes the merge</p>` : ""}
-    <div class="stephead"><span class="stepn">3</span><b>Upload to be read tonight \u2014 half price</b></div>`;
-  if (night && !night.on) {
-    h += `<p class="hint" style="color:#a33">The night scan is turned OFF on the shared sheet, so an upload would not be read. Ask the editor to turn it on, or use the \u26a1 Scan NOW tab.</p>
-      <button class="b wide" disabled>\ud83c\udf19 Upload ${kind} case \u2014 night scan is off</button>`;
+    <div class="sc-step"><i class="${n ? "done" : ""}">${n ? "✓" : "1"}</i>Add the pages<span class="sc-count">${n} added</span></div>
+    <div class="sc-pages">`;
+  P.pages.forEach(function (pg, i) {
+    const e = ppExp(i, kind);
+    h += `<div class="sc-pg"><img class="th" src="${pg.thumb}" alt="">
+      <div class="nm"><b><span class="sc-kind ${kind}">${kind}</span>${esc2(e.name)}</b><span>${esc2(pg.src)}</span></div>
+      <button class="sc-ic" onclick="ppMove(${i},-1)" ${i && !busy ? "" : "disabled"} aria-label="Move up">↑</button>
+      <button class="sc-ic" onclick="ppMove(${i},1)" ${i < n - 1 && !busy ? "" : "disabled"} aria-label="Move down">↓</button>
+      <button class="sc-ic del" onclick="ppDel(${i})" ${busy ? "disabled" : ""} aria-label="Remove">✕</button></div>`;
+  });
+  const nx = ppExp(n, kind);
+  h += `<div class="sc-pg next"><div class="ph">${n + 1}</div>
+      <div class="nm"><span class="sc-nextlbl">Next page</span><b><span class="sc-kind ${kind}">${kind}</span>${esc2(nx.name)}</b><span>${esc2(nx.sub)}</span></div>
+      <div class="sc-addbtns">
+        <button class="b primary" onclick="document.getElementById('ppcam').click()" ${busy ? "disabled" : ""}>Take photo</button>
+        <button class="b" onclick="document.getElementById('ppfile').click()" ${busy ? "disabled" : ""}>Choose file</button></div></div>`;
+  exp.slice(n + 1).forEach(function (e, k) {
+    h += `<div class="sc-pg todo"><div class="ph">${n + 2 + k}</div><div class="nm"><b>${esc2(e.name)}</b><span>${esc2(e.sub)}</span></div></div>`;
+  });
+  h += `</div>
+    <p class="sc-fine">One page per photo or file (JPG, or a one-page PDF). A longer PDF goes through <b>Upload ${kind} file</b> above.</p>
+    ${P.said ? `<p class="sc-note ${P.bad ? "err" : "ok"}">${esc2(P.said)}</p>` : ""}
+    <div class="sc-step"><i class="${merged ? "done" : ""}">${merged ? "✓" : "2"}</i>Join into one PDF<span class="sc-count">offline · free</span></div>
+    ${merged
+      ? `<div class="sc-merged"><span>✓ ${merged.pages} page${merged.pages === 1 ? "" : "s"} joined · ${merged.kb} KB</span><a href="${merged.url}" target="_blank" rel="noopener">Preview PDF</a></div>
+         <p class="sc-fine">Adding, moving or removing a page undoes the join.</p>`
+      : `<button class="b wide" onclick="ppMerge()" ${n && !busy ? "" : "disabled"}>${P.busy && /Merg/.test(P.said) ? "Joining…" : n ? "Join " + n + " page" + (n === 1 ? "" : "s") + " into one PDF" : "Join into one PDF"}</button>`}
+    <div class="sc-step"><i>3</i>Upload for tonight's read<span class="sc-price half">Half price</span></div>`;
+  if (off) {
+    h += `<p class="sc-note err">The night scan is turned off on the shared sheet, so an upload would not be read. Ask the editor to turn it on, or use <b>Read now</b>.</p>
+      <button class="b wide" disabled>Upload ${kind} case — night scan is off</button>`;
   } else {
-    h += `<p class="hint">Sent to the <b>${kind}</b> folder in Drive as one file. Read tonight (${esc2((night && night.window) || laterWindow())}) through Google's half-price queue \u2014 the case is in Inbox scans by the next morning.</p>
-      <button class="b primary wide" style="background:#2a7a3a;border-color:#2a7a3a" onclick="ppUpload()" ${merged && can && !busy ? "" : "disabled"}>${L.busy ? "Uploading\u2026" : "\ud83c\udf19 Upload " + kind + " case to Drive \u2014 read tonight"}</button>
-      ${can ? (merged ? "" : `<p class="hint" style="text-align:center">Merge first (step 2).</p>`) : `<p class="hint" style="color:#8a6a12">Needs the shared sheet URL and the edit key (Settings).</p>`}`;
+    h += `<button class="b wide night" onclick="ppUpload()" ${merged && can && !busy ? "" : "disabled"}>${L.busy ? "Uploading…" : "Upload " + kind + " case to Drive"}</button>
+      <p class="sc-fine" style="text-align:center">${!can ? "Needs the shared sheet URL and the edit key (Settings)." : merged ? "Goes to the " + kind + " folder as one file." : "Join the pages first (step 2)."}</p>`;
   }
-  return h + `</div>`;
+  return h;
 }
 function ppDirty() { if (S.pp.merged) { try { URL.revokeObjectURL(S.pp.merged.url); } catch (e) {} } S.pp.merged = null; }
 
-/* Human-readable name for page i (0-based) in the page-by-page upload tab.
-   CAG: 4 expected pages. PTCA: 4 proforma + utilization + optional diagram. */
-function ppPageName(i, kind) {
-  if (kind === "PTCA") {
-    const names = [
-      "Sheet 1 — Front page",
-      "Sheet 2 — Investigations",
-      "Sheet 3 — Procedure & technique",
-      "Sheet 4 — Bif / thrombus / calcium",
-      "Utilization sheet (technician's)",
-      "Diagram stent sheet (optional)",
-    ];
-    return kind + " — " + (names[i] || "extra page " + (i + 1));
-  } else {
-    const names = [
-      "Sheet 1 — Clinical proforma",
-      "Sheet 2 — Angiogram, page 1",
-      "Sheet 3 — Angiogram, page 2",
-      "Sheet 4 — Angiogram, page 3",
-    ];
-    return kind + " — " + (names[i] || "extra page " + (i + 1));
-  }
+/* 13.60 - the pages expected for each kind of case, in order: what the
+   page-by-page tab names each page as it is added. */
+function ppExpected(kind) {
+  return kind === "PTCA" ? [
+    { name: "Sheet 1 — Front page", sub: "Patient, diagnosis, approval boxes" },
+    { name: "Sheet 2 — Investigations", sub: "Examination, bloods, ECG, echo" },
+    { name: "Sheet 3 — Procedure & technique", sub: "Access, strategy, PTCA to, wiring" },
+    { name: "Sheet 4 — Bif / thrombus / calcium", sub: "Bifurcation, thrombus, calcium, complications" },
+    { name: "Utilization sheet", sub: "The technician's hardware grid" },
+    { name: "Diagram stent sheet (optional)", sub: "Heart drawing with the stent sticker" },
+  ] : [
+    { name: "Sheet 1 — Clinical proforma", sub: "Name, diagnosis, ECG, echo, bloods" },
+    { name: "Sheet 2 — Angiogram, page 1", sub: "Catheter, LM, LAD, D1" },
+    { name: "Sheet 3 — Angiogram, page 2", sub: "LCx, OM, RCA" },
+    { name: "Sheet 4 — Angiogram, page 3", sub: "PDA, PLV, ramus, collaterals, plan" },
+    { name: "Sheet 5 — Coronary diagram (optional)", sub: "The drawn coronary tree" },
+  ];
 }
+function ppExp(i, kind) { return ppExpected(kind)[i] || { name: "Extra page " + (i + 1), sub: "Anything else for this case" }; }
+function ppPageName(i, kind) { return kind + " — " + ppExp(i, kind).name; }
 
 async function ppAdd(input) {
   const files = Array.from(input.files || []);
@@ -10861,7 +10931,7 @@ async function ppAdd(input) {
     const data = full.toDataURL("image/jpeg", 0.85);
     P.pages.push({ b64: data.split(",")[1], mime: "image/jpeg", thumb: thumbOf(full), src: isPdfFile(f) ? "PDF" : f.type && /^image/.test(f.type) && !f.name ? "Photo" : (f.name || "Photo").slice(0, 18) });
     ppDirty();
-    P.said = "Page " + P.pages.length + " added."; P.bad = false;
+    P.said = "\u2713 Added: " + ppPageName(P.pages.length - 1, S.mode === "PTCA" ? "PTCA" : "CAG"); P.bad = false;
   } catch (e) {
     P.said = "Not added: " + (e.message || e); P.bad = true;
   }
