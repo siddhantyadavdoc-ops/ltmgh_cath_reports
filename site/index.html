@@ -7164,7 +7164,7 @@ function unsurePanel() {
 function freshPool() { return { items: [], seq: 0, busy: false, hold: {} }; }
 
 const S = {
-  later: { busy: false, said: "", bad: false },   // 13.54: "Upload to Drive - read later"
+  later: { busy: false, said: "", bad: false, topBusy: false, topSaid: "", topBad: false },   // 13.54: "Upload to Drive - read later"
   step: "capture", mode: "CAG", D: BLANK(), P: PBLANK(),
   cagFetch: { busy: false, q: "" },
   regDl: "",              // id of the shared case whose report is being fetched
@@ -10477,6 +10477,7 @@ function viewCapture() {
   // Identifying pages does not: sorting never touches a sheet being scanned.
   const busy = S.busy || S.pdf.busy;
   const poolN = S.pool.items.length;
+  h += caseFileCardHtml();
   h += `<div class="modebar"><span class="lbl">Proforma</span>
     <div class="segbtns">
       <button class="${S.mode !== "PTCA" ? "on" : ""}" onclick="setMode('CAG')" ${busy ? "disabled" : ""}>CAG</button>
@@ -10659,6 +10660,66 @@ function uploadHash(pages) {
     for (let i = 0; i < b.length; i += Math.max(1, b.length >> 9)) h = (h * 31 + b.charCodeAt(i)) | 0;
   });
   return String(h) + ":" + pages.length;
+}
+/* 13.57 - a whole case that is already one file (the copier's PDF, or a few JPGs
+   of one case): straight to Drive, nothing read here. The kind of case is chosen by
+   the button, and said again in the question before anything is sent. */
+function caseFileCardHtml() {
+  const can = !!(S.cfg.sheetUrl && S.cfg.editKey);
+  const L = S.later, busy = S.busy || S.pdf.busy || L.busy || L.topBusy;
+  const dis = can && !busy ? "" : "disabled";
+  return `<div class="card" style="border:2px solid #bcd0e6">
+    <div class="cardhead"><div><b>Upload a whole case file to Drive</b>
+      <p class="hint">Already have the full case as one PDF, or as JPGs? Send it straight to the shared Drive inbox \u2014 nothing is scanned here. It is read tonight (${esc2(laterWindow())}) at half price and is in Inbox scans by the next morning.</p></div></div>
+    <input type="file" accept="application/pdf,.pdf,image/*" multiple id="cagfile" hidden onchange="uploadCaseFile('CAG', this)">
+    <input type="file" accept="application/pdf,.pdf,image/*" multiple id="ptcafile" hidden onchange="uploadCaseFile('PTCA', this)">
+    <div class="btns">
+      <button class="b" style="flex:1 1 150px;border-color:#2f6f9f;color:#1d4f75;font-weight:600" onclick="document.getElementById('cagfile').click()" ${dis}>Upload a CAG case<br><span style="font-weight:400;font-size:12px">PDF or JPGs \u2192 CAG folder</span></button>
+      <button class="b" style="flex:1 1 150px;border-color:#8a4a9f;color:#5e2f73;font-weight:600" onclick="document.getElementById('ptcafile').click()" ${dis}>Upload a PTCA case<br><span style="font-weight:400;font-size:12px">PDF or JPGs \u2192 PTCA folder</span></button>
+    </div>
+    ${can ? "" : `<p class="hint" style="color:#8a6a12">Needs the shared sheet URL and the edit key (Settings).</p>`}
+    ${L.topSaid ? `<p class="hint" style="margin:8px 0 0;color:${L.topBad ? "#a33" : "#2a6b2a"}">${esc2(L.topSaid)}</p>` : ""}
+  </div>`;
+}
+async function uploadCaseFile(type, input) {
+  const files = Array.from(input.files || []);
+  input.value = "";
+  const L = S.later;
+  if (!files.length || L.busy || L.topBusy) return;
+  const isPdf = function (f) { return /pdf/i.test(f.type || "") || /\.pdf$/i.test(f.name || ""); };
+  const pdfs = files.filter(isPdf), imgs = files.filter(function (f) { return !isPdf(f); });
+  if (pdfs.length > 1 || (pdfs.length && imgs.length)) {
+    L.topSaid = "Choose ONE PDF for one case, or JPGs of one case \u2014 not several PDFs or a mix, so that two cases cannot get joined."; L.topBad = true; render(); return;
+  }
+  const what = pdfs.length ? "the PDF \u201c" + pdfs[0].name + "\u201d" : imgs.length + " JPG" + (imgs.length === 1 ? "" : "s") + " (joined into one file, in the order chosen)";
+  if (!confirm("Upload " + what + " as ONE " + type + " case?\n\nIt goes to the " + type + " folder in Drive and is read tonight at half price.\n(If this is the wrong kind of case, press Cancel and use the other button.)")) return;
+  L.topBusy = true; L.topBad = false; L.topSaid = "Preparing the file\u2026"; render();
+  try {
+    let b64, pages = 0;
+    if (pdfs.length) {
+      b64 = bytesToB64(new Uint8Array(await fileToArrayBuffer(pdfs[0])));
+    } else {
+      const pg = [];
+      for (let i = 0; i < imgs.length; i++) {
+        const im = await techImageFrom(imgs[i], S.cfg.imgMax || 1600);
+        pg.push({ b64: im.b64, mime: im.mime || "image/jpeg" });
+      }
+      pages = pg.length;
+      b64 = await casePdfB64(pg);
+    }
+    if (b64.length * 0.75 > 18 * 1024 * 1024) throw new Error("the file is larger than 18 MB \u2014 send it smaller");
+    const d = new Date(), z = function (n) { return (n < 10 ? "0" : "") + n; };
+    const stem = "app_" + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + "-" + Math.random().toString(36).slice(2, 6);
+    L.topSaid = "Uploading " + Math.round(b64.length * 0.75 / 1024) + " KB to the " + type + " folder\u2026"; render();
+    await sheetApi("caseUpload", { type: type, stem: stem, b64: b64, mime: "application/pdf", pages: pages, by: S.cfg.userName || "" }, 180000);
+    L.topBusy = false; L.topBad = false;
+    L.topSaid = "\u2713 " + type + " case uploaded to the " + type + " folder (" + (pdfs.length ? pdfs[0].name : imgs.length + " JPG" + (imgs.length === 1 ? "" : "s")) + "). It is read tonight (" + laterWindow() + ") at half price \u2014 look in Inbox scans tomorrow.";
+    render();
+  } catch (e) {
+    L.topBusy = false; L.topBad = true;
+    L.topSaid = "Not uploaded: " + (e.message || e) + " \u2014 nothing was sent. Choose the file again to retry.";
+    render();
+  }
 }
 /* "Read now - full price": the kept pages are recognised and sorted into their
    sheets (one short request each), then every sheet is read, one at a time */
@@ -11925,7 +11986,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.56", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.57", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
