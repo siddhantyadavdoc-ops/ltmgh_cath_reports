@@ -10529,11 +10529,11 @@ function viewCapture() {
   const nScanned = scannedCount();
   const nPhotos = photoCount();
   const left = nPhotos - nScanned;
-  h += laterOrNowHtml(nPhotos, left);
   h += `<button class="b primary wide" onclick="${S.mode === "PTCA" ? "buildPtcaReport()" : "buildReport()"}" ${nScanned && !S.busy ? "" : "disabled"}>
       ${nScanned ? "Merge " + nScanned + " scanned sheet" + (nScanned === 1 ? "" : "s") + " into one " + (S.mode === "PTCA" ? "PTCA report" : "report")
-                 : "Merge scanned sheets into one report"}</button>
-    <button class="b wide" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scan — fill in manually</button>
+                 : "Merge scanned sheets into one report"}</button>`;
+  h += laterOrNowHtml(nPhotos, left);
+  h += `<button class="b wide" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scan — fill in manually</button>
     <p class="hint" style="text-align:center">Sheets read now are held until you merge, so you can retry a
       stubborn sheet as often as you like. Sheets uploaded to Drive are read by the night scan instead.</p>`;
   return h;
@@ -10555,7 +10555,7 @@ function laterOrNowHtml(nPhotos, left) {
   const busy = S.busy || S.pdf.busy || S.later.busy;
   const what = S.mode === "PTCA" ? "PTCA" : "CAG";
   const N = nPhotos, sw = N + " sheet" + (N === 1 ? "" : "s");
-  let h = `<div class="card" style="border:2px solid #bcd0e6">
+  let h = `<div class="card" style="border:2px solid #bcd0e6;margin-top:12px">
     <div class="cardhead"><b>${N ? "Both ways to read these " + sw : "Two ways to read the sheets"}</b></div>
     <div style="display:flex;flex-wrap:wrap;gap:10px">
       <div style="flex:1 1 230px;border:1px solid #cfe3cf;background:#f4faf4;border-radius:10px;padding:10px">
