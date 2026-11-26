@@ -642,6 +642,8 @@ body.hasnav #appnav{display:flex}
 .costtbl input{width:110px}
 .costs .btns .b.on{background:#111;color:#fff}
 .thinkbox{border:1px solid #ddd;border-radius:8px;padding:6px 12px 2px;margin:10px 0 4px}
+.stephead{display:flex;align-items:center;gap:8px;margin:16px 0 6px}
+.stepn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#333;color:#fff;font-size:12px;font-weight:700}
 </style>
 </head>
 <body>
@@ -7164,6 +7166,7 @@ function unsurePanel() {
 function freshPool() { return { items: [], seq: 0, busy: false, hold: {} }; }
 
 const S = {
+  scanTab: "night", pp: freshPp(),   // 13.58
   later: { busy: false, said: "", bad: false, topBusy: false, topSaid: "", topBad: false },   // 13.54: "Upload to Drive - read later"
   step: "capture", mode: "CAG", D: BLANK(), P: PBLANK(),
   cagFetch: { busy: false, q: "" },
@@ -7663,6 +7666,7 @@ function clearScanSession() {
   S.pool = freshPool();
   S.batchCase = null;
   S.readBy = {};
+  if (S.pp) { ppDirty(); S.pp = freshPp(); }
 }
 function newPatient() {
   clearScanSession();
@@ -10486,6 +10490,13 @@ function viewCapture() {
     <span class="hint" style="margin:0">${S.mode === "PTCA"
       ? "4-sheet PTCA & stenting proforma + the technician's utilization sheet (+ the diagram sheet with the stent sticker, optional, cross-checked) — bloods, echo and CAG findings fill in from the registry; hardware from the utilization grid"
       : "4-sheet CAG proforma + the coronary diagram as sheet 5 — the drawing is cross-checked against the ticks; where they differ the report prints the tick with the diagram's figure in blue"}</span></div>`;
+  h += scanTabsHtml();
+  if (S.scanTab !== "now") {
+    h += ppTabHtml();
+    h += `<button class="b wide" style="margin-top:14px" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scan \u2014 fill in manually</button>`;
+    return h;
+  }
+  h += `<div class="stephead"><span class="stepn">1</span><b>Add the pages</b></div>`;
   const nWord = ["three", "four", "five", "six"][sheetCount() - 3] || String(sheetCount());
   h += `<p class="hint">Two ways in: add all the sheets at once below — photos or a PDF, in any order — and they
     are sorted into the ${nWord} sheets for you; or photograph each sheet on its own card. Photograph sheets flat and
@@ -10536,13 +10547,17 @@ function viewCapture() {
   const nScanned = scannedCount();
   const nPhotos = photoCount();
   const left = nPhotos - nScanned;
-  h += `<button class="b primary wide" onclick="${S.mode === "PTCA" ? "buildPtcaReport()" : "buildReport()"}" ${nScanned && !S.busy ? "" : "disabled"}>
-      ${nScanned ? "Merge " + nScanned + " scanned sheet" + (nScanned === 1 ? "" : "s") + " into one " + (S.mode === "PTCA" ? "PTCA report" : "report")
-                 : "Merge scanned sheets into one report"}</button>`;
-  h += laterOrNowHtml(nPhotos, left);
-  h += `<button class="b wide" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scan — fill in manually</button>
-    <p class="hint" style="text-align:center">Sheets read now are held until you merge, so you can retry a
-      stubborn sheet as often as you like. Sheets uploaded to Drive are read by the night scan instead.</p>`;
+  const nKept = S.pool.items.filter(function (it) { return it.state === "kept"; }).length;
+  const toRead = nKept ? casePages().length : left;
+  h += `<div class="stephead"><span class="stepn">2</span><b>Read each page now \u2014 full price</b></div>
+    <p class="hint">Every page is sent to Gemini now, one at a time (10\u201340 s a page). Charged at the full price \u2014 the half-price night queue is not used.</p>
+    <button class="b wide" style="background:#fbf3e4;border-color:#c98a1b;color:#7a4e00;font-weight:600" onclick="readNow()" ${toRead && !S.busy ? "" : "disabled"}>${toRead ? "\u26a1 Read " + toRead + " page" + (toRead === 1 ? "" : "s") + " NOW \u2014 full price" : nPhotos ? "\u2713 All pages read" : "\u26a1 Read NOW \u2014 full price (add pages first)"}</button>`;
+  h += `<div class="stephead"><span class="stepn">3</span><b>Merge the read pages into the report</b></div>
+    <button class="b primary wide" onclick="${S.mode === "PTCA" ? "buildPtcaReport()" : "buildReport()"}" ${nScanned && !S.busy ? "" : "disabled"}>
+      ${nScanned ? "Merge " + nScanned + " read page" + (nScanned === 1 ? "" : "s") + " \u2192 make the " + (S.mode === "PTCA" ? "PTCA" : "CAG") + " report"
+                 : "Merge read pages \u2192 make the report (read pages first)"}</button>
+    <p class="hint" style="text-align:center">Read pages are held until you merge, so a stubborn page can be read again.</p>`;
+  h += `<button class="b wide" style="margin-top:14px" onclick="skipScan()" ${S.busy ? "disabled" : ""}>Skip scan \u2014 fill in manually</button>`;
   return h;
 }
 
@@ -10721,6 +10736,153 @@ async function uploadCaseFile(type, input) {
     render();
   }
 }
+/* 13.58 - two tabs under "Upload a whole case file":
+   NIGHT  "Upload page by page - read tonight, half price": one page at a time (photo,
+          JPG or a ONE-page PDF), merged here into one PDF with no internet and no
+          Gemini, then uploaded for the night scan (shown only while the night scan is on);
+   NOW    "Scan page by page NOW - full price": the old way - each page read now,
+          merged, report made. */
+function scanTabsHtml() {
+  const t = S.scanTab === "now" ? "now" : "night";
+  const tab = function (k, top, sub, col) {
+    const on = t === k;
+    return `<button onclick="setScanTab('${k}')" ${S.busy || S.later.busy ? "disabled" : ""} style="flex:1 1 0;text-align:left;padding:10px 12px;border-radius:10px 10px 0 0;border:2px solid ${on ? col : "#d8dde3"};border-bottom:${on ? "2px solid #fff" : "2px solid " + col};background:${on ? "#fff" : "#f1f3f5"};cursor:pointer">
+      <div style="font-weight:700;color:${on ? col : "#555"}">${top}</div><div style="font-size:12px;color:#666">${sub}</div></button>`;
+  };
+  return `<div style="display:flex;gap:6px;margin-top:16px">
+    ${tab("night", "\ud83c\udf19 Upload page by page", "Read tonight \u00b7 half price", "#2a7a3a")}
+    ${tab("now", "\u26a1 Scan page by page NOW", "Read now \u00b7 full price", "#b06e00")}</div>`;
+}
+function setScanTab(k) { S.scanTab = k; render(); if (k === "night") nightStatusLoad(); }
+function nightStatusLoad() {
+  const L = S.later;
+  if (!S.cfg.sheetUrl || L.nightAt && Date.now() - L.nightAt < 300000) return;
+  L.nightAt = Date.now();
+  sheetApi("batchStatus", {}, 25000).then(function (j) {
+    const st = j && (j.status || j);
+    L.night = st && st.scheduled != null ? { on: !!st.scheduled, window: st.schedule && st.schedule.window || "" } : null;
+    render();
+  }).catch(function () { L.nightAt = 0; });
+}
+function ppHash() {
+  let h = 0;
+  S.pp.pages.forEach(function (pg) { const b = pg.b64; h = (h * 31 + b.length) | 0; for (let i = 0; i < b.length; i += Math.max(1, b.length >> 9)) h = (h * 31 + b.charCodeAt(i)) | 0; });
+  return String(h) + ":" + S.pp.pages.length;
+}
+function ppTabHtml() {
+  const P = S.pp, L = S.later, n = P.pages.length;
+  const kind = S.mode === "PTCA" ? "PTCA" : "CAG";
+  const busy = S.busy || L.busy || P.busy;
+  const merged = P.merged && P.merged.hash === ppHash() ? P.merged : null;
+  const can = !!(S.cfg.sheetUrl && S.cfg.editKey);
+  const night = L.night;
+  let h = `<div class="card" style="border:2px solid #2a7a3a;border-top-left-radius:0;margin-top:-2px">
+    <p class="hint" style="margin-top:0">Add the ${kind} pages <b>one at a time</b>. Nothing is read on this phone and nothing is charged now \u2014 the merged case is read tonight at half price.</p>
+    <div class="stephead"><span class="stepn">1</span><b>Add pages, one at a time</b></div>
+    <input type="file" accept="image/*" capture="environment" id="ppcam" hidden onchange="ppAdd(this)">
+    <input type="file" accept="image/jpeg,image/png,application/pdf,.pdf" id="ppfile" hidden onchange="ppAdd(this)">
+    <div class="btns">
+      <button class="b primary" onclick="document.getElementById('ppcam').click()" ${busy ? "disabled" : ""}>\ud83d\udcf7 Take photo of page ${n + 1}</button>
+      <button class="b" onclick="document.getElementById('ppfile').click()" ${busy ? "disabled" : ""}>Choose page ${n + 1} (JPG or 1-page PDF)</button>
+    </div>
+    <p class="hint">One page per photo or file. A PDF with more than one page is refused here \u2014 send that with <b>Upload a ${kind} case</b> above.</p>
+    ${P.said ? `<p class="hint" style="color:${P.bad ? "#a33" : "#2a6b2a"}">${esc2(P.said)}</p>` : ""}`;
+  if (n) {
+    h += `<div class="tray">` + P.pages.map(function (pg, i) {
+      return `<figure class="tile used" style="position:relative"><img src="${pg.thumb}" alt="">
+        <figcaption><b>Page ${i + 1}</b>${esc2(pg.src)}</figcaption>
+        <div style="display:flex;gap:4px;justify-content:center;margin-top:4px">
+          <button class="b" style="padding:2px 8px" onclick="ppMove(${i},-1)" ${i && !busy ? "" : "disabled"} aria-label="Move up">\u2191</button>
+          <button class="b" style="padding:2px 8px" onclick="ppMove(${i},1)" ${i < n - 1 && !busy ? "" : "disabled"} aria-label="Move down">\u2193</button>
+          <button class="b danger" style="padding:2px 8px" onclick="ppDel(${i})" ${busy ? "disabled" : ""} aria-label="Remove">\u2715</button></div></figure>`;
+    }).join("") + `</div>`;
+  }
+  h += `<div class="stephead"><span class="stepn">2</span><b>Merge the pages into one file (offline)</b></div>
+    <p class="hint">Joins the pages, in the order shown, into one PDF on this phone \u2014 no internet, no Gemini, free.</p>
+    <button class="b wide" style="border-color:#2a7a3a;color:#1e5a2a;font-weight:600" onclick="ppMerge()" ${n && !busy && !merged ? "" : "disabled"}>${merged ? "\u2713 Merged: " + merged.pages + " page" + (merged.pages === 1 ? "" : "s") + ", " + merged.kb + " KB" : n ? "Merge " + n + " page" + (n === 1 ? "" : "s") + " into one PDF" : "Merge pages into one PDF (add pages first)"}</button>
+    ${merged ? `<p class="hint" style="text-align:center"><a href="${merged.url}" target="_blank" rel="noopener">Open the merged PDF to check it</a> \u00b7 adding, moving or removing a page undoes the merge</p>` : ""}
+    <div class="stephead"><span class="stepn">3</span><b>Upload to be read tonight \u2014 half price</b></div>`;
+  if (night && !night.on) {
+    h += `<p class="hint" style="color:#a33">The night scan is turned OFF on the shared sheet, so an upload would not be read. Ask the editor to turn it on, or use the \u26a1 Scan NOW tab.</p>
+      <button class="b wide" disabled>\ud83c\udf19 Upload ${kind} case \u2014 night scan is off</button>`;
+  } else {
+    h += `<p class="hint">Sent to the <b>${kind}</b> folder in Drive as one file. Read tonight (${esc2((night && night.window) || laterWindow())}) through Google's half-price queue \u2014 the case is in Inbox scans by the next morning.</p>
+      <button class="b primary wide" style="background:#2a7a3a;border-color:#2a7a3a" onclick="ppUpload()" ${merged && can && !busy ? "" : "disabled"}>${L.busy ? "Uploading\u2026" : "\ud83c\udf19 Upload " + kind + " case to Drive \u2014 read tonight"}</button>
+      ${can ? (merged ? "" : `<p class="hint" style="text-align:center">Merge first (step 2).</p>`) : `<p class="hint" style="color:#8a6a12">Needs the shared sheet URL and the edit key (Settings).</p>`}`;
+  }
+  return h + `</div>`;
+}
+function ppDirty() { if (S.pp.merged) { try { URL.revokeObjectURL(S.pp.merged.url); } catch (e) {} } S.pp.merged = null; }
+async function ppAdd(input) {
+  const files = Array.from(input.files || []);
+  input.value = "";
+  const P = S.pp;
+  if (!files.length) return;
+  if (files.length > 1) { P.said = "One page at a time, please \u2014 " + files.length + " files were chosen."; P.bad = true; render(); return; }
+  const f = files[0];
+  P.busy = true; P.said = "Adding the page\u2026"; P.bad = false; render();
+  try {
+    let cv;
+    if (isPdfFile(f)) {
+      const lib = await loadPdfJs();
+      const doc = await lib.getDocument({ data: new Uint8Array(await fileToArrayBuffer(f)) }).promise;
+      if (doc.numPages !== 1) { try { doc.destroy(); } catch (e) {} throw new Error("this PDF has " + doc.numPages + " pages \u2014 add one page at a time here, or send the whole PDF with \u201cUpload a " + (S.mode === "PTCA" ? "PTCA" : "CAG") + " case\u201d above"); }
+      cv = await pdfPageToCanvas(await doc.getPage(1));
+      try { doc.destroy(); } catch (e) {}
+    } else {
+      const url = URL.createObjectURL(f);
+      try { cv = drawScaled(await loadImg(url), S.cfg.imgMax || 1600, 0); } finally { URL.revokeObjectURL(url); }
+    }
+    const full = drawScaled(cv, S.cfg.imgMax || 1600, 0);
+    const data = full.toDataURL("image/jpeg", 0.85);
+    P.pages.push({ b64: data.split(",")[1], mime: "image/jpeg", thumb: thumbOf(full), src: isPdfFile(f) ? "PDF" : f.type && /^image/.test(f.type) && !f.name ? "Photo" : (f.name || "Photo").slice(0, 18) });
+    ppDirty();
+    P.said = "Page " + P.pages.length + " added."; P.bad = false;
+  } catch (e) {
+    P.said = "Not added: " + (e.message || e); P.bad = true;
+  }
+  P.busy = false; render();
+}
+function ppMove(i, d) { const a = S.pp.pages, j = i + d; if (j < 0 || j >= a.length) return; const t = a[i]; a[i] = a[j]; a[j] = t; ppDirty(); S.pp.said = ""; render(); }
+function ppDel(i) { S.pp.pages.splice(i, 1); ppDirty(); S.pp.said = ""; render(); }
+async function ppMerge() {
+  const P = S.pp;
+  if (!P.pages.length || P.busy) return;
+  P.busy = true; P.said = "Merging\u2026"; P.bad = false; render();
+  try {
+    const b64 = await casePdfB64(P.pages);
+    const blob = new Blob([b64ToBytes(b64)], { type: "application/pdf" });
+    ppDirty();
+    P.merged = { b64: b64, kb: Math.round(blob.size / 1024), pages: P.pages.length, hash: ppHash(), url: URL.createObjectURL(blob) };
+    P.said = "";
+  } catch (e) { P.said = "Could not merge: " + (e.message || e); P.bad = true; }
+  P.busy = false; render();
+}
+async function ppUpload() {
+  const P = S.pp, L = S.later;
+  const merged = P.merged && P.merged.hash === ppHash() ? P.merged : null;
+  if (!merged || L.busy) return;
+  const kind = S.mode === "PTCA" ? "PTCA" : "CAG";
+  if (!confirm("Upload these " + merged.pages + " pages as ONE " + kind + " case?\n\nIt goes to the " + kind + " folder in Drive and is read tonight at half price.\n(Wrong kind? Cancel and switch CAG / PTCA above.)")) return;
+  if (P.stemFor !== kind + merged.hash) {
+    const d = new Date(), z = function (n) { return (n < 10 ? "0" : "") + n; };
+    P.stemFor = kind + merged.hash;
+    P.stem = "app_" + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + "-" + Math.random().toString(36).slice(2, 6);
+  }
+  L.busy = true; P.said = "Uploading " + merged.kb + " KB to the " + kind + " folder\u2026"; P.bad = false; render();
+  try {
+    await sheetApi("caseUpload", { type: kind, stem: P.stem, b64: merged.b64, mime: "application/pdf", pages: merged.pages, by: S.cfg.userName || "" }, 180000);
+    L.busy = false;
+    ppDirty(); S.pp = freshPp();
+    S.pp.said = "\u2713 " + kind + " case (" + merged.pages + " pages) uploaded. Read tonight at half price \u2014 look in Inbox scans tomorrow. Ready for the next case.";
+    render();
+  } catch (e) {
+    L.busy = false;
+    P.said = "Not uploaded: " + (e.message || e) + " \u2014 nothing was sent in part. The pages are still here; press Upload again (a repeat is not stored twice).";
+    P.bad = true; render();
+  }
+}
+function freshPp() { return { pages: [], merged: null, busy: false, said: "", bad: false, stem: "", stemFor: "" }; }
 /* "Read now - full price": the kept pages are recognised and sorted into their
    sheets (one short request each), then every sheet is read, one at a time */
 async function readNow() {
@@ -11986,7 +12148,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.57", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.58", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
