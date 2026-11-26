@@ -10781,15 +10781,15 @@ function ppTabHtml() {
     <input type="file" accept="image/*" capture="environment" id="ppcam" hidden onchange="ppAdd(this)">
     <input type="file" accept="image/jpeg,image/png,application/pdf,.pdf" id="ppfile" hidden onchange="ppAdd(this)">
     <div class="btns">
-      <button class="b primary" onclick="document.getElementById('ppcam').click()" ${busy ? "disabled" : ""}>\ud83d\udcf7 Take photo of page ${n + 1}</button>
-      <button class="b" onclick="document.getElementById('ppfile').click()" ${busy ? "disabled" : ""}>Choose page ${n + 1} (JPG or 1-page PDF)</button>
+      <button class="b primary" onclick="document.getElementById('ppcam').click()" ${busy ? "disabled" : ""}>\ud83d\udcf7 Take photo of ${esc2(ppPageName(n, kind))}</button>
+      <button class="b" onclick="document.getElementById('ppfile').click()" ${busy ? "disabled" : ""}>Choose ${esc2(ppPageName(n, kind))} (JPG or 1-page PDF)</button>
     </div>
     <p class="hint">One page per photo or file. A PDF with more than one page is refused here \u2014 send that with <b>Upload a ${kind} case</b> above.</p>
     ${P.said ? `<p class="hint" style="color:${P.bad ? "#a33" : "#2a6b2a"}">${esc2(P.said)}</p>` : ""}`;
   if (n) {
     h += `<div class="tray">` + P.pages.map(function (pg, i) {
       return `<figure class="tile used" style="position:relative"><img src="${pg.thumb}" alt="">
-        <figcaption><b>Page ${i + 1}</b>${esc2(pg.src)}</figcaption>
+        <figcaption><b>${esc2(ppPageName(i, kind))}</b><br>${esc2(pg.src)}</figcaption>
         <div style="display:flex;gap:4px;justify-content:center;margin-top:4px">
           <button class="b" style="padding:2px 8px" onclick="ppMove(${i},-1)" ${i && !busy ? "" : "disabled"} aria-label="Move up">\u2191</button>
           <button class="b" style="padding:2px 8px" onclick="ppMove(${i},1)" ${i < n - 1 && !busy ? "" : "disabled"} aria-label="Move down">\u2193</button>
@@ -10812,6 +10812,31 @@ function ppTabHtml() {
   return h + `</div>`;
 }
 function ppDirty() { if (S.pp.merged) { try { URL.revokeObjectURL(S.pp.merged.url); } catch (e) {} } S.pp.merged = null; }
+
+/* Human-readable name for page i (0-based) in the page-by-page upload tab.
+   CAG: 4 expected pages. PTCA: 4 proforma + utilization + optional diagram. */
+function ppPageName(i, kind) {
+  if (kind === "PTCA") {
+    const names = [
+      "Sheet 1 — Front page",
+      "Sheet 2 — Investigations",
+      "Sheet 3 — Procedure & technique",
+      "Sheet 4 — Bif / thrombus / calcium",
+      "Utilization sheet (technician's)",
+      "Diagram stent sheet (optional)",
+    ];
+    return kind + " — " + (names[i] || "extra page " + (i + 1));
+  } else {
+    const names = [
+      "Sheet 1 — Clinical proforma",
+      "Sheet 2 — Angiogram, page 1",
+      "Sheet 3 — Angiogram, page 2",
+      "Sheet 4 — Angiogram, page 3",
+    ];
+    return kind + " — " + (names[i] || "extra page " + (i + 1));
+  }
+}
+
 async function ppAdd(input) {
   const files = Array.from(input.files || []);
   input.value = "";
@@ -12147,7 +12172,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.58", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.59", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
