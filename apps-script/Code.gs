@@ -313,7 +313,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov. 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -1503,7 +1503,7 @@ function batchTick(opts) {
   try { fixing = invAutoFix_(runId); headFill_();
     // 13.50: the one-time imports, ONE per run (in this order), so no run comes near Google's 6-minute limit
     invImport20Nov_(runId) || invFix21Nov_(runId) || invImport23Nov_(runId) || invImport23NovB_(runId) || invImport23NovC_(runId) ||
-      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId) || boxX12Fix25Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
+      invReturn23Nov_(runId) || invUsed23Nov_(runId) || invStickers23Nov_(runId) || invFix24Nov_(runId) || invShelf24Nov_(runId) || cagYears1352_(runId) || ptcaSorte25Nov_(runId) || boxUltima25Nov_(runId) || boxRockstar25Nov_(runId) || boxPhoto20Nov9_(runId) || stickers25Nov_(runId) || ptcaDiagResort_(runId) || boxX12Fix25Nov_(runId) || boxUltShelf26Nov_(runId); } catch (eF) { batchLogRow_(runId, "", "", "stock correction", "error", String(eF && eF.message || eF)); }
   if (!opts.fromApp && fixing && batchPlan_().mode === "closed") { opts.only = "inventory"; opts.fromApp = true; BATCH_QUEUE_MODE_ = ""; PHOTO_MODE_ = "now"; }
   if (!opts.fromApp) {
     var plan = batchPlan_();
@@ -6528,6 +6528,69 @@ function boxX12Fix25Nov_(runId) {
   if (n) { try { boxSyncMoves_(who); } catch (e) {} }
   pr.setProperty("BOX_X12_25NOV", JSON.stringify({ at: at, rows: n }));
   batchLogRow_(runId, "", "", "Xience 2.75 × 12 count", "written", n + " row(s): two boxes, not three");
+  return true;
+}
+
+/* 13.60, once — the Ultimaster Tansei shelf of 26 Nov (six photos Dr Yadav
+   sent, read box by box by Claude: 60 boxes). What the photos settle:
+   - stock_20261120-100045.jpg's LOTs, boxes 10–13, were shifted by one box,
+     and its third 3.5 × 33 is not there (two 3.5 × 33, both LOT 260128);
+   - IMG_0056's 3.0 × 28 LOT 260225 was a third box, not a repeat;
+   - a 2.75 × 15 LOT 250619 (2027-05-31) was never on the list;
+   - the 3.0 × 33 LOT 260130 and 3.0 × 38 LOT 260521 (PTCA 2397 AP-667,
+     20 Nov) and one 3.5 × 38 LOT 260310 (PTCA 2411 AP-668, 23 Nov) are gone;
+   - the 20 Nov shelf photos were taken at 10 am: PTCA 2397's two stents were
+     on them, so Ultimaster uses count from 20 Nov, not 21 Nov.
+   Three boxes show their own (93) number on the label; it is kept. */
+var ULT_26NOV_PHOTO = "Ultimaster shelf, 26 Nov morning (photos sent in the chat, read by Claude)";
+var ULT_26NOV_BOX = [
+  ["XMWOM5A8YA", { lot: "260113", expiry: "2027-12-31" }, "LOT corrected from 250806 (the box to its left) — shelf photo of 26 Nov"],
+  ["XMWOM5A8ZB", { lot: "260304", expiry: "2028-02-29" }, "LOT corrected from 260113 — shelf photo of 26 Nov"],
+  ["XMWOM5A90C", { lot: "260105", expiry: "2027-12-31" }, "LOT corrected from 260304 — shelf photo of 26 Nov"],
+  ["XMWOM5A91D", { lot: "260219", expiry: "2028-01-31" }, "LOT corrected from 260105 — shelf photo of 26 Nov"],
+  ["XMWOM5A93F", { status: "discarded" }, "not a box: the shelf has two 3.5 × 33 (both LOT 260128), not three — shelf photo of 26 Nov"],
+  ["XMWOM9EFR1", { status: "in stock", same: "" }, "a third 3.0 × 28 of LOT 260225, not a repeat: the shelf of 26 Nov has three"],
+  ["XMWOM5A8L3", { status: "used", usedIn: "PTCA 2397AP667 · Rahul Sorte" }, "sticker of PTCA 2397 AP-667 (20 Nov); not on the shelf of 26 Nov"],
+  ["XMWOM5A8O4", { status: "used", usedIn: "PTCA 2397AP667 · Rahul Sorte" }, "sticker of PTCA 2397 AP-667 (20 Nov); not on the shelf of 26 Nov"],
+  ["XMWOM5A98J", { status: "used", usedIn: "PTCA 2411AP668 · Dhiraj Kori" }, "sticker of PTCA 2411 AP-668 (23 Nov); one of the two 3.5 × 38 LOT 260310 left — the shelf of 26 Nov has one"],
+  ["XMWOLXPRUG", { scan: "(01)05413206221370(17)280430(10)260528(93)000573" }, ""],
+  ["XMWOM9EFZ4", { scan: "(01)05413206221110(17)280430(10)260519(93)000158" }, ""],
+  ["XMWOLXPRG2", { scan: "(01)05413206221097(17)280430(10)260527(93)000510" }, ""]
+];
+function boxUltShelf26Nov_(runId) {
+  var pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty("BOX_ULT_26NOV")) return false;
+  pr.setProperty("BOX_ULT_26NOV", "started " + cathNow_());
+  var who = "Claude (Ultimaster shelf of 26 Nov)", at = cathNow_(), boxes = boxRowsAll_(), byId = {}, n = 0, missed = [];
+  boxes.forEach(function (b) { byId[b.id] = b; });
+  ULT_26NOV_BOX.forEach(function (f) {
+    var b = byId[f[0]]; if (!b) { missed.push(f[0]); return; }
+    Object.keys(f[1]).forEach(function (k) { if (k === "scan" && b.scan) return; b[k] = f[1][k]; });
+    if (f[2]) b.why = f[2];
+    b.checkedBy = who; b.checkedAt = at; boxWrite_(b); n++;
+  });
+  // the 2.75 × 15 LOT 250619 that was not on the list
+  var added = 0;
+  if (!boxes.some(function (b) { return b.up === "CLAUDE-26NOV-ULT"; })) {
+    boxAppend_([{ id: cathId_("X"), up: "CLAUDE-26NOV-ULT", photo: ULT_26NOV_PHOTO, fileId: "", status: "in stock",
+      why: "on the shelf of 26 Nov; not on the photos of 20 Nov", kind: "stent", brand: "Ultimaster Tansei", mfr: "Terumo",
+      dia: "2.75", len: "15", ref: "DE-RQ2715KSM", lot: "250619", serial: "", expiry: "2027-05-31", gtin: "", codes: "", place: "2.75 stack, bottom box",
+      item: "", same: "", readAt: at, readBy: "Claude", checkedBy: who, checkedAt: at, size: "", area: "", usedIn: "", scan: "" }]);
+    added = 1;
+  }
+  try { boxSyncMoves_(who); } catch (e) {}
+  // Ultimaster uses count from 20 Nov (the shelf photos were taken that morning)
+  var items = invItems_(), nf = 0;
+  items.forEach(function (it) {
+    if (it.kind !== "stent" || !/ultimaster/i.test(it.brand) || it.fromSetBy === "hand") return;
+    if (it.from === "2026-11-20") return;
+    it.from = "2026-11-20"; it.fromAuto = false; it.updated = at; it.by = who; nf++;
+  });
+  if (nf) invWriteTab_(items);
+  invAfterSticker_(who);
+  pr.setProperty("BOX_ULT_26NOV", JSON.stringify({ at: at, rows: n, added: added, from: nf, missed: missed }));
+  batchLogRow_(runId, "", "", "Ultimaster shelf of 26 Nov", "written", n + " box row(s) corrected, " + added + " new box (2.75 × 15 LOT 250619); " + nf +
+    " Ultimaster size(s) count uses from 20 Nov — the list now matches the 60 boxes on the shelf" + (missed.length ? "; not found: " + missed.join(", ") : ""));
   return true;
 }
 
