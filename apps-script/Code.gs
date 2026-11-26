@@ -313,7 +313,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov. 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov; a sticker photo's barcodes (read on the phone) are given to its stickers ("Scanned barcode", the LOT corrected by them) and every sticker — stent or any other device — marks its very box used (own number (91)/(93)/(21), serial, else LOT among boxes photographed by then); a barcode naming a box not in stock is flagged; a removed sticker gives its box back. 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -4228,7 +4228,7 @@ function invGet_(req) {
   var chk = invStickerCheck_(moves, stickers, items);
   var o = { items: list, start: invStart_(), moves: moves.slice(-400).reverse().map(invMoveOut_), moveCount: moves.length, pending: invPending_(),
     kinds: INV_KIND_ORDER.map(function (k) { return { kind: k, label: INV_KIND_LABEL[k] }; }),
-    review: chk.review, noSheet: chk.noSheet, diagDiff: diagDiff, needSync: invNeedSync_(moves, stickers) };
+    review: chk.review, noSheet: chk.noSheet, diagDiff: diagDiff, boxFlags: stentBoxFlags_(), needSync: invNeedSync_(moves, stickers) };
   try { o.boxFix = invAutoFixStatus_(); } catch (e) {}
   try { o.stockPhotos = invPhotoList_(); } catch (e) {}
   try {
@@ -4390,7 +4390,8 @@ function invSave_(req) {
       var seeded = invSeed_(items, by);
       moves = invMovesAll_();
       var sy = invSyncStickers_(items, moves, by);
-      said = (seeded ? seeded + " device(s) from the hardware list put on the inventory. " : "") +
+      try { var sbx = stentBoxUse_(by); if (sbx.taken || sbx.back) said = sbx.taken + " box(es) named by their stickers" + (sbx.back ? ", " + sbx.back + " put back" : "") + ". "; } catch (eB) {}
+      said = (said || "") + (seeded ? seeded + " device(s) from the hardware list put on the inventory. " : "") +
         (sy.added || sy.removed ? "Stent stickers: " + sy.added + " taken off, " + sy.removed + " given back." : "Stent stickers are up to date.");
       break;
     case "reject":
@@ -4426,13 +4427,13 @@ var INVUP_IN_DEFAULT = "Stock in upload", INVUP_DONE_DEFAULT = "Stock in process
 var STENT_KEEP_DEFAULT = 200;
 var STENT_HEAD = ["Sticker id", "Upload id", "Patient", "PTCA / Cath No", "IP No", "Date", "Device", "Brand", "Manufacturer", "Size",
   "Diameter (mm)", "Length (mm)", "REF", "LOT", "Serial No", "Expiry", "Mfg date", "GTIN", "Barcode / QR text", "Other",
-  "Unsure", "Photo", "Scanned at", "Read by", "Bill no", "Bill date", "Vendor", "Billed at", "Billed by", "Edited", "Notes", "File id", "Photo removed"];
+  "Unsure", "Photo", "Scanned at", "Read by", "Bill no", "Bill date", "Vendor", "Billed at", "Billed by", "Edited", "Notes", "File id", "Photo removed", "Scanned barcode"];
 var STENT_UP_HEAD = ["Upload id", "Status", "File", "File id", "Uploaded", "Scanned at", "Stickers", "Patient", "Number",
   "Errors", "Log", "Tries", "Read by", "Photo removed", "By", "Purpose", "Folder", "Result"];
 /* the fields of a sticker row as the app knows them (index = column) */
 var STENT_KEYS = ["id", "up", "patient", "ptcaNo", "ipNo", "date", "device", "brand", "mfr", "size", "dia", "len", "ref", "lot", "serial",
   "expiry", "mfg", "gtin", "codes", "other", "unsure", "photo", "scannedAt", "readBy", "billNo", "billDate", "vendor", "billedAt", "billedBy",
-  "edited", "notes", "fileId", "photoGone"];
+  "edited", "notes", "fileId", "photoGone", "scan"];
 var STENT_EDITABLE = ["patient", "ptcaNo", "ipNo", "date", "device", "brand", "mfr", "size", "dia", "len", "ref", "lot", "serial", "expiry", "mfg", "gtin", "codes", "other", "notes"];
 function stentKeepN_() {
   var v = Number(PropertiesService.getScriptProperties().getProperty("STENT_KEEP"));
@@ -4620,7 +4621,7 @@ function stentRowOf_(id, up, p, s, photo, fileId, readBy) {
   var o = { id: id, up: up, patient: p.name, ptcaNo: p.ptcaNo, ipNo: p.ipNo, date: p.date, device: s.device, brand: s.brand, mfr: s.mfr, size: size,
     dia: s.dia, len: s.len, ref: s.ref, lot: s.lot, serial: s.serial, expiry: s.expiry, mfg: s.mfg, gtin: s.gtin, codes: s.codes.join("\n"), other: s.other,
     unsure: s.unsure, photo: photo || "", scannedAt: cathNow_(), readBy: readBy || "", billNo: "", billDate: "", vendor: "", billedAt: "", billedBy: "",
-    edited: "", notes: "", fileId: fileId || "", photoGone: "" };
+    edited: "", notes: "", fileId: fileId || "", photoGone: "", scan: s.scan || "" };
   return STENT_KEYS.map(function (k) { return String(o[k] == null ? "" : o[k]); });
 }
 function stentRowsAll_() {
@@ -4737,6 +4738,16 @@ function stentTick_(f, models, key, runId, manual, pause, timeLeft) {
     }
     var sheets = stentNormRead_(res.json);
     var n = 0; sheets.forEach(function (s) { n += s.stickers.length; });
+    var scanNote = "";
+    try {
+      var scS = photoCodesOf_(r.fileId);
+      if (scS.length && n) {
+        var at = stentAttachScan_(sheets, scS, boxCatalog_(boxRowsAll_()));
+        scanNote = at.matched + " barcode(s) matched to stickers" + (at.fixed.length ? "; LOT corrected by the barcode: " + at.fixed.join(", ") : "");
+        if (at.left.length) scanNote += "; barcode with no sticker read: " + at.left.join(", ");
+        r.codesLeft = at.left;
+      }
+    } catch (eS) {}
     if (!n) {
       r.status = "failed"; r.errors = [{ step: "reading", reason: "no sticker could be read on this photo — photograph the stickers flat and close, then upload again" }];
       stentNote_(r, runId, "reading", "failed", "no sticker found"); stentFinishMove_(f, file, r, runId); stentUpWrite_(r); out.failed++; pause(); continue;
@@ -4747,7 +4758,9 @@ function stentTick_(f, models, key, runId, manual, pause, timeLeft) {
     var rows = [], k = 0, photo = stentPhotoUrl_(r.fileId);
     sheets.forEach(function (s) { s.stickers.forEach(function (st) { k++; rows.push(stentRowOf_(r.id + "-" + k, r.id, s.patient, st, photo, r.fileId, res.model || "")); }); });
     stentWriteRows_(rows);
-    r.status = "scanned"; r.stickers = n; r.errors = []; r.readBy = res.model || "";
+    r.status = "scanned"; r.stickers = n; r.readBy = res.model || "";
+    r.errors = r.codesLeft && r.codesLeft.length ? [{ step: "barcodes", reason: "a barcode on this photo matches no sticker read — check the page: " + r.codesLeft.join(", ") }] : [];
+    if (scanNote) stentNote_(r, runId, "barcodes", r.codesLeft && r.codesLeft.length ? "check" : "ok", scanNote);
     r.patient = sheets.map(function (s) { return s.patient.name; }).filter(Boolean).join("; ");
     r.number = sheets.map(function (s) { return s.patient.ptcaNo; }).filter(Boolean).join("; ");
     r.scannedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
@@ -4757,6 +4770,7 @@ function stentTick_(f, models, key, runId, manual, pause, timeLeft) {
     out.scanned++; out.stickers += n;
     pause();
   }
+  if (out.scanned) { try { invAfterSticker_("stent photos"); } catch (eA) {} }
   if (out.scanned || out.failed) {
     try { var hk = stentHousekeep_(f, runId); if (hk) out.why = (out.why ? out.why + "; " : "") + hk; }
     catch (e) { batchLogRow_(runId, "", "", "stent housekeeping", "failed", String(e && e.message || e)); }
@@ -4947,7 +4961,135 @@ function stentSave_(req) {
 function invAfterSticker_(by) {
   try { var items = invItems_(); var mv = invMovesAll_(); var r = invSyncStickers_(items, mv, by); if (r.added || r.removed || items.some(function (x) { return x.isNew; })) invWriteTab_(items); }
   catch (e) { Logger.log("inventory after a sticker: " + e); }
+  try { stentBoxUse_(by); } catch (e2) { Logger.log("sticker boxes: " + e2); }
 }
+/* ---- 13.60: a sticker's barcode takes off its very box ----
+   The phone reads the barcodes on a sticker photo before it is made smaller
+   (as on stock photos); when the stickers are read, each barcode is given to
+   the sticker of the same LOT (or the same product, the LOT read one character
+   off — a barcode is never misread, so it corrects the LOT). Its text is kept
+   on the sticker ("Scanned barcode").
+   Then every sticker — stents and every other device with a sticker — is
+   matched to its box on the stock list: by the box's own number in the
+   barcode ((91) Abbott, (93) Terumo, (21) / serial), else by LOT, size and
+   brand among the boxes in stock that were photographed on or before the
+   sticker's day. That box becomes "used", in that case. The counts do not
+   change: a stent's sticker (and a device's utilization sheet line) takes it
+   off; the box is only named. A sticker whose barcode names a box that is not
+   in stock (returned, discarded, used in another case) is flagged. A box
+   taken by a sticker that is later removed or corrected is put back. */
+function stentAttachScan_(sheets, codes, cat) {
+  var out = { matched: 0, fixed: [], left: [] };
+  var cs = [];
+  (codes || []).forEach(function (c) {
+    var p = boxScanParse_(c && c.t);
+    if (!p) return;
+    if (cs.some(function (d) { return d.t === String(c.t) && Math.hypot(d.x - c.x, d.y - c.y) < 20; })) return;
+    var k = boxProdKey_(c.t), v = k && cat ? cat[k] : null;
+    cs.push({ t: String(c.t), x: Number(c.x) || 0, y: Number(c.y) || 0, p: p, v: v });
+  });
+  var sts = [];
+  (sheets || []).forEach(function (s) { s.stickers.forEach(function (st) { sts.push(st); }); });
+  var sizeOf = function (st) { return invSizeKey_(invStickerSize_(st)); };
+  var prodOk = function (c, st) {
+    if (c.p.gtin && st.gtin && /^\d{14}$/.test(String(st.gtin))) return c.p.gtin === String(st.gtin);
+    if (c.v && (c.v.dia || c.v.size) && sizeOf(st)) return invSizeKey_(c.v.dia ? c.v.dia + "×" + c.v.len : c.v.size) === sizeOf(st);
+    return true;
+  };
+  var lotOf = function (x) { return invNorm_(x.lot) || invNorm_(x.serial); };
+  var pass = function (test) {
+    cs.forEach(function (c) {
+      if (c.done) return;
+      var id = invNorm_(c.p.lot) || invNorm_(c.p.serial);
+      var hit = sts.filter(function (st) { return !st.scan && test(c, st, id); });
+      if (!hit.length) return;
+      var st = hit[0];
+      st.scan = c.t; c.done = true; out.matched++;
+      if (c.p.lot && invNorm_(st.lot) !== invNorm_(c.p.lot)) { out.fixed.push((st.lot || "no LOT") + " → " + c.p.lot); st.lot = c.p.lot; }
+      if (!st.gtin && c.p.gtin) st.gtin = c.p.gtin;
+      if (!st.serial && c.p.serial) st.serial = c.p.serial;
+      if (!st.expiry && c.p.exp) st.expiry = c.p.exp;
+    });
+  };
+  pass(function (c, st, id) { return id && lotOf(st) === id && prodOk(c, st); });
+  pass(function (c, st, id) { return id && lotOf(st) && boxEdit1_(lotOf(st), id) && prodOk(c, st) && (c.p.gtin && st.gtin || c.v); });
+  pass(function (c, st, id) { return !lotOf(st) && c.v && prodOk(c, st); });
+  cs.forEach(function (c) { if (!c.done) out.left.push(c.v ? [c.v.brand, c.v.dia ? c.v.dia + "×" + c.v.len : c.v.size, c.p.lot ? "LOT " + c.p.lot : ""].filter(Boolean).join(" ") : c.t); });
+  return out;
+}
+function stentBoxUse_(by) {
+  var all = stentRowsAll_(), boxes = boxRowsAll_();
+  var list = stentCounted_(all).concat(all.filter(function (s) { return !invIsStentSticker_(s) && !stentIsDiag_(s) && (s.lot || s.scan || s.serial); }));
+  var byKey = {}; list.forEach(function (s) { byKey["STICKER " + s.id] = s; });
+  var upDay = {}; try { stentUpRows_().rows.forEach(function (r) { upDay[r.id] = String(r.uploaded || "").slice(0, 10); }); } catch (e) {}
+  var dayOf = function (b) { return upDay[b.up] || String(b.readAt || "").slice(0, 10); };
+  var unitOf = function (s) { var p = s.scan ? boxScanParse_(s.scan) : null; return p ? p.unit : ""; };
+  var lotOf = function (x) { return invNorm_(x.lot) || invNorm_(x.serial); };
+  var caseTxt = function (s) { return [s.ptcaNo ? "PTCA " + s.ptcaNo : "", s.patient].filter(Boolean).join(" · "); };
+  var fits = function (s, b) {
+    var u = unitOf(s), bu = boxScanUnit_(b);
+    if (u && bu) return u === bu;
+    if (!lotOf(s) || lotOf(b) !== lotOf(s)) return false;
+    if (invIsStentSticker_(s)) {
+      if ((b.kind || "stent") !== "stent") return false;
+      if (invSizeKey_(boxSizeText_(b)) !== invSizeKey_(invStickerSize_(s))) return false;
+      var sb = invNorm_(s.brand), bb = invNorm_(b.brand);
+      return !sb || !bb || sb.indexOf(bb) >= 0 || bb.indexOf(sb) >= 0;
+    }
+    if (s.gtin && b.gtin) return String(s.gtin) === String(b.gtin);
+    return (b.kind || "stent") !== "stent";
+  };
+  var changed = 0, taken = 0, back = 0, flags = [];
+  var write = function (b) { if (b.row) boxWrite_(b); changed++; };
+  // a box taken by a sticker that is gone, or no longer fits it: back in stock
+  boxes.forEach(function (b) {
+    if (String(b.same || "").indexOf("STICKER ") !== 0) return;
+    var s = byKey[b.same];
+    if (s && fits(s, b)) return;
+    b.status = "in stock"; b.why = "back in stock: the sticker that took it off was removed or corrected (" + cathNow_().slice(0, 10) + ")";
+    b.same = ""; b.usedIn = ""; write(b); back++;
+  });
+  var claimed = {}; boxes.forEach(function (b) { if (String(b.same || "").indexOf("STICKER ") === 0) claimed[b.same] = b; });
+  list.forEach(function (s) {
+    var key = "STICKER " + s.id;
+    if (claimed[key]) return;
+    var d = invStickerDate_(s), u = unitOf(s), how = "";
+    var pool = boxes.filter(function (b) { return String(b.same || "").indexOf("STICKER ") !== 0 && fits(s, b); });
+    var hit = null;
+    if (u) {
+      hit = pool.filter(function (b) { return boxScanUnit_(b) === u; })[0] || null;
+      if (hit && !/^(in stock|unseen|used)$/.test(hit.status)) {
+        flags.push({ ptcaNo: s.ptcaNo, patient: s.patient, date: d, what: [s.brand, invStickerSize_(s), s.lot ? "LOT " + s.lot : ""].filter(Boolean).join(" "),
+          why: "its barcode is the box marked " + hit.status + (hit.why ? " (" + hit.why + ")" : "") });
+        return;
+      }
+      if (hit) how = "by its barcode";
+    }
+    if (!hit && invNorm_(s.serial)) {
+      hit = pool.filter(function (b) { return /^(in stock|unseen)$/.test(b.status) && invNorm_(b.serial) === invNorm_(s.serial); })[0] || null;
+      if (hit) how = "by its serial number";
+    }
+    if (!hit) {
+      // a box already marked used (the day's photo, or by hand) for this case
+      hit = pool.filter(function (b) { return b.status === "used" && !b.same && b.usedIn && invSameCase_(String(b.usedIn).replace(/^PTCA\s*/i, ""), s.ptcaNo); })[0] || null;
+      if (hit) how = "already marked used";
+    }
+    if (!hit) {
+      var free = pool.filter(function (b) { return (b.status === "in stock" || b.status === "unseen") && (!dayOf(b) || dayOf(b) <= d) && !(u && boxScanUnit_(b)); });
+      free.sort(function (a, c) { return (boxExpiryIso_(a.expiry) || "9999") < (boxExpiryIso_(c.expiry) || "9999") ? -1 : 1; });
+      hit = free[0] || null;
+      if (hit) how = "by its LOT" + (dayOf(hit) === d ? " (the same day as its stock photo — taken as used after the photo)" : "");
+    }
+    if (!hit) return;
+    if (hit.status !== "used") hit.why = "sticker of " + caseTxt(s) + " (" + d + ") — " + how;
+    else hit.why = (hit.why ? hit.why + " · " : "") + "sticker of " + caseTxt(s);
+    hit.status = "used"; hit.same = key; hit.usedIn = caseTxt(s);
+    claimed[key] = hit; write(hit); taken++;
+  });
+  try { PropertiesService.getScriptProperties().setProperty("STICKER_BOX_FLAGS", JSON.stringify(flags.slice(-40))); } catch (e) {}
+  return { taken: taken, back: back, flags: flags.length };
+}
+function stentBoxFlags_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty("STICKER_BOX_FLAGS") || "[]") || []; } catch (e) { return []; } }
 /* a photo read again from the start (its file is wherever it now is) */
 function stentRetry_(req) {
   var tab = stentUpRows_();
@@ -5808,6 +5950,7 @@ function stentToStock_(req) {
   var items = invItems_(), mv = invMovesAll_();
   invSyncStickers_(items, mv, by);
   if (items.some(function (x) { return x.isNew; })) invWriteTab_(items);
+  try { stentBoxUse_(by); } catch (eB) {}
   return { moved: moved, skipped: skipped, said: moved + " photo(s) moved to the inventory; they are read box by box on the next run (or press Read inventory photos now)" + (skipped.length ? "; " + skipped.length + " skipped (already stock or not found)" : "") + "." };
 }
 /* "Read all stock photos again": every stock photo's boxes (and the stock
@@ -6538,7 +6681,8 @@ function boxX12Fix25Nov_(runId) {
    - IMG_0056's 3.0 × 28 LOT 260225 was a third box, not a repeat;
    - a 2.75 × 15 LOT 250619 (2027-05-31) was never on the list;
    - the 3.0 × 33 LOT 260130 and 3.0 × 38 LOT 260521 (PTCA 2397 AP-667,
-     20 Nov) and one 3.5 × 38 LOT 260310 (PTCA 2411 AP-668, 23 Nov) are gone;
+     20 Nov) and one 3.5 × 38 LOT 260310 (PTCA 2411 AP-668, 23 Nov) are gone —
+     their stickers mark those boxes used (stentBoxUse_, at the end);
    - the 20 Nov shelf photos were taken at 10 am: PTCA 2397's two stents were
      on them, so Ultimaster uses count from 20 Nov, not 21 Nov.
    Three boxes show their own (93) number on the label; it is kept. */
@@ -6550,9 +6694,6 @@ var ULT_26NOV_BOX = [
   ["XMWOM5A91D", { lot: "260219", expiry: "2028-01-31" }, "LOT corrected from 260105 — shelf photo of 26 Nov"],
   ["XMWOM5A93F", { status: "discarded" }, "not a box: the shelf has two 3.5 × 33 (both LOT 260128), not three — shelf photo of 26 Nov"],
   ["XMWOM9EFR1", { status: "in stock", same: "" }, "a third 3.0 × 28 of LOT 260225, not a repeat: the shelf of 26 Nov has three"],
-  ["XMWOM5A8L3", { status: "used", usedIn: "PTCA 2397AP667 · Rahul Sorte" }, "sticker of PTCA 2397 AP-667 (20 Nov); not on the shelf of 26 Nov"],
-  ["XMWOM5A8O4", { status: "used", usedIn: "PTCA 2397AP667 · Rahul Sorte" }, "sticker of PTCA 2397 AP-667 (20 Nov); not on the shelf of 26 Nov"],
-  ["XMWOM5A98J", { status: "used", usedIn: "PTCA 2411AP668 · Dhiraj Kori" }, "sticker of PTCA 2411 AP-668 (23 Nov); one of the two 3.5 × 38 LOT 260310 left — the shelf of 26 Nov has one"],
   ["XMWOLXPRUG", { scan: "(01)05413206221370(17)280430(10)260528(93)000573" }, ""],
   ["XMWOM9EFZ4", { scan: "(01)05413206221110(17)280430(10)260519(93)000158" }, ""],
   ["XMWOLXPRG2", { scan: "(01)05413206221097(17)280430(10)260527(93)000510" }, ""]
@@ -6747,7 +6888,7 @@ function invShelf24Nov_(runId) {
    (even one changed by hand) is left as it is. */
 function headFill_() {
   var pr = PropertiesService.getScriptProperties();
-  if (pr.getProperty("HEAD_FILL") === "13.51") return;
+  if (pr.getProperty("HEAD_FILL") === "13.60") return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   [[BOX_TAB, BOX_HEAD], [STENT_TAB, STENT_HEAD], [STENT_UP_TAB, STENT_UP_HEAD], [INV_TAB, INV_HEAD], [INV_MOVES, MOVE_HEAD]].forEach(function (t) {
     try {
@@ -6759,7 +6900,7 @@ function headFill_() {
       if (ch) r.setValues([v]);
     } catch (e) {}
   });
-  pr.setProperty("HEAD_FILL", "13.51");
+  pr.setProperty("HEAD_FILL", "13.60");
 }
 
 /* 13.51: the barcode check of 24 Nov (Claude, from the stock photos at full size).
@@ -7284,6 +7425,12 @@ function boxList_() {
   try { stickers = stentCounted_(stentRowsAll_()); } catch (e) {}
   var taken = {}, boxBy = {};
   var give = function (b, st, how) { taken[st.id] = 1; boxBy[b.id] = { sticker: st.id, ptcaNo: st.ptcaNo, patient: st.patient, date: invStickerDate_(st), how: how }; };
+  // 13.60: the box a sticker took off by itself (its barcode, serial or LOT — stentBoxUse_)
+  var stById = {}; stickers.forEach(function (st) { stById[st.id] = st; });
+  boxes.forEach(function (b) {
+    var m = /^STICKER (.+)$/.exec(String(b.same || "")), st = m ? stById[m[1]] : null;
+    if (st && !taken[st.id]) give(b, st, /barcode/.test(String(b.why)) ? "barcode" : /serial/.test(String(b.why)) ? "serial" : "lot");
+  });
   var inStock = boxes.filter(function (b) { return b.status === "in stock"; });
   // 1) the very box: the sticker's serial number on a box in stock
   stickers.forEach(function (st) {

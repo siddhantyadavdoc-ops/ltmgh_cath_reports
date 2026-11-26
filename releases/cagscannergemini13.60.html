@@ -14337,11 +14337,13 @@ function techInvPhotosHtml() {
   const chk = bx.filter(function (b) { return b.status === "check"; });
   const rep = bx.filter(function (b) { return b.status === "repeat" && !techBoxToConfirm(b); });
   const conf = bx.filter(techBoxToConfirm);
-  const used = inStock.filter(function (b) { return b.usedBy; }).length;
+  // 13.60: a box its sticker took off is "used" (named by the sticker's barcode, serial or LOT)
+  const stUsed = bx.filter(function (b) { return b.status === "used" && /^STICKER /.test(b.same || ""); }).length;
+  const used = inStock.filter(function (b) { return b.usedBy; }).length + stUsed;
   const bgs = bx.filter(function (b) { return b.status === "background"; });
   let h = `<div class="invphotos"><div><b>Stock in — photos of boxes received</b>
       <p class="hint">Photograph the boxes on the shelf (spines to the camera, the size and the LOT readable). Every box is kept with its LOT, REF and expiry; a box seen on two photos is counted once. The phone reads the boxes' barcodes before it uploads — a barcode gives the exact LOT and tells two boxes of one LOT apart; for it to be readable, photograph a few boxes at a time (a stack, or boxes held up) rather than a whole shelf. ${esc2([(st.invWaiting || 0) + " photo" + (st.invWaiting === 1 ? "" : "s") + " waiting", (st.invFailed || 0) + " failed", (st.invScanned || 0) + " read"].join(" · "))}</p>
-      ${bx.length ? `<p class="hint"><b>${inStock.length}</b> box${inStock.length === 1 ? "" : "es"} counted${used ? " (" + used + " since used)" : ""} · <b class="${rep.length ? "a" : ""}">${rep.length}</b> repeat${rep.length === 1 ? "" : "s"} not counted · <b class="${chk.length ? "r" : ""}">${chk.length}</b> to check</p>` : ""}</div>
+      ${bx.length ? `<p class="hint"><b>${inStock.length + stUsed}</b> box${inStock.length + stUsed === 1 ? "" : "es"} counted${used ? " (" + used + " since used)" : ""} · <b class="${rep.length ? "a" : ""}">${rep.length}</b> repeat${rep.length === 1 ? "" : "s"} not counted · <b class="${chk.length ? "r" : ""}">${chk.length}</b> to check</p>` : ""}</div>
     <label class="fld" style="flex:0 1 190px;margin:0"><span>What the photo is of</span><select id="invUpKind" onchange="S.tech.upKind=this.value"><option value="">Let the app decide</option>${INV_KINDS.map(function (k) { return `<option value="${k.kind}"${S.tech.upKind === k.kind ? " selected" : ""}>${esc2(k.label)}</option>`; }).join("")}</select></label>
     <input type="file" accept="image/*" capture="environment" id="invcam" hidden onchange="techUpload(this,'stock')">
     <input type="file" accept="image/*,application/pdf,.pdf" multiple id="invfile" hidden onchange="techUpload(this,'stock')">
@@ -14402,7 +14404,7 @@ function techBoxSize(b) {
 }
 function techBoxRowHtml(b, btns) {
   const usedIn = b.usedIn ? `<span class="bxused">used in · ${esc2(b.usedIn)}</span>` : "";
-  const used = b.usedBy ? `<span class="bxused">used · ${esc2([b.usedBy.ptcaNo ? "PTCA " + b.usedBy.ptcaNo : "", b.usedBy.patient, b.usedBy.date ? techDate(b.usedBy.date) : "", b.usedBy.how === "size" ? "taken as any box of this size" : ""].filter(Boolean).join(" · "))}</span>` : "";
+  const used = b.usedBy ? `<span class="bxused">used · ${esc2([b.usedBy.ptcaNo ? "PTCA " + b.usedBy.ptcaNo : "", b.usedBy.patient, b.usedBy.date ? techDate(b.usedBy.date) : "", b.usedBy.how === "size" ? "taken as any box of this size" : b.usedBy.how === "barcode" ? "by its barcode" : ""].filter(Boolean).join(" · "))}</span>` : "";
   return `<div class="bxrow" data-bx="${esc2(b.id || "")}"><div class="bxmain"><b>${esc2(b.status === "background" ? (b.brand || "?") : (b.brand || "?") + " " + techBoxSize(b))}</b>
       <span>${b.status === "background" ? esc2(techKindOne(b.kind || "stent")) : esc2([b.kind && b.kind !== "stent" ? techKindOne(b.kind) : "", b.lot ? "LOT " + b.lot : b.serial ? "No. " + b.serial : "LOT ?", b.ref ? "REF " + b.ref : "", b.expiry ? "exp " + b.expiry : "", techBoxUnit(b), b.scan ? "\u2713 barcode" : ""].filter(Boolean).join(" · "))}</span>
       <span class="m">${b.id && b.fileId ? `<button type="button" class="linkbtn" onclick="techBoxShow('${esc2(b.id)}')">Show in photo</button> · ` : ""}${b.url ? `<a href="${esc2(b.url)}" target="_blank" rel="noopener">${esc2(b.photo || "photo")}</a>` : esc2(b.photo || "")}${b.place ? " · " + esc2(b.place) : ""}</span>
@@ -14664,8 +14666,8 @@ function invCounted(x) { return !!(x.counted || x.received > 0 || x.adjusted); }
 function techReviewHtml() {
   const T = S.tech, inv = T.inv;
   if (!inv) return "";
-  const rv = inv.review || [], ns = inv.noSheet || [], dd = inv.diagDiff || [];
-  if (!rv.length && !ns.length && !dd.length) return "";
+  const rv = inv.review || [], ns = inv.noSheet || [], dd = inv.diagDiff || [], bf = inv.boxFlags || [];
+  if (!rv.length && !ns.length && !dd.length && !bf.length) return "";
   let h = `<div class="card rvcard" id="techReview">`;
   if (rv.length) {
     h += `<div class="cardhead"><div><b>Stents to check</b><p class="hint">On the utilization sheet but no sticker. Accept: fill in the sticker's details and the stent is taken off. Reject: it was not used.</p></div></div><div class="rvgrid">`;
@@ -14686,6 +14688,9 @@ function techReviewHtml() {
   // 13.52: the diagram stent sheet's stickers against the technicians' sticker photo (the photo is the one counted)
   if (dd.length) h += `<div class="rvdiag"><b>Diagram stent sheet and technicians' stickers differ</b> <span class="hint">The technicians' sticker photo is the one counted. Check the sticker pages.</span>${dd.map(function (x) {
     return `<p class="hint" style="margin:4px 0"><b>${esc2([x.ptcaNo ? "PTCA " + x.ptcaNo : "", x.patient].filter(Boolean).join(" · "))}</b>: ${esc2(x.diffs.join("; "))}</p>`; }).join("")}</div>`;
+  // 13.60: a sticker's barcode names a box that is not in stock
+  if (bf.length) h += `<div class="rvdiag"><b>Sticker barcode names a box not in stock</b> <span class="hint">The barcode is that box's own number. Check whether the box was returned, counted twice, or used in another case.</span>${bf.map(function (x) {
+    return `<p class="hint" style="margin:4px 0"><b>${esc2([x.ptcaNo ? "PTCA " + x.ptcaNo : "", x.patient, x.date ? techDate(x.date) : ""].filter(Boolean).join(" · "))}</b>: ${esc2(x.what)} — ${esc2(x.why)}</p>`; }).join("")}</div>`;
   return h + `</div>`;
 }
 const RV_FIELDS = [["brand", "Brand", "2 1 150px"], ["size", "Size", "1 1 90px"], ["lot", "LOT", "1 1 110px"], ["ref", "REF", "1 1 110px"],
@@ -16066,7 +16071,7 @@ function techPhotosHtml() {
       <p class="hint">${esc2([(st.waiting || 0) + " waiting", (st.failed || 0) + " failed", (st.scanned || 0) + " read", (st.inDone || 0) + " photo" + (st.inDone === 1 ? "" : "s") + " kept (the newest " + (st.keep || 200) + ")", auto].join(" · "))}</p></div>
       <div class="btns" style="margin:0"><button class="b primary" onclick="techScanNow()" ${T.scanning ? "disabled" : ""}>${T.scanning ? "Reading…" : "Read now (full price)"}</button></div></div>
     ${T.scanSaid ? `<div class="warn blue">${esc2(T.scanSaid)}</div>` : ""}
-    <p class="hint">One photo per patient: write the patient's name and PTCA / Cath number on a sheet, stick that patient's stent labels beside them, and photograph it flat and close, every label sharp. Put it in the Drive folder <b>${esc2(st.inName || "Used stents upload")}</b> — or upload it here. After reading, the photo moves to <b>${esc2(st.doneName || "Used stents processed")}</b>; only the newest ${st.keep || 200} photos are kept there, and what was read stays in the sheet's Stents tab.</p>
+    <p class="hint">One photo per patient: write the patient's name and PTCA / Cath number on a sheet, stick that patient's stent labels beside them, and photograph it flat and close, every label sharp, its barcode or QR code in view — uploaded here, the phone reads each barcode and takes off that very box. Put it in the Drive folder <b>${esc2(st.inName || "Used stents upload")}</b> — or upload it here. After reading, the photo moves to <b>${esc2(st.doneName || "Used stents processed")}</b>; only the newest ${st.keep || 200} photos are kept there, and what was read stays in the sheet's Stents tab.</p>
     <input type="file" accept="image/*" capture="environment" id="stcam" hidden onchange="techUpload(this)">
     <input type="file" accept="image/*,application/pdf,.pdf" multiple id="stfile" hidden onchange="techUpload(this)">
     <div class="btns"><button class="b" onclick="document.getElementById('stcam').click()" ${T.uploading ? "disabled" : ""}>Take a photo</button>
@@ -16110,12 +16115,14 @@ async function techUpload(input, purpose) {
   T.uploading = true;
   // 13.51: the barcodes of a stock, weekly or used-instruments photo are read here first, on the photo as taken
   const boxes = purpose === "stock" || purpose === "day" || purpose === "weekly";
+  // 13.60: a sticker photo's barcodes too — each names the very box its stent (or device) came from
+  const stick = !purpose;
   let ok = 0, bad = "", codes = 0, noReader = "", byCodeN = 0;
   const say = function (t) { if (boxes) T.invSaid = t; else T.upSaid = t; render(); };
   for (let i = 0; i < files.length; i++) {
     const of = files.length > 1 ? " " + (i + 1) + " of " + files.length : "";
     let scan = [];
-    if (boxes && !noReader) {
+    if ((boxes || (stick && /^image\//.test(files[i].type || "image/"))) && !noReader) {
       let at = 0;
       say("Reading the barcodes on photo" + of + "…");
       try {
@@ -16159,7 +16166,8 @@ async function techUpload(input, purpose) {
     T.invSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Stock in upload" + bc + (bad ? "; then: " + bad : "") + (ok > byCodeN ? " — " + (byCodeN ? "the others " : "") + techNightNote(true) + ". Needed now? Press Read now (full price)." : "");
     T.statusAt = 0; await techLoad(true); return;
   }
-  T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read used-stent photos now (full price)." : "");
+  T.upSaid = ok + " photo" + (ok === 1 ? "" : "s") + " put in Used stents upload" +
+    (ok && !noReader ? (codes ? " · " + codes + " barcode" + (codes === 1 ? "" : "s") + " read on the phone (each takes off its very box)" : " · no barcode readable on the phone — the stickers are read from the photo alone") : "") + (bad ? "; then: " + bad : "") + (ok ? " — " + techNightNote(true) + ". Needed now? Press Read used-stent photos now (full price)." : "");
   T.upAt = 0; T.statusAt = 0;
   await techLoad(true);
 }
