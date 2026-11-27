@@ -81,6 +81,138 @@ def grid(doc, kind, ticks):
     return t
 
 
+# ---- 13.62: the technique checklists as tables, in the style of the grids ----
+GREY = "EDEDED"
+
+def shade(cell, fill=GREY):
+    tcPr = cell._tc.get_or_add_tcPr(); sh = OxmlElement("w:shd")
+    sh.set(qn("w:val"), "clear"); sh.set(qn("w:color"), "auto"); sh.set(qn("w:fill"), fill); tcPr.append(sh)
+
+def fill_cell(cell, parts, center=False):
+    """parts: list of ("b", text) bold, ("t", text), ("i", text) small italic,
+    ("box", label) a box with its label, ("line", n) a blank of n underscores,
+    ("br",) a new line in the same cell"""
+    p = cell.paragraphs[0]; p.paragraph_format.space_after = Pt(0); p.paragraph_format.space_before = Pt(0)
+    if center: p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    for part in parts:
+        k = part[0]
+        if k == "b": run(p, part[1], 9.5, bold=True)
+        elif k == "hb": run(p, part[1], 8.5, bold=True)
+        elif k == "t": run(p, part[1], 9)
+        elif k == "i": run(p, part[1], 7.5, italic=True)
+        elif k == "box":
+            run(p, BOX, 12, font="Segoe UI Symbol")
+            if part[1]: run(p, " " + part[1] + "   ", 9)
+        elif k == "line": run(p, "_" * part[1] + " ", 9)
+        elif k == "br":
+            p = cell.add_paragraph(); p.paragraph_format.space_after = Pt(0); p.paragraph_format.space_before = Pt(0)
+            if center: p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+def table(doc, widths, rows, head=None, label_col=True):
+    """rows: list of rows, each a list of cell part-lists; head: list of header texts"""
+    n = len(rows) + (1 if head else 0)
+    t = doc.add_table(rows=n, cols=len(widths)); borders(t)
+    r0 = 0
+    if head:
+        for i, h in enumerate(head):
+            c = t.rows[0].cells[i]; fill_cell(c, [("hb", h)] if h else [], center=True); shade(c)
+        r0 = 1
+    for ri, row in enumerate(rows):
+        tr = t.rows[r0 + ri]; tr.height = Cm(0.55); tr.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+        for ci, parts in enumerate(row):
+            c = tr.cells[ci]
+            fill_cell(c, parts, center=(ci > 0 and all(x[0] == "box" and not x[1] for x in parts) and bool(parts)))
+            if ci == 0 and label_col: shade(c)
+    t.autofit = False
+    lay = OxmlElement("w:tblLayout"); lay.set(qn("w:type"), "fixed"); t._tbl.tblPr.append(lay)
+    for gc, w in zip(t._tbl.tblGrid.findall(qn("w:gridCol")), widths): gc.set(qn("w:w"), str(int(w * 567)))
+    for row in t.rows:
+        for i, w in enumerate(widths): row.cells[i].width = Cm(w)
+    return t
+
+def heading_before(par, text, note=""):
+    """turn the paragraph into a bold section heading (its old text goes)"""
+    for r in list(par.runs): r._r.getparent().remove(r._r)
+    for br in par._p.findall(".//" + qn("w:br")): br.getparent().remove(br)
+    par.paragraph_format.space_before = Pt(5); par.paragraph_format.space_after = Pt(2)
+    run(par, text, 10, bold=True)
+    if note: run(par, "   " + note, 8, italic=True)
+
+def find(doc, prefix, after=0):
+    return [q for n, q in enumerate(doc.paragraphs) if n >= after and q.text.lstrip().startswith(prefix)][0]
+
+def drop(par): par._p.getparent().remove(par._p)
+
+BOXES = lambda *labels: [("box", l) for l in labels]
+SUPPORT4 = ["Buddy wire", "Deep engagement", "Balloon anchor", "Guide extension"]
+
+def technique_tables(d):
+    # Strategy + overlapping stents (page 3)
+    p = find(d, "☐ Predilate"); heading_before(p, "Strategy :")
+    t = table(d, [3.4, 15.2], [
+        [[("b", "Sequence")], BOXES("PrD → Stent → PoD", "Stenting → PoD", "Direct stenting", "PrD → Stent")],
+        [[("b", "Overlapping stents")], [("t", "How many "), ("line", 4), ("t", "   ")] + BOXES("Distal first", "Prox first") + [("t", "  Vessel ")] + BOXES("LAD", "LCx", "RCA")],
+    ])
+    p._p.addnext(t._tbl)
+    drop(find(d, "Overlapping stents"))
+    # Wiring (page 3)
+    p = find(d, "Wiring technique"); heading_before(p, "Wiring :")
+    t = table(d, [3.4, 15.2], [
+        [[("b", "Technique")], BOXES("Simple", "Parallel", "Reverse loop", "IVUS guided", "Balloon blocking")],
+        [[("b", "Support")], BOXES("Balloon support", "Microcatheter support", "Grenadoplasty", "Carlino", "HDR", "STAR")],
+    ])
+    p._p.addnext(t._tbl)
+    drop(find(d, "Support (For wire)"))
+    # the rule between wire support and the balloon rows
+    ps = d.paragraphs; stop = [n for n, q in enumerate(ps) if q.text.startswith("Support (For Pre balloon)")][0]
+    for q in reversed(ps[:stop]):              # the nearest one above the balloon rows
+        if q.text.strip().startswith("_____") and len(q.text.strip()) > 60: drop(q); break
+        if q.text.strip(): break                 # never reach past the wiring section
+    # Balloon & stent: technique and support per step (page 3)
+    p = find(d, "Support (For Pre balloon)"); heading_before(p, "Balloon & stent :", "technique, and the support used at each step")
+    t = table(d, [2.3, 8.3, 2.0, 2.0, 2.0, 2.0], [
+        [[("b", "Pre balloon")], [("t", "Predilation ")] + BOXES("Simple", "Sequential") + [("line", 8)], [("box", "")], [("box", "")], [("box", "")], [("box", "")]],
+        [[("b", "Stent")], [("t", "Position ")] + BOXES("Floating wire", "Szabo") + [("line", 6)], [("box", "")], [("box", "")], [("box", "")], [("box", "")]],
+        [[("b", "Post balloon")], [("t", "Post dilation ")] + BOXES("Simple", "Differential", "POT") + [("line", 4)], [("box", "")], [("box", "")], [("box", "")], [("box", "")]],
+    ], head=["Step", "Technique", "Buddy wire", "Deep engagement", "Balloon anchor", "Guide extension"])
+    p._p.addnext(t._tbl)
+    for pre in ("Predilation:", "Support (For Stent)", "Stent position", "Support (For Post balloon)", "Post dilation"):
+        drop(find(d, pre))
+    # Bifurcation (page 4)
+    p = find(d, "Bif techniques"); heading_before(p, "Bifurcation :")
+    t1 = table(d, [3.4, 15.2], [
+        [[("b", "Technique")], BOXES("Provisional", "Provisional switched to true bif") + [("br",)] + BOXES("DK crush", "Mini crush", "Culotte", "T stenting", "TAP", "Direct crush", "JSBT")],
+    ])
+    vessels = ["LM", "LAD", "LCx", "Diagonal", "OM", "PDA", "PLV"]
+    t2 = table(d, [3.4] + [15.2 / 7] * 7, [
+        [[("b", "Main branch")]] + [[("box", "")] for _ in vessels],
+        [[("b", "Side branch")]] + [[("box", "")] for _ in vessels],
+    ], head=["Vessels"] + vessels)
+    t3 = table(d, [3.4, 15.2], [
+        [[("b", "Recross / POT")], [("t", "Recross wire 1 "), ("line", 18), ("t", "  2 "), ("line", 18), ("t", "   POT ")] + BOXES("1", "2")],
+    ])
+    p._p.addnext(t1._tbl); t1._tbl.addnext(t2._tbl); t2._tbl.addnext(t3._tbl)
+    for pre in ("Bifurcation vessels", "Recross wire"): drop(find(d, pre))
+    # Thrombus management (page 4)
+    p = find(d, "Thrombus Mx"); heading_before(p, "Thrombus management :")
+    t = table(d, [3.4, 15.2], [
+        [[("b", "Aspiration via")], BOXES("Thrombus catheter", "Guide extension", "Guide catheter") + [("t", "   Runs "), ("line", 5)]],
+        [[("b", "Balloon")], BOXES("Dottering", "Inflation")],
+        [[("b", "Laser")], BOXES("ELCA")],
+        [[("b", "Result")], [("t", "TIMI "), ("line", 5), ("t", " flow achieved   or   ")] + BOXES("Failed to restore flow")],
+    ])
+    p._p.addnext(t._tbl)
+    # Calcium management (page 4)
+    p = find(d, "Calcium Mx"); heading_before(p, "Calcium management :")
+    t = table(d, [3.4, 15.2], [
+        [[("b", "Cutting balloon")], [("box", "")] + [("t", " Size "), ("line", 16)]],
+        [[("b", "Rotablation")], [("box", "")] + [("t", " Burr "), ("line", 16)]],
+        [[("b", "Laser")], BOXES("ELCA")],
+    ])
+    p._p.addnext(t._tbl)
+
+
 def build(out, ptca_ticks=(), poba_ticks=()):
     d = Document(SRC)
     ps = d.paragraphs
@@ -119,11 +251,12 @@ def build(out, ptca_ticks=(), poba_ticks=()):
     n = k - 1
     while n > 0 and not allp[n].text.strip() and not allp[n].text.startswith("Technician") and n > a0 + 1:
         allp[n]._p.getparent().remove(allp[n]._p); n -= 1
+    technique_tables(d)
     # page 4 starts on its own page: the blank lines that used to pad page 3
     # down to its end are replaced by a page break before page 4's Name line
     # (page 3 is taller now, so the padding spilled onto page 4)
     allp = d.paragraphs
-    pd = [n for n, q in enumerate(allp) if q.text.startswith("Post dilation")][0]
+    pd = [n for n, q in enumerate(allp) if q.text.startswith("Balloon & stent")][0]
     nm = [n for n, q in enumerate(allp) if n > pd and q.text.startswith("Name")][0]
     for q in allp[pd + 1:nm]:
         if not q.text.strip(): q._p.getparent().remove(q._p)
