@@ -206,10 +206,12 @@ def technique_tables(d):
     p._p.addnext(t._tbl)
     # Calcium management (page 4)
     p = find(d, "Calcium Mx"); heading_before(p, "Calcium management :")
+    # the rows the app reports in full (cutting balloon with dissection; Rota
+    # burr, rpm, runs, polishing; ELCA with contrast and its settings)
     t = table(d, [3.4, 15.2], [
-        [[("b", "Cutting balloon")], [("box", "")] + [("t", " Size "), ("line", 16)]],
-        [[("b", "Rotablation")], [("box", "")] + [("t", " Burr "), ("line", 16)]],
-        [[("b", "Laser")], BOXES("ELCA")],
+        [[("b", "Cutting balloon")], [("box", ""), ("t", " Size & brand "), ("line", 22), ("t", "    ")] + BOXES("Dissection")],
+        [[("b", "Rotablation")], [("box", ""), ("t", " Burr "), ("line", 5), ("t", " mm    RPM "), ("line", 8), ("t", "    Runs "), ("line", 4), ("t", "    ")] + BOXES("Polishing run")],
+        [[("b", "Laser")], BOXES("ELCA", "With contrast") + [("t", "Runs "), ("line", 4), ("t", "   Fluence "), ("line", 4), ("t", "   Hz "), ("line", 4), ("t", "   ns "), ("line", 4)]],
     ])
     p._p.addnext(t._tbl)
 

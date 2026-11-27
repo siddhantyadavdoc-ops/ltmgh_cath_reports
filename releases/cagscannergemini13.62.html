@@ -643,7 +643,9 @@ body.hasnav #appnav{display:flex}
 .costs .btns .b.on{background:#111;color:#fff}
 .thinkbox{border:1px solid #ddd;border-radius:8px;padding:6px 12px 2px;margin:10px 0 4px}
 /* 13.62 - scan accuracy tables: five columns that fit a phone */
-.acctbl{font-size:12.5px;width:100%}
+.acctbl{font-size:12.5px;width:100%;table-layout:fixed}
+.acctbl td:first-child,.acctbl th:first-child{width:44%;white-space:normal;overflow-wrap:anywhere}
+.acctbl th:nth-child(2),.acctbl td:nth-child(2){width:13%}
 .acctbl th{font-size:11px}
 .acctbl td,.acctbl th{padding-left:4px;padding-right:4px}
 .acctbl td:first-child{padding-left:8px}
@@ -3758,7 +3760,10 @@ function blankTarget() {
        recross2 = the wires that recrossed the SB (through the crushed stent,
        then through the MB stent struts); kbi1 / kbi2 = the kissing balloons
        (SB balloon + MB balloon) each time; pot1 / pot2 = the POT ticks */
-    crush: "", recross1: "", recross2: "", kbi1: "", kbi2: "", pot1: false, pot2: false };
+    crush: "", recross1: "", recross2: "", kbi1: "", kbi2: "", pot1: false, pot2: false,
+    /* 13.62: poba — this target was plain balloon angioplasty (no stent);
+       pobaSite — segments of a stented vessel that were ballooned only */
+    poba: false, pobaSite: "" };
 }
 
 function PBLANK() {
@@ -3801,6 +3806,7 @@ function PBLANK() {
     planned: false, plannedFrom: "",
     proc: {
       to: [],                              // the segment-level PTCA-to boxes on page 3
+      poba: [],                            // 13.62: proforma v2.7's "POBA to" grid — plain balloon angioplasty, no stent
       side: "", route: "", sheath: "",
       akNo: "", fluoroTime: "", heparin: "", act: "",
       performedBy: ["", ""], technician: "",
@@ -3899,10 +3905,10 @@ const BLOOD_LABELS = { hb: "Hb", tlc: "TLC", platelets: "Platelets", tc: "TC", b
    position along the vessel (0 ostial → 3 distal); a cross label ("LM over
    LAD", "LCx over OM") has no ord and prints its own phrase. */
 const PTCA_SEG_GROUPS = [
-  { v: "LM",  name: "LM",  segs: { "Ostial LM": 0 },  cross: { "LM": "LM", "LM over LAD": "LM over LAD", "LM over LCx": "LM over LCx" } },
+  { v: "LM",  name: "LM",  segs: { "Ostial LM": 0, "Distal LM": 3 },  cross: { "LM": "LM", "LM over LAD": "LM over LAD", "LM over LCx": "LM over LCx" } },   // 13.62: "Distal LM" — v2.7 grid's "Distal / bifurcation"
   { v: "Ramus", name: "Ramus", segs: {}, cross: { "Ramus": "Ramus" } },
   { v: "LAD", name: "LAD", segs: { "Ostial LAD": 0, "Prox LAD": 1, "Mid LAD": 2, "Distal LAD": 3 }, cross: { "LAD over Diagonal": "LAD over Diagonal" } },
-  { v: "D1",  name: "D1",  segs: {}, cross: { "D1": "D1" } },
+  { v: "D1",  name: "D1",  segs: {}, cross: { "D1": "D1", "D2": "D2" } },      // 13.62: D2 on the v2.7 grid (the utilization sheet's D1 column)
   { v: "LCX", name: "LCx", segs: { "Ostial LCx": 0, "Prox LCx": 1, "Mid LCx": 2, "Distal LCx": 3 }, cross: { "LCx over OM": "LCx OM" } },
   { v: "OM",  name: "OM",  segs: {}, cross: { "OM1": "OM1", "OM2": "OM2" } },
   { v: "RCA", name: "RCA", segs: { "Ostial RCA": 0, "Prox RCA": 1, "Mid RCA": 2, "Distal RCA": 3 }, cross: {} },
@@ -3943,6 +3949,13 @@ function segSiteInfo(g, toks) {
   const parts = (out.range ? [out.range] : []).concat(crosses);
   out.phrase = parts.join(", ");
   return out;
+}
+/* 13.62: the vessels the POBA grid names (plain balloon angioplasty, no stent) */
+function pobaVessels(P) {
+  const toks = ((P.proc || {}).poba || []).map(function (t) { return String(t).trim(); });
+  return PTCA_SEG_GROUPS.filter(function (g) {
+    return toks.some(function (t) { return g.segs[t] != null || g.cross[t] != null; });
+  }).map(function (g) { return g.name; });
 }
 /* The vessels the PTCA-to ticks name, in the vessel order the report uses. */
 function ptcaToVessels(P) {
@@ -4677,8 +4690,11 @@ function lcFirst(s) { s = String(s || ""); return s ? s.charAt(0).toLowerCase() 
 function deriveTargets(P, force) {
   if (!force && (P.proc.targets || []).some(targetHasContent)) return false;
   const toks = ((P.proc || {}).to || []).map(function (t) { return String(t).trim(); });
+  // 13.62: proforma v2.7's POBA grid — segments opened with a balloon only
+  const pobaToks = ((P.proc || {}).poba || []).map(function (t) { return String(t).trim(); });
+  const inGroup = function (g, list) { return list.some(function (t) { return g.segs[t] != null || g.cross[t] != null; }); };
   const groups = PTCA_SEG_GROUPS.filter(function (g) {
-    const ticked = toks.some(function (t) { return g.segs[t] != null || g.cross[t] != null; });
+    const ticked = inGroup(g, toks) || inGroup(g, pobaToks);
     const colName = g.v === "LCX" ? "LCx" : g.v;
     return ticked || utilStentsOf(P, colName).length > 0;
   });
@@ -4699,6 +4715,23 @@ function deriveTargets(P, force) {
     t.wire = utilLookup(P, g.v, "wire");
     const info = segSiteInfo(g, toks);
     const ownBalloons = utilBalloonsOf(P, colName);
+    /* 13.62 — POBA: a vessel ticked only in the POBA grid, with no stent of
+       its own on the utilization sheet, is opened with its own balloon(s)
+       alone (more than one: smallest first); one with stents as well keeps
+       its POBA segments for a sentence of their own */
+    const pobaInfo = inGroup(g, pobaToks) ? segSiteInfo(g, pobaToks) : null;
+    if (pobaInfo && !inGroup(g, toks) && !utilStentsOf(P, colName).length) {
+      t.poba = true;
+      t.site = pobaInfo.phrase || g.name;
+      t.stents = [];
+      const bs = ownBalloons.map(function (b) { return { b: b, d: deviceDia(b) }; })
+        .sort(function (a, b) { return (isFinite(a.d) ? a.d : 99) - (isFinite(b.d) ? b.d : 99); });
+      if (bs.length) { t.pre = bs.map(function (x) { return x.b; }).join(", "); t.preAtm = "12"; t.preSec = "10"; }
+      if (gi === groups.length - 1) { t.noResidual = true; t.timi = "III"; }
+      targets.push(t);
+      return;
+    }
+    if (pobaInfo) t.pobaSite = pobaInfo.phrase;
     /* -- stents: smaller diameter = distal, implanted first (unless the
           sheet says Prox first); two in one vessel = overlapping -- */
     let stents = utilStentsOf(P, colName).map(function (s) {
@@ -5173,8 +5206,9 @@ function ptcaRiskShort(rf) {
 }
 function ptcaTargetText(P) {
   if (has(P.ptcaTo)) return String(P.ptcaTo).trim();
-  const vs = ptcaToVessels(P);
-  if (vs.length) return vs.join(" + ");
+  const vs = ptcaToVessels(P), pv = pobaVessels(P);
+  if (vs.length) return vs.join(" + ") + (pv.length ? " + POBA to " + pv.join(" + ") : "");
+  if (pv.length) return "POBA to " + pv.join(" + ");
   if ((P.proc.to || []).length) return P.proc.to.join(" + ");
   const sites = [];
   (P.proc.targets || []).forEach(function (t) {
@@ -5255,8 +5289,10 @@ function ptcaProcTitle(P) {
   const tgt = vs.length ? vs.join("+")
     : (P.proc.to || []).length ? P.proc.to.join("+") : ptcaTargetText(P);
   const withStent = stentDeployed(P).length > 0;
+  const pv = pobaVessels(P);                     // 13.62
+  if (!has(tgt) && pv.length) return "PTCA (POBA) to " + pv.join("+");
   if (!has(tgt)) return withStent ? "PTCA with stenting" : "PTCA";
-  return (withStent ? "PTCA with stent to " : "PTCA to ") + tgt;
+  return (withStent ? "PTCA with stent to " : "PTCA to ") + tgt + (pv.length ? " and POBA to " + pv.join("+") : "");
 }
 function uniqList(a) {
   const out = [];
@@ -5374,8 +5410,18 @@ function ptcaNarrativeParas(P) {
       s += " The " + (sbName || "side branch") + " was predilated with " + t.sbPre.trim() + " at " +
         (has(t.sbPreAtm) ? t.sbPreAtm : "—") + " atm for " + (has(t.sbPreSec) ? t.sbPreSec : "—") + " secs.";
     }
+    // 13.62: plain balloon angioplasty — the balloon dilates the lesion and no stent follows
+    if (t.poba && !dkCrush) {
+      const bs = splitDevices(t.pre);
+      if (bs.length) bs.forEach(function (b, bi) {
+        s += " " + (bi ? "The lesion was further dilated" : "Plain old balloon angioplasty (POBA) of the lesion in " + (has(t.site) ? t.site.trim() : "the target vessel") + " was done") + " with " + b + " at " +
+          (has(t.preAtm) ? t.preAtm : "—") + " atm for " + (has(t.preSec) ? t.preSec : "—") + " secs.";
+      });
+      else s += " Plain old balloon angioplasty (POBA) of the lesion in " + (has(t.site) ? t.site.trim() : "the target vessel") + " was done.";
+      s += " No stent was implanted in this segment.";
+    }
     // sequential predilation writes one sentence per balloon, smallest first
-    if (!dkCrush) splitDevices(t.pre).forEach(function (b) {
+    if (!dkCrush && !t.poba) splitDevices(t.pre).forEach(function (b) {
       s += " The lesion was predilated with " + b + " at " +
         (has(t.preAtm) ? t.preAtm : "—") + " atm for " + (has(t.preSec) ? t.preSec : "—") + " secs.";
     });
@@ -5398,6 +5444,7 @@ function ptcaNarrativeParas(P) {
       s += " The stent" + (many ? "s were" : " was") + " postdilated with " + t.post.trim() + " at " +
         (has(t.postAtm) ? t.postAtm : "—") + " atm for " + (has(t.postSec) ? t.postSec : "—") + " secs.";
     }
+    if (has(t.pobaSite) && !t.poba) s += " Plain balloon angioplasty (POBA) was also done to the " + lcFirst(t.pobaSite.trim()) + " lesion, without a stent.";
     if (bif && has(t.bifConverted) && !dkCrush) {
       s += " In view of " + (has(t.bifReason) ? t.bifReason.trim() : "side-branch compromise") +
         ", the provisional strategy was converted to a two-stent" + (/^two-stent$/i.test(t.bifConverted.trim()) ? "" : " (" + t.bifConverted.trim() + ")") + " technique.";
@@ -5836,6 +5883,7 @@ function ptcaRecord(P) {
     ["Access", j([P.proc.side, P.proc.route, has(P.proc.sheath) ? P.proc.sheath + "F" : ""], " ")],
     ["Procedure", ptcaProcTitle(P)],
     ["PTCA to (segments)", (P.proc.to || []).join("; ")],
+    ["POBA to (segments)", (P.proc.poba || []).join("; ")],
     ["Guide catheters", uniqList((P.proc.targets || []).map(function (t) { return t.guide; })).join("; ")],
     ["Guide wires", uniqList((P.proc.targets || []).reduce(function (a, t) { return a.concat(splitDevices(t.wire)); }, [])).join("; ")],
     ["Balloons", uniqList((P.proc.targets || []).reduce(function (a, t) {
@@ -5941,14 +5989,15 @@ function normalizePtcaResult(d) {
     if (Array.isArray(d.proc.targets)) d.proc.targets = d.proc.targets.map(fillTarget);
     if (Array.isArray(d.proc.performedBy)) d.proc.performedBy = d.proc.performedBy.map(matchOperator);
     if (has(d.proc.technician)) d.proc.technician = matchTechnician(d.proc.technician);
-    if (Array.isArray(d.proc.to)) {
+    ["to", "poba"].forEach(function (key) {
+      if (!Array.isArray(d.proc[key])) return;
       // segment ticks come back in the exact printed spelling
-      d.proc.to = d.proc.to.map(function (t) {
+      d.proc[key] = d.proc[key].map(function (t) {
         t = String(t == null ? "" : t).trim();
         const hit = PTCA_TO_TOKENS.find(function (k) { return k.toLowerCase() === t.toLowerCase().replace(/\s+/g, " "); });
         return hit || t;
       }).filter(Boolean);
-    }
+    });
   }
   if (d.util && typeof d.util === "object") {
     ["op1", "op2", "op3"].forEach(function (k) { if (has(d.util[k])) d.util[k] = matchOperator(d.util[k]); });
@@ -6951,28 +7000,46 @@ PROCEDURE HEADER
 - The ruled blanks AK (proc.akNo), Fluoro time (proc.fluoroTime), Heparin (proc.heparin, digits), ACT (proc.act, digits).
 - Performed by: two "Dr" ruled lines into proc.performedBy (array of up to 2 names); Technician into proc.technician.
 
-STRATEGY LINE — four boxes on one line: "Predilate(PrD) → Stent → Postdilate(PoD)", "Stenting → PoD", "Direct stenting", "PrD → Stent". Return the marked one as tech.strategy, exactly one of: "PrD-Stent-PoD", "Stenting-PoD", "Direct stenting", "PrD-Stent".
+TWO PRINTINGS OF THIS PAGE — look at the layout first and return "layout":
+- "lines" (v2.6 and older): the checklists below the procedure header are lines of boxes in running text ("Wiring technique: ☐ Simple ☐ Parallel …", "Support (For Pre balloon): …").
+- "tables" (v2.7, with small black-and-white squares in the page corners): the same checklists are bordered tables — a "Strategy" table, a "PTCA to" GRID and a "POBA to" GRID (rows LM / LAD / LCx / RCA, columns Ostial / Proximal / Mid / Distal / Branch-over), a "Wiring" table and a "Balloon & stent" grid.
+Both printings fill the SAME fields below; read whichever this page is.
 
-OVERLAPPING STENTS LINE — a box with a blank "(How many?)" → tech.overlap.count (the handwritten number); boxes "Distal first" / "Prox first" → tech.overlap.order (exactly "Distal first" or "Prox first"); Vessel boxes LAD / LCx / RCA → tech.overlap.vessels array. All omitted when nothing on the line is marked.
+STRATEGY
+- lines: four boxes on one line: "Predilate(PrD) → Stent → Postdilate(PoD)", "Stenting → PoD", "Direct stenting", "PrD → Stent". tables: the "Sequence" row of the Strategy table, the same four boxes ("PrD → Stent → PoD" …).
+- Return the marked one as tech.strategy, exactly one of: "PrD-Stent-PoD", "Stenting-PoD", "Direct stenting", "PrD-Stent".
 
-"PTCA to" SEGMENT BOXES — the lesion's location, box by box. Return every marked box in proc.to using EXACTLY these spellings:
-- LM row: "LM", "LM over LAD", "LM over LCx", "Ostial LM", "Ramus"
-- LAD row: "Ostial LAD", "Prox LAD" (printed "Prox LAD (Ex ostium)"), "Mid LAD" (printed "Mid LAD (Beyond D1/Septal)"; older printings carry the misprint "Mild LAD"), "Distal LAD", "LAD over Diagonal"
-- next row: "D1", "Ostial LCx" (printed "Ostial LCX"), "Prox LCx", "Mid LCx", "Distal LCx", "LCx over OM", "OM1" (printed "OM 1"), "OM2"
-- RCA row: "Ostial RCA", "Prox RCA", "Mid RCA", "Distal RCA", "PDA", "PLV"
+OVERLAPPING STENTS (lines: its own line; tables: the "Overlapping stents" row) — the "How many" blank → tech.overlap.count (the handwritten number); boxes "Distal first" / "Prox first" → tech.overlap.order (exactly "Distal first" or "Prox first"); Vessel boxes LAD / LCx / RCA → tech.overlap.vessels array. All omitted when nothing on the line is marked.
 
-TECHNIQUE CHECKLISTS — report each marked box under tech, spelling the option exactly as listed; omit anything unmarked:
-- "Wiring technique": Simple / Parallel / Reverse loop / IVUS guided / Balloon blocking → tech.wiring (array).
-- "Support (For wire)": Balloon support / Microcatheter support / Grenedoplasty / Carlino / HDR / STAR → tech.wireSupport (array); the ruled line under it → tech.wireSupportNote.
-- "Support (For Pre balloon)": Buddy wire / Deep engagement / Balloon anchor / Guide extension → tech.preSupport (array).
-- "Predilation": Simple / Sequential → tech.predilation (one value); its blank → tech.predilationNote.
-- "Support (For Stent)": Buddy wire / Deep engagement / Balloon anchor / Guide extension → tech.stentSupport (array); its blank → tech.stentSupportNote.
-- "Stent position": Floating wire / Szabo → tech.stentPosition (array).
-- "Support (For Post balloon)": Buddy wire / Deep engagement / Balloon anchor / Guide extension → tech.postSupport (array).
-- "Post dilation": Simple / Differential / POT → tech.postDilation (one value); its blank → tech.postDilationNote.
+"PTCA to" — the segments where STENTS were implanted. Return every marked box in proc.to using EXACTLY these spellings:
+- lines printing, box by box:
+  - LM row: "LM", "LM over LAD", "LM over LCx", "Ostial LM", "Ramus"
+  - LAD row: "Ostial LAD", "Prox LAD" (printed "Prox LAD (Ex ostium)"), "Mid LAD" (printed "Mid LAD (Beyond D1/Septal)"; older printings carry the misprint "Mild LAD"), "Distal LAD", "LAD over Diagonal"
+  - next row: "D1", "Ostial LCx" (printed "Ostial LCX"), "Prox LCx", "Mid LCx", "Distal LCx", "LCx over OM", "OM1" (printed "OM 1"), "OM2"
+  - RCA row: "Ostial RCA", "Prox RCA", "Mid RCA", "Distal RCA", "PDA", "PLV"
+- tables printing, the "PTCA to" GRID — a tick's ROW is the vessel and its COLUMN the segment; read each tick by the cell it sits in:
+  - LM row: Ostial → "Ostial LM"; Proximal (the box marked "Shaft") → "LM"; Mid has no box (a dash); Distal (marked "Distal / bifurcation") → "Distal LM"; Branch / over cell: "LM over LAD", "LM over LCx", "Ramus"
+  - LAD row: Ostial → "Ostial LAD"; Proximal ("ex ostium") → "Prox LAD"; Mid ("beyond D1 / septal") → "Mid LAD"; Distal → "Distal LAD"; Branch / over: "LAD over Diagonal", "D1", "D2"
+  - LCx row: "Ostial LCx", "Prox LCx", "Mid LCx", "Distal LCx"; Branch / over: "LCx over OM", "OM1", "OM2"
+  - RCA row: "Ostial RCA", "Prox RCA", "Mid RCA", "Distal RCA"; Branch / over: "PDA", "PLV"
+  - A tick lying across the line between two cells: return the cell holding most of it, and add "proc.to" to "unsure".
+
+"POBA to" (tables printing only) — the second grid, headed "POBA to: plain balloon angioplasty, no stent", with exactly the same rows, columns and spellings as the PTCA-to grid. Its ticks go into proc.poba (array) — NEVER into proc.to; the two grids are different procedures. The lines printing has no POBA boxes: omit proc.poba. A tick across two cells: as above, with "proc.poba" in "unsure".
+
+WIRING
+- lines: "Wiring technique": Simple / Parallel / Reverse loop / IVUS guided / Balloon blocking; "Support (For wire)": Balloon support / Microcatheter support / Grenedoplasty / Carlino / HDR / STAR, with a ruled line under it. tables: the "Wiring" table — its "Technique" row and its "Support" row (spelled "Grenadoplasty" there), no ruled line.
+- → tech.wiring (array) and tech.wireSupport (array; spell it "Grenedoplasty" whichever printing); the ruled line (lines printing only) → tech.wireSupportNote.
+
+BALLOON & STENT — per step: its technique and the support used at that step.
+- lines printing, one line each: "Support (For Pre balloon)": Buddy wire / Deep engagement / Balloon anchor / Guide extension → tech.preSupport; "Predilation": Simple / Sequential → tech.predilation (one value), its blank → tech.predilationNote; "Support (For Stent)": the same four → tech.stentSupport, its blank → tech.stentSupportNote; "Stent position": Floating wire / Szabo → tech.stentPosition (array); "Support (For Post balloon)": the same four → tech.postSupport; "Post dilation": Simple / Differential / POT → tech.postDilation (one value), its blank → tech.postDilationNote.
+- tables printing, the "Balloon & stent" grid: rows Pre balloon / Stent / Post balloon; the "Technique" column holds that step's own boxes and blank, then four columns Buddy wire / Deep engagement / Balloon anchor / Guide extension, one box per row.
+  - Pre balloon row: Technique "Predilation ☐ Simple ☐ Sequential ____" → tech.predilation, the blank → tech.predilationNote; its ticks in the four support columns → tech.preSupport.
+  - Stent row: Technique "Position ☐ Floating wire ☐ Szabo ____" → tech.stentPosition, the blank → tech.stentSupportNote; support columns → tech.stentSupport.
+  - Post balloon row: Technique "Post dilation ☐ Simple ☐ Differential ☐ POT ____" → tech.postDilation, the blank → tech.postDilationNote; support columns → tech.postSupport.
+  - Keep each tick in ITS row: a tick in the Stent row's Guide extension column is stentSupport, never preSupport. Name the support by its column header.
 
 Shape:
-{"cagr":{"lm":"","lad":"","lcx":"","rca":""},"proc":{"side":"Right|Left","route":"Femoral|Radial","sheath":"","akNo":"","fluoroTime":"","heparin":"","act":"","performedBy":["",""],"technician":"","to":["Prox LAD","Mid LAD"]},"tech":{"strategy":"PrD-Stent-PoD","overlap":{"count":"","order":"Distal first|Prox first","vessels":["LAD"]},"wiring":["Simple"],"wireSupport":[""],"wireSupportNote":"","preSupport":[""],"predilation":"Simple|Sequential","predilationNote":"","stentSupport":[""],"stentSupportNote":"","stentPosition":[""],"postSupport":[""],"postDilation":"Simple|Differential|POT","postDilationNote":""}}`;
+{"layout":"lines|tables","cagr":{"lm":"","lad":"","lcx":"","rca":""},"proc":{"side":"Right|Left","route":"Femoral|Radial","sheath":"","akNo":"","fluoroTime":"","heparin":"","act":"","performedBy":["",""],"technician":"","to":["Prox LAD","Mid LAD"],"poba":["D1"]},"tech":{"strategy":"PrD-Stent-PoD","overlap":{"count":"","order":"Distal first|Prox first","vessels":["LAD"]},"wiring":["Simple"],"wireSupport":[""],"wireSupportNote":"","preSupport":[""],"predilation":"Simple|Sequential","predilationNote":"","stentSupport":[""],"stentSupportNote":"","stentPosition":[""],"postSupport":[""],"postDilation":"Simple|Differential|POT","postDilationNote":""}}`;
 
 const PROMPT_Q4 = `You are reading a photograph of the FOURTH page of the PTCA & STENTING PROFORMA, Department of Cardiology, LTMG Hospital, Sion, Mumbai — bifurcation, thrombus and calcium management, complications and recommendations. The printed footer reads "PTCA — Page 4 of 4".
 
@@ -6980,12 +7047,26 @@ ${P_COMMON}
 
 PAGE HEADER — the top of this page may carry the patient's name and a handwritten "PTCA / Cath No." line. Return that number exactly as written as "hdrPtcaNo" (e.g. "2356/AP-657"); omit it when blank. It is used only to cross-check the front page.
 
-CHECKLISTS — report each marked box under tech, spelling the option exactly as listed; omit anything unmarked:
-- "Bif techniques": two lines of boxes. First line: "Provisional" and "Provisional switched to true Bif" — the second box → tech.bifSwitched: true when ticked (a provisional case converted to two stents during the procedure); return "Provisional" in tech.bifTechniques when either is ticked. Second line: DK Crush / Mini Crush / Culotte / T stenting / TAP / Direct crush / JSBT → also into tech.bifTechniques. Return EVERY ticked box, Provisional first.
-- "Bifurcation vessels": TWO rows of the same boxes LM / LAD / LCX / Diagonal / OM / PDA / PLV — the row labelled "MB :" (main branch) → tech.bifMb (array), the row labelled "SB :" (side branch) → tech.bifSb (array). Keep the rows apart; never merge them. Also return their union in tech.bifVessels.
-- The line "Recross wire 1 ________ 2 ________, POT ☐ 1 ☐ 2": handwriting on the first blank → tech.bifRecross1, on the second → tech.bifRecross2 (wire names, verbatim); the box before "1" → tech.bifPot1: true, the box before "2" → tech.bifPot2: true. Omit each when blank or unticked.
-- "Thrombus Mx": Aspiration / Thrombus catheter / Guide extension / Guide catheter / Balloon dottering / Balloon inflation / ELCA → tech.thrombusMx (array). ("Aspiration" is printed before its box begins the line — the first box belongs to "Thrombus catheter"; count "Aspiration" marked only if a deliberate stroke sits by the word itself.) The line beneath reads "__________ (number of aspiration runs). TIMI _____ flow achieved or ☐ Failed to restore flow": the first blank → tech.thrombus.runs (digits only); the TIMI blank → tech.thrombus.timi ("0", "I", "II" or "III"); the box before "Failed to restore flow" → tech.thrombus.failed: true when ticked. Omit "thrombus" entirely when none of these is present.
-- "Calcium Mx": three lines. Line 1: "☐ Cutting balloon ____, ☐ Dissection" — the box → tech.calcium.cutting true, its blank (the balloon's size and brand, verbatim) → tech.calcium.cuttingName, the "Dissection" box → tech.calcium.dissection: true when ticked. Line 2: "☐ Rota, ______ Burr size, ______ RPM, ______ No of runs, ☐ Polishing run" (see below). Line 3: "☐ ELCA, ☐ Contrast ______ No of runs, ______ Fluence, ______ Hz, ______ ns" — the "ELCA" box → tech.calcium.elca true; the "Contrast" box right after it → tech.calcium.elcaContrast: true when ticked (it means the laser was used with contrast); then the four blanks, each labelled AFTER its blank → tech.calcium.elcaRuns, elcaFluence, elcaFreq, elcaPulse (digits only; omit any left blank — the report prints the department's standard settings for them). Line 2 in detail: the "Rota" box → tech.calcium.rota, and then the three blanks that follow it, each labelled AFTER the blank: the burr size (e.g. "1.5") → tech.calcium.rotaName (digits only, no "mm"), the RPM (e.g. "160000" — digits only, no commas) → tech.calcium.rpm, the number of runs → tech.calcium.runs (digits); the "Polishing run" box at the end of the line → tech.calcium.polish: true ONLY when it carries a deliberate tick — omit it otherwise. Omit any blank left empty. (An older printing has only "Rota ______": that blank is the burr size.)
+TWO PRINTINGS OF THIS PAGE — look at the layout first and return "layout":
+- "lines" (v2.6 and older): "Bif techniques:", "Bifurcation vessels:", "Thrombus Mx:", "Calcium Mx:" are lines of boxes in running text.
+- "tables" (v2.7, with small black-and-white squares in the page corners): bordered tables headed "Bifurcation", "Thrombus management" and "Calcium management", each row labelled in a grey first column.
+Both printings fill the SAME fields; report each marked box under tech, spelling the option exactly as listed; omit anything unmarked.
+
+BIFURCATION
+- Techniques (lines: "Bif techniques", two lines of boxes; tables: the "Technique" row, also two lines): "Provisional" and "Provisional switched to true Bif" — the second box → tech.bifSwitched: true when ticked (a provisional case converted to two stents during the procedure); return "Provisional" in tech.bifTechniques when either is ticked. Then DK Crush / Mini Crush / Culotte / T stenting / TAP / Direct crush / JSBT → also into tech.bifTechniques. Return EVERY ticked box, Provisional first. Spell them exactly so whichever printing (e.g. "DK Crush", "Mini Crush").
+- Vessels: lines — TWO rows of the same boxes LM / LAD / LCX / Diagonal / OM / PDA / PLV, the row labelled "MB :" (main branch) and the row labelled "SB :" (side branch). tables — a small grid: column headers LM / LAD / LCx / Diagonal / OM / PDA / PLV, rows "Main branch" and "Side branch", one box per cell. Main branch ticks → tech.bifMb (array), side branch → tech.bifSb (array), using the names LM, LAD, LCX, Diagonal, OM, PDA, PLV. Keep the rows apart; never merge them. Also return their union in tech.bifVessels.
+- Recross / POT (lines: "Recross wire 1 ____ 2 ____, POT ☐ 1 ☐ 2"; tables: the "Recross / POT" row, the same): handwriting on the first blank → tech.bifRecross1, on the second → tech.bifRecross2 (wire names, verbatim); the box before "1" → tech.bifPot1: true, the box before "2" → tech.bifPot2: true. Omit each when blank or unticked.
+
+THROMBUS MANAGEMENT
+- lines: "Thrombus Mx": Aspiration / Thrombus catheter / Guide extension / Guide catheter / Balloon dottering / Balloon inflation / ELCA → tech.thrombusMx (array). ("Aspiration" is printed before its box begins the line — the first box belongs to "Thrombus catheter"; count "Aspiration" marked only if a deliberate stroke sits by the word itself.) The line beneath reads "__________ (number of aspiration runs). TIMI _____ flow achieved or ☐ Failed to restore flow".
+- tables: row "Aspiration via": boxes Thrombus catheter / Guide extension / Guide catheter and a "Runs" blank — when any of these boxes is ticked return it AND "Aspiration" in tech.thrombusMx; row "Balloon": Dottering → "Balloon dottering", Inflation → "Balloon inflation"; row "Laser": ELCA → "ELCA"; row "Result": "TIMI ____ flow achieved or ☐ Failed to restore flow".
+- Both: the number of aspiration runs → tech.thrombus.runs (digits only); the TIMI blank → tech.thrombus.timi ("0", "I", "II" or "III"); the box before "Failed to restore flow" → tech.thrombus.failed: true when ticked. Omit "thrombus" entirely when none of these is present.
+
+CALCIUM MANAGEMENT
+- lines, older printings: one line "Calcium Mx: ☐ Cutting balloon ____ ☐ Rota ____ ☐ ELCA" — the boxes → tech.calcium.cutting / rota / elca true; the cutting-balloon blank → tech.calcium.cuttingName (size and brand, verbatim); the Rota blank is the burr size → tech.calcium.rotaName (digits only, no "mm").
+- lines, a fuller printing has three lines: "☐ Cutting balloon ____, ☐ Dissection"; "☐ Rota, ______ Burr size, ______ RPM, ______ No of runs, ☐ Polishing run"; "☐ ELCA, ☐ Contrast ______ No of runs, ______ Fluence, ______ Hz, ______ ns" — each blank is labelled AFTER it.
+- tables: row "Cutting balloon": ☐, "Size & brand ____", ☐ Dissection; row "Rotablation": ☐, "Burr ____ mm", "RPM ____", "Runs ____", ☐ Polishing run; row "Laser": ☐ ELCA, ☐ With contrast, "Runs ____", "Fluence ____", "Hz ____", "ns ____" — each blank is labelled BEFORE it.
+- Fields: cutting-balloon box → tech.calcium.cutting true, its size/brand → tech.calcium.cuttingName, the Dissection box → tech.calcium.dissection: true; Rota / Rotablation box → tech.calcium.rota true, the burr size (e.g. "1.5") → tech.calcium.rotaName (digits only, no "mm"), the RPM (e.g. "160000", digits only, no commas) → tech.calcium.rpm, the number of runs → tech.calcium.runs (digits), the Polishing run box → tech.calcium.polish: true ONLY when it carries a deliberate tick; ELCA box → tech.calcium.elca true, the "Contrast" / "With contrast" box → tech.calcium.elcaContrast: true when ticked, then runs / fluence / Hz / ns → tech.calcium.elcaRuns, elcaFluence, elcaFreq, elcaPulse (digits only). Omit any blank left empty (the report prints the department's standard laser settings for them).
 
 RULED LINES
 - Complications lines → proc.complications (all handwriting joined with a space). Keep wording about a side branch exactly as written (e.g. "D1 occluded after MB stent", "SB dissection") — it says why a provisional bifurcation was converted.
@@ -6993,7 +7074,7 @@ RULED LINES
 - "Recommendations (in addition to standard)" line → recommendationsExtra.
 
 Shape:
-{"tech":{"bifTechniques":["Provisional","TAP"],"bifSwitched":true,"bifMb":["LAD"],"bifSb":["Diagonal"],"bifVessels":["LAD","Diagonal"],"bifRecross1":"","bifRecross2":"","bifPot1":true,"bifPot2":true,"thrombusMx":["Aspiration"],"thrombus":{"runs":"3","timi":"III","failed":false},"calcium":{"cutting":true,"cuttingName":"2.5*10 Wolverine","dissection":false,"rota":true,"rotaName":"1.5","rpm":"160000","runs":"3","polish":true,"elca":true,"elcaContrast":false,"elcaRuns":"4"}},"proc":{"complications":"","otherHardware":""},"recommendationsExtra":""}`;
+{"layout":"lines|tables","tech":{"bifTechniques":["Provisional","TAP"],"bifSwitched":true,"bifMb":["LAD"],"bifSb":["Diagonal"],"bifVessels":["LAD","Diagonal"],"bifRecross1":"","bifRecross2":"","bifPot1":true,"bifPot2":true,"thrombusMx":["Aspiration"],"thrombus":{"runs":"3","timi":"III","failed":false},"calcium":{"cutting":true,"cuttingName":"2.5*10 Wolverine","dissection":false,"rota":true,"rotaName":"1.5","rpm":"160000","runs":"3","polish":true,"elca":true,"elcaContrast":false,"elcaRuns":"4"}},"proc":{"complications":"","otherHardware":""},"recommendationsExtra":""}`;
 
 const PROMPT_U = `You are reading a photograph of the PTCA UTILIZATION REPORT of the Department of Cardiology, LTMG Hospital, Sion, Mumbai — the one-page grid the cath-lab technician fills with the hardware used, stapled to the front of the PTCA report. It has no page-number footer. Everything on it is handwritten into printed table cells.
 
@@ -9133,6 +9214,8 @@ function stripForMerge(slot, part) {
   const isQ = String(slot).charAt(0) === "q";
   // 13.48: a page header's PTCA number is only a cross-check (ptcaNumbersFill)
   if (isQ && part.hdrPtcaNo != null) { part = Object.assign({}, part); delete part.hdrPtcaNo; }
+  // 13.62: which printing the page was (v2.6 "lines" / v2.7 "tables") — a note about the sheet, not report data
+  if (part.layout != null) { part = Object.assign({}, part); delete part.layout; }
   if (slot === "p1" || slot === "q1") return part;
   if (!(isQ ? S.res.q1 : S.res.p1)) return part;
   const copy = Object.assign({}, part);
@@ -12072,7 +12155,7 @@ function openCosts() { S.step = "costs"; S.navMore = false; S.costs = S.costs ||
    Fields = filled in either version; Wrong = a scanned value corrected or
    removed; Missed = a value the scan left empty and a resident filled. */
 const ACC_STORE = "cagAccSnaps", ACC_KEEP = 25, ACC_DAYS = 30;
-const ACC_SKIP_KEY = /^(_.*|unsure|cagNoFrom|cagNoFromV|cagNoDiag|readBy|where|diagramUrl|utilUrl|photo|thumb|url|b64|hash|savedAt|editedAt)$/;
+const ACC_SKIP_KEY = /^(_.*|unsure|numSrc|cagNoFrom|cagNoFromV|cagNoDiag|readBy|where|diagramUrl|utilUrl|photo|thumb|url|b64|hash|savedAt|editedAt)$/;
 /* what applyCagToPtca fills from the CAG: left out of a PTCA whose as-scanned
    copy had to be rebuilt without it (an inbox draft opened on another phone) */
 const ACC_CAG_FILLED = /^(name|age|height|weight|sex|ipdOpdNo|ipdNo|opdNo|cagNo|cagDate|cagFinding|blood|echo|valves|rwma|doppler|dx|past|rf|quick|cagr)$/;
@@ -12105,15 +12188,54 @@ function accPaths(o, pre, out) {
   if (pre) out.push(pre);
   return out;
 }
+/* 13.62: the part of the proforma a field belongs to, for the accuracy log's
+   "By section" table */
+const ACC_SECT_TOP = {
+  name: "Patient details", cagNo: "Patient details", ptcaNo: "Patient details", date: "Patient details", age: "Patient details", sex: "Patient details",
+  ipdOpdNo: "Patient details", ipdNo: "Patient details", opdNo: "Patient details", height: "Patient details", weight: "Patient details", ptype: "Patient details",
+  dx: "Diagnosis", chestPainSince: "Diagnosis", doeAoeSince: "Diagnosis",
+  cagFinding: "CAG summary (front page)", cagDate: "CAG summary (front page)", ptcaTo: "CAG summary (front page)",
+  past: "History & risk factors", rf: "History & risk factors",
+  proceduralRisk: "Approval & checklist", approvalAmount: "Approval & checklist", ncStatus: "Approval & checklist", checklist: "Approval & checklist", planned: "Approval & checklist", plannedFrom: "Approval & checklist",
+  quick: "Quick strip (LVID, EF, creat, K)", exam: "Examination", ecg: "ECG", cst: "Stress test",
+  echo: "Echo measurements", rwma: "RWMA", valves: "Valves & Doppler", doppler: "Valves & Doppler",
+  blood: "Blood tests", blood2: "Blood tests", diagram: "Coronary diagram sheet", cagr: "CAG reference (PTCA page 3)",
+  recommendationsExtra: "Recommendations"
+};
+const ACC_SECT_CAG = { side: "CAG access", route: "CAG access", routeNote: "CAG access", performedBy: "Operators", supervisedBy: "Operators",
+  lm: "LM findings", lad: "LAD & diagonal findings", diagonal: "LAD & diagonal findings", lcx: "LCx, OM & ramus findings", om: "LCx, OM & ramus findings", ramus: "LCx, OM & ramus findings",
+  rca: "RCA, PDA & PLV findings", pda: "RCA, PDA & PLV findings", plv: "RCA, PDA & PLV findings", renalL: "Renal angiogram", renalR: "Renal angiogram",
+  rentrop: "Collaterals & grafts", grafts: "Collaterals & grafts", finalDx: "Final diagnosis", finalDiagnosisExtra: "Final diagnosis", plan: "Plan" };
+const ACC_SECT_PROC = { to: "PTCA to", poba: "POBA to", side: "Access & sheath", route: "Access & sheath", sheath: "Access & sheath",
+  akNo: "Procedure numbers (AK, fluoro, heparin, ACT)", fluoroTime: "Procedure numbers (AK, fluoro, heparin, ACT)", heparin: "Procedure numbers (AK, fluoro, heparin, ACT)", act: "Procedure numbers (AK, fluoro, heparin, ACT)",
+  performedBy: "Operators", technician: "Operators", targets: "Procedure plan (devices per vessel)", complications: "Complications & other hardware", otherHardware: "Complications & other hardware" };
+function accSectionOf(type, path) {
+  const ks = path.replace(/\[\d+\]/g, "").split(".");
+  const a = ks[0], b = ks[1] || "";
+  if (a === "cag") return ACC_SECT_CAG[b] || "CAG findings";
+  if (a === "proc") return ACC_SECT_PROC[b] || "Procedure";
+  if (a === "tech") {
+    if (/^(strategy|overlap)$/.test(b)) return "Strategy & overlapping stents";
+    if (/^wir|^wireSupport/.test(b)) return "Wiring";
+    if (/^(pre|predilation|stent|post)/i.test(b)) return "Balloon & stent technique";
+    if (/^bif/.test(b)) return "Bifurcation";
+    if (/^thrombus/.test(b)) return "Thrombus management";
+    if (b === "calcium") return "Calcium management";
+    return "Technique";
+  }
+  if (a === "util") return b === "grid" ? "Utilization grid (devices)" : "Utilization sheet (header & adjuncts)";
+  return ACC_SECT_TOP[a] || (type === "PTCA" ? "Other (PTCA)" : "Other (CAG)");
+}
 function accSlotsOf(type) { return (type === "PTCA" ? PSLOTS : SLOTS).map(function (s) { return s.slot; }).filter(function (k) { return S.res[k]; }); }
 /* the as-scanned copy of a case, with what each sheet read and how */
 function accSnapOf(obj, type, extra) {
-  const slots = accSlotsOf(type), leaves = {}, filled = {}, rb = {}, th = {}, pa = {};
+  const slots = accSlotsOf(type), leaves = {}, filled = {}, rb = {}, th = {}, pa = {}, lay = {};
   slots.forEach(function (k) {
     try { leaves[k] = accPaths(S.res[k], "", []); filled[k] = Object.keys(accLeaves(S.res[k], "", {})); } catch (e) { leaves[k] = []; filled[k] = []; }
     rb[k] = (S.readBy || {})[k] || "?"; th[k] = (S.readThink || {})[k] || "?"; pa[k] = (S.readPath || {})[k] || "?";
+    if (S.res[k] && S.res[k].layout) lay[k] = String(S.res[k].layout);       // 13.62: v2.6 "lines" / v2.7 "tables"
   });
-  return Object.assign({ type: type, at: Date.now(), base: accCopy(obj), slots: slots, leaves: leaves, filled: filled, rb: rb, th: th, pa: pa, saved: 0, app: APP_VERSION }, extra || {});
+  return Object.assign({ type: type, at: Date.now(), base: accCopy(obj), slots: slots, leaves: leaves, filled: filled, lay: lay, rb: rb, th: th, pa: pa, saved: 0, app: APP_VERSION }, extra || {});
 }
 function accStart(obj, type) {
   try {
@@ -12169,7 +12291,7 @@ function accRefresh(obj) {
 function accDiff(sn, fin) {
   const A = accLeaves(sn.base, "", {}), B = accLeaves(fin, "", {});
   const keys = Object.keys(A).concat(Object.keys(B).filter(function (k) { return !(k in A); }));
-  const per = {}, changes = [];
+  const per = {}, sect = {}, changes = [];
   let n = 0, w = 0, a = 0;
   const pre2 = function (k) { return k.split(/[.[]/).slice(0, 2).join("."); };
   const top = function (k) { return k.split(/[.[]/)[0]; };
@@ -12184,13 +12306,14 @@ function accDiff(sn, fin) {
     if (sn.rebuilt && sn.type === "PTCA" && !sn.cagApplied && ACC_CAG_FILLED.test(top(k))) return;
     const x = A[k] || "", y = B[k] || "";
     const sl = slotOf(k);
-    const P = per[sl] = per[sl] || { m: sn.rb[sl] || "", t: sn.th[sl] || "", r: sn.pa[sl] || "", n: 0, w: 0, a: 0 };
-    n++; P.n++;
+    const P = per[sl] = per[sl] || { m: sn.rb[sl] || "", t: sn.th[sl] || "", r: sn.pa[sl] || "", f: (sn.lay || {})[sl] || "", n: 0, w: 0, a: 0 };
+    const sc = accSectionOf(sn.type, k), Q = sect[sc] = sect[sc] || { n: 0, w: 0, a: 0 };
+    n++; P.n++; Q.n++;
     if (x === y) return;
-    if (x) { w++; P.w++; } else { a++; P.a++; }
+    if (x) { w++; P.w++; Q.w++; } else { a++; P.a++; Q.a++; }
     changes.push(k + ": " + (x ? x.slice(0, 60) : "(empty)") + " → " + (y ? y.slice(0, 60) : "(empty)"));
   });
-  return { n: n, w: w, a: a, per: per, changes: changes };
+  return { n: n, w: w, a: a, per: per, sect: sect, changes: changes };
 }
 function accUniq(map, slots) { const v = []; slots.forEach(function (k) { const x = map[k]; if (x && v.indexOf(x) < 0) v.push(x); }); return v.join(" / "); }
 function accOnSave(rec) {
@@ -12204,7 +12327,7 @@ function accOnSave(rec) {
   const body = { id: id, type: sn.type, no: String((sn.type === "PTCA" ? fin.ptcaNo || fin.cathNo : fin.cagNo) || fin.cagNo || ""),
     route: accUniq(sn.pa, sn.slots), think: accUniq(sn.th, sn.slots),
     models: Object.keys(groups).map(function (m) { return (mcLabel(m) || m) + " (" + groups[m].join(", ") + ")"; }).join("; "),
-    n: d.n, w: d.w, a: d.a, perSheet: d.per, changes: (sn.rebuilt ? "[as-scanned copy rebuilt from the readings" + (sn.type === "PTCA" && !sn.cagApplied ? "; the CAG's own data left out (CAG not found)" : "") + "]\n" : "") + d.changes.join("\n"),
+    n: d.n, w: d.w, a: d.a, perSheet: d.per, perSect: d.sect, changes: (sn.rebuilt ? "[as-scanned copy rebuilt from the readings" + (sn.type === "PTCA" && !sn.cagApplied ? "; the CAG's own data left out (CAG not found)" : "") + "]\n" : "") + d.changes.join("\n"),
     by: S.cfg.userName || "", built: new Date(sn.at).toISOString().slice(0, 16).replace("T", " "), app: APP_VERSION };
   // the labelled set for an offline reader later (see the script's trainSave_):
   // inbox cases - the script copies the inbox files itself; a phone scan sends
@@ -12307,6 +12430,31 @@ function accHtml(per) {
     <p class="hint">Changes the resident made to text the app writes itself (not read from one sheet) are left out of this table and counted below as “Not from one sheet”.</p>`;
   h += `<h3>By route</h3><div class="tblwrap"><table class="costtbl acctbl"><tr><th>Read</th><th>Sheets</th><th>Changed</th><th>Wrong</th><th>Missed</th></tr>` +
     Object.keys(R).map(function (k) { const q = R[k]; return tline([two(esc2(ACC_ROUTE_WORD[k] || k), q.n + " fields"), q.sh, "<b>" + accPct(q.w + q.a, q.n) + "</b>", accPct(q.w, q.n), accPct(q.a, q.n)]); }).join("") + `</table></div>`;
+  // 13.62: by section of the proforma, most changed first
+  const SC = {};
+  rows.forEach(function (r) {
+    Object.keys(r.sect || {}).forEach(function (k) {
+      const q = r.sect[k] || {}, key = r.type + "|" + k, o = SC[key] = SC[key] || { type: r.type, s: k, n: 0, w: 0, a: 0, c: 0 };
+      o.n += q.n || 0; o.w += q.w || 0; o.a += q.a || 0; o.c++;
+    });
+  });
+  const scl = Object.keys(SC).map(function (k) { return SC[k]; }).filter(function (o) { return o.n; })
+    .sort(function (x, y) { return (y.w + y.a) / y.n - (x.w + x.a) / x.n || y.n - x.n; });
+  if (scl.length) h += `<h3>By section of the proforma</h3><div class="tblwrap"><table class="costtbl acctbl"><tr><th>Section</th><th>Cases</th><th>Changed</th><th>Wrong</th><th>Missed</th></tr>` +
+    scl.map(function (o) { return tline([two("<b>" + o.type + "</b> \u00b7 " + esc2(o.s), o.n + " fields" + (o.n < 20 ? " \u2014 few yet" : "")), o.c, "<b>" + accPct(o.w + o.a, o.n) + "</b>", accPct(o.w, o.n), accPct(o.a, o.n)]); }).join("") + `</table></div>
+    <p class="hint">Highest change rate first. A section with only a few fields so far can swing a lot \u2014 trust it once it has a few dozen.</p>`;
+  // 13.62: the old and the new printing of the same page, side by side
+  const LY = {};
+  rows.forEach(function (r) {
+    Object.keys(r.per || {}).forEach(function (sl) {
+      const p = r.per[sl] || {}; if (!p.f) return;
+      const key = sl + "|" + p.f, o = LY[key] = LY[key] || { sl: sl, f: p.f, n: 0, w: 0, a: 0, c: 0 };
+      o.n += p.n || 0; o.w += p.w || 0; o.a += p.a || 0; o.c++;
+    });
+  });
+  const lyl = Object.keys(LY).map(function (k) { return LY[k]; }).sort(function (x, y) { return x.sl.localeCompare(y.sl) || x.f.localeCompare(y.f); });
+  if (lyl.length) h += `<h3>By printing of the proforma</h3><div class="tblwrap"><table class="costtbl acctbl"><tr><th>Page</th><th>Sheets</th><th>Changed</th><th>Wrong</th><th>Missed</th></tr>` +
+    lyl.map(function (o) { return tline([two(esc2(ACC_SLOT_WORD[o.sl] || o.sl), o.f === "tables" ? "v2.7 \u2014 tables" : "v2.6 or older \u2014 lines"), o.c, "<b>" + accPct(o.w + o.a, o.n) + "</b>", accPct(o.w, o.n), accPct(o.a, o.n)]); }).join("") + `</table></div>`;
   const order = ["p1", "a1", "a2", "a3", "d1", "q1", "q2", "q3", "q4", "qu", "qd", "_"];
   h += `<h3>By sheet</h3><div class="tblwrap"><table class="costtbl acctbl"><tr><th>Sheet</th><th>Cases</th><th>Changed</th><th>Wrong</th><th>Missed</th></tr>` +
     order.filter(function (k) { return SH[k]; }).map(function (k) { const q = SH[k]; return tline([two(esc2(ACC_SLOT_WORD[k] || k), Math.round(q.n / q.c) + " fields a case"), q.c, "<b>" + accPct(q.w + q.a, q.n) + "</b>", accPct(q.w, q.n), accPct(q.a, q.n)]); }).join("") + `</table></div>`;
@@ -13817,12 +13965,15 @@ function viewPtcaReview() {
       F("Fluence mJ/mm\u00b2 (45)", "P.tech.calcium.elcaFluence", "1 1 90px") + F("Hz (25)", "P.tech.calcium.elcaFreq", "1 1 60px") + F("Pulse ns (135)", "P.tech.calcium.elcaPulse", "1 1 80px") + `</div>` : "");
   h += SECT("Technique (pages 3–4 checklists)", tq);
 
-  let pr = `<p class="hint">PTCA to — the lesion, segment by segment</p>` +
-    PTCA_SEG_GROUPS.map(function (g) {
+  const segChips = function (path) {
+    return PTCA_SEG_GROUPS.map(function (g) {
       const toks = Object.keys(g.cross).concat(Object.keys(g.segs));
       return `<div class="chips" style="margin-bottom:2px">` +
-        toks.map(function (t) { return CKA(t, "P.proc.to", t); }).join("") + `</div>`;
-    }).join("") +
+        toks.map(function (t) { return CKA(t, path, t); }).join("") + `</div>`;
+    }).join("");
+  };
+  let pr = `<p class="hint">PTCA to — the stented lesion, segment by segment</p>` + segChips("P.proc.to") +
+    `<p class="hint" style="margin-top:8px">POBA to — plain balloon angioplasty, no stent (proforma v2.7)</p>` + segChips("P.proc.poba") +
     `<div class="btns"><button class="b live" onclick="rebuildPlan()">Build the procedure plan from the sheets</button>${S.imgs.qu
       ? `<button class="b" onclick="openUtilView()">View utilization sheet</button>`
       : utilStoredUrl(P) ? `<a class="b" href="${esc2(utilStoredUrl(P))}" target="_blank" rel="noopener">Stored utilization sheet</a>` : ""}</div>

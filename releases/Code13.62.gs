@@ -7355,7 +7355,7 @@ function invFix24Nov_(runId) {
    replaces its row (Accuracy id). Fields = filled in either version; Wrong =
    a scanned value corrected or removed; Missed = a value the scan left empty. */
 var ACC_TAB = "Scan accuracy";
-var ACC_HEAD = ["Saved", "Accuracy id", "Type", "Case no", "Route", "Thinking", "Models", "Fields", "Wrong", "Missed", "Changed %", "Per sheet", "Changes", "Saved by", "Built", "Saves", "App"];
+var ACC_HEAD = ["Saved", "Accuracy id", "Type", "Case no", "Route", "Thinking", "Models", "Fields", "Wrong", "Missed", "Changed %", "Per sheet", "Changes", "Saved by", "Built", "Saves", "App", "Per section"];
 function accLog_(req) {
   var id = cathStr_(req.id, 80);
   if (!id) throw new Error("no accuracy id");
@@ -7363,7 +7363,7 @@ function accLog_(req) {
   var n = Number(req.n) || 0, w = Number(req.w) || 0, a = Number(req.a) || 0;
   var row = [cathNow_(), id, req.type === "PTCA" ? "PTCA" : "CAG", cathStr_(req.no, 60), cathStr_(req.route, 60), cathStr_(req.think, 60), cathStr_(req.models, 200),
     n, w, a, n ? Math.round((w + a) * 1000 / n) / 10 : 0, String(JSON.stringify(req.perSheet || {})).slice(0, 4000), String(req.changes || "").slice(0, 20000),
-    cathStr_(req.by, 60), cathStr_(req.built, 30), 1, cathStr_(req.app, 20)];
+    cathStr_(req.by, 60), cathStr_(req.built, 30), 1, cathStr_(req.app, 20), String(JSON.stringify(req.perSect || {})).slice(0, 6000)];
   var last = sh.getLastRow(), at = 0;
   if (last > 1) {
     var ids = sh.getRange(2, 2, last - 1, 1).getValues();
@@ -7446,7 +7446,7 @@ function trainSave_(id, req) {
     readings: c ? c.results : (tr.readings || null),    // what the scanner returned for each sheet
     scanned: tr.scanned || null,                        // the report as built from those readings
     final: tr.final || null,                            // the report as the residents saved it
-    perSheet: req.perSheet || null, changes: String(req.changes || "").split("\n").filter(Boolean)
+    perSheet: req.perSheet || null, perSection: req.perSect || null, changes: String(req.changes || "").split("\n").filter(Boolean)
   };
   var txt = JSON.stringify(labels, null, 1);
   if (have["labels.json"]) have["labels.json"].setContent(txt); else dir.createFile("labels.json", txt, "application/json");
@@ -7503,8 +7503,9 @@ function accList_(req) {
       var t = r[0] instanceof Date ? Utilities.formatDate(r[0], Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss") : String(r[0]);
       if (t.slice(0, 10) < from) return;
       var per = {}; try { per = JSON.parse(String(r[11] || "{}")) || {}; } catch (e) {}
+      var sect = {}; try { sect = JSON.parse(String(r[17] || "{}")) || {}; } catch (e) {}
       rows.push({ at: t, id: String(r[1]), type: String(r[2]), no: String(r[3]), route: String(r[4]), think: String(r[5]), models: String(r[6]),
-        n: Number(r[7]) || 0, w: Number(r[8]) || 0, a: Number(r[9]) || 0, per: per, changes: String(r[12] || ""), by: String(r[13]), saves: Number(r[15]) || 1 });
+        n: Number(r[7]) || 0, w: Number(r[8]) || 0, a: Number(r[9]) || 0, per: per, sect: sect, changes: String(r[12] || ""), by: String(r[13]), saves: Number(r[15]) || 1 });
     });
   }
   var tc = null; try { tc = trainCount_(); } catch (e) {}
