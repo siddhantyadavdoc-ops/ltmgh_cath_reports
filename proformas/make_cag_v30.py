@@ -29,9 +29,10 @@ LOGO = os.path.join(HERE, "cag_logo.jpg")
 BOX = "☐"
 FONT = "Times New Roman"
 GREY = "EDEDED"
-BOX1 = 20        # page 1's echo part (below the original top half)
-BOXV = 22        # the vessel grids and pages 2–4 (22 pt ≈ 5.6 mm, each in a cell of ≈ 9 mm)
+BOX1 = 22        # page 1's echo part (below the original top half)
+BOXV = 24        # the vessel grids and pages 2–4 (22 pt ≈ 5.6 mm, each in a cell of ≈ 9 mm)
 DIGIT = 22       # the CAG No / IPD / OPD / date digit boxes
+ROW_V = 1.35       # vessel-grid data rows, cm
 W = 18.6         # text width, cm
 
 # ---------- low-level helpers ----------
@@ -108,7 +109,7 @@ def fill(cell, parts, box=BOXV, center=False, lab=9.5):
             if center: p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     return cell
 
-GAP = ["     "]   # the space after an option's label (page 1's echo part uses less)
+GAP = ["      "]   # the space after an option's label (page 1's echo part uses less)
 def B(*labels): return [("box", l) for l in labels]
 
 def table(doc, widths, rows, box=BOXV, label=True, heights=None, lab=9.5, h=0.56):
@@ -157,7 +158,7 @@ STENT = ["Stent", "NIH", "Well endo­thelized"]
 _BX = (18.6 - (1.6 + 1.05 + 0.95 + 0.95 + 1.6)) / 14
 VW = [1.6, 1.05] + [_BX] * 11 + [_BX, 0.95, _BX, _BX, 0.95, 1.6]
 
-def vessel_grid(doc, name, options, segments, branch=None, no_bridge=False, branches=None):
+def vessel_grid(doc, name, options, segments, branch=None, no_bridge=False, branches=None, row=None, brow=0.85):
     """options: parts for the vessel's own line (spans the grid; None = no such
     line); segments: row labels; branch / branches: (label, option-parts) — a
     side branch row under its own line"""
@@ -167,7 +168,7 @@ def vessel_grid(doc, name, options, segments, branch=None, no_bridge=False, bran
     t = doc.add_table(rows=n_rows, cols=len(VW)); borders(t); cell_margins(t, 0.03, 0.02)
     if top:
         # row 0: vessel name + its own options
-        r0 = t.rows[0]; row_h(r0, 0.7)
+        r0 = t.rows[0]; row_h(r0, 0.9)
         fill(r0.cells[0], [("b", name)], lab=11); shade(r0.cells[0])
         m = r0.cells[1].merge(r0.cells[len(VW) - 1]); fill(m, options)
     # row 1: group headers
@@ -187,7 +188,7 @@ def vessel_grid(doc, name, options, segments, branch=None, no_bridge=False, bran
             vertical(c); p = para(c, True); p.alignment = WD_ALIGN_PARAGRAPH.LEFT
             run(p, h.replace("\n", ""), 7.5, bold=True); c.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     def data_row(r, label):
-        row_h(r, 0.95)
+        row_h(r, row or ROW_V)
         fill(r.cells[0], [("b", label)], lab=9.5); shade(r.cells[0])
         fill(r.cells[1], [("t", "____%")], lab=9, center=True)
         for i in range(2, 13):
@@ -201,7 +202,7 @@ def vessel_grid(doc, name, options, segments, branch=None, no_bridge=False, bran
     for k, s in enumerate(segments): data_row(t.rows[top + 2 + k], s)
     for bi, br in enumerate(branches):
         at = top + 2 + len(segments) + 2 * bi
-        rb = t.rows[at]; row_h(rb, 0.6)
+        rb = t.rows[at]; row_h(rb, brow)
         fill(rb.cells[0], [("b", br[0])], lab=10); shade(rb.cells[0])
         mb = rb.cells[1].merge(rb.cells[len(VW) - 1]); fill(mb, br[1])
         data_row(t.rows[at + 1], br[0])
@@ -210,7 +211,7 @@ def vessel_grid(doc, name, options, segments, branch=None, no_bridge=False, bran
 
 def notes_lines(doc, n=1, label="Notes"):
     for k in range(n):
-        p = para(doc); p.paragraph_format.space_before = Pt(5)
+        p = para(doc); p.paragraph_format.space_before = Pt(9)
         run(p, (label + " : " if k == 0 else "") + "_" * (96 if k == 0 else 104), 9.5)
 
 # ---------- the pages ----------
@@ -222,16 +223,16 @@ def notes_lines(doc, n=1, label="Notes"):
 P1_SRC = os.path.join(HERE, "CAG_Proforma_v2_7.pdf")
 P1_CUT = 556.5       # pt from the top: just above the "Echocardiogram :" heading
 P1_STRIP = (0, 79, 592)   # the left-margin checklist strip (x0, x1, down to y pt from the top) — "Consent" ends at 585
-P1_LEFT, P1_RIGHT = 81.1, 576.0   # the page's content column, pt (the original band reaches x 572.5)
+P1_LEFT, P1_RIGHT = 48.0, 547.3   # the page's content column, pt (the original band reaches x 572.5)
 P1_BAND = (79.0, 228.0, 595.3, P1_CUT)   # the original band kept: "Clinical Diagnosis" .. CST (x0, top, x1, bottom; pt from the top)
-P1_BAND_GAP = 3.0
-P1_ECHO_ROW, P1_BLOOD_ROW = 0.72, 0.68    # cm — room to write LA / Ao / ... and the blood values                         # pt between the new patient table and the band
+P1_BAND_GAP = 1.5
+P1_ECHO_ROW, P1_BLOOD_ROW, P1_VALVE_ROW = 0.7, 0.62, 0.74    # cm — room to write LA / Ao / ... and the blood values                         # pt between the new patient table and the band
 
 def page1_top(doc):
     """title only (no emblem / hospital details) + the patient table, Name / Age / Sex row taller"""
     w = (P1_RIGHT - P1_LEFT) / 28.3465
     p = para(doc); p.alignment = WD_ALIGN_PARAGRAPH.CENTER; p.paragraph_format.space_after = Pt(5)
-    run(p, "CORONARY ANGIOGRAPHY REPORT", 14, bold=True, color="1F3A93")
+    p.paragraph_format.space_after = Pt(3); run(p, "CORONARY ANGIOGRAPHY REPORT", 14, bold=True, color="1F3A93")
     t = table(doc, [2.0, 7.3, 2.0, w - 11.3], [
         [[("b", "Name")], [("line", 40)], [("b", "Age")], [("line", 6), ("t", "    "), ("b", "Sex "), ("line", 6)]],
         [[("b", "CAG No.")], [("digits", 5), ("sep", " / "), ("digits", 4)], [("b", "IPD No.")], [("digits", 7)]],
@@ -247,37 +248,38 @@ def page1_top(doc):
     run(band, " ", 2)
 
 def page1_bottom(doc):
-    GAP[0] = "   "
+    GAP[0] = "      "
     w = (P1_RIGHT - P1_LEFT) / 28.3465          # cm
     heading(doc, "Echocardiogram :", before=0)
-    t = doc.add_table(rows=3, cols=6); borders(t); cell_margins(t)
-    for r, trip in enumerate([("LA", "IVSDd", "LVIDd"), ("Aorta", "PWDd", "LVIDs"), ("PASP", "RA/RV", "LVEF")]):
+    t = doc.add_table(rows=3, cols=8); borders(t); cell_margins(t)
+    for r, trip in enumerate([("LA", "IVSDd", "LVIDd", "DD grade"), ("Aorta", "PWDd", "LVIDs", "AVPG"), ("PASP", "RA/RV", "LVEF", "")]):
         row_h(t.rows[r], P1_ECHO_ROW, exact=True)
         for k, lab in enumerate(trip):
-            fill(t.rows[r].cells[2 * k], [("b", lab)], lab=9); shade(t.rows[r].cells[2 * k])
-            fill(t.rows[r].cells[2 * k + 1], [("t", "%" if lab == "LVEF" else "")], lab=9)
-    a = (w - 3 * 1.6) / 3
-    fixed(t, [1.6, a, 1.6, a, 1.6, a])
+            fill(t.rows[r].cells[2 * k], [("b", lab)] if lab else [], lab=9)
+            if lab: shade(t.rows[r].cells[2 * k])
+            fill(t.rows[r].cells[2 * k + 1], [("t", {"LVEF": "%", "AVPG": "mmHg"}.get(lab, ""))], lab=9)
+            t.rows[r].cells[2 * k + 1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    a = (w - 4 * 1.7) / 4
+    fixed(t, [1.7, a] * 4)
     spacer(doc, 2)
     vt = doc.add_table(rows=4, cols=8); borders(vt); cell_margins(vt, 0.03)
     heads = ["", "MR", "MS", "MVA", "AS", "AR", "TR", "Revised LVEF"]
     for i, h in enumerate(heads):
         fill(vt.rows[0].cells[i], [("b", h)], lab=8.5, center=True); shade(vt.rows[0].cells[i])
-    row_h(vt.rows[0], 0.42)
+    row_h(vt.rows[0], 0.5)
     for r, sev in enumerate(["Mild", "Moderate", "Severe"]):
-        tr = vt.rows[r + 1]; row_h(tr, 0.67, exact=True)
+        tr = vt.rows[r + 1]; row_h(tr, P1_VALVE_ROW, exact=True)
         fill(tr.cells[0], [("b", sev)], lab=8.5); shade(tr.cells[0])
         for i in range(1, 7):
             if heads[i] == "MVA": fill(tr.cells[i], [("t", "____ sq cm")] if r == 0 else [], lab=8, center=True)
-            else: fill(tr.cells[i], [("box", "")], box=18, center=True)
+            else: fill(tr.cells[i], [("box", "")], box=BOX1, center=True)
     m = vt.rows[1].cells[7].merge(vt.rows[3].cells[7]); fill(m, [("line", 5), ("t", " %"), ("br",), ("br",), ("line", 14)], lab=9)
     c = (w - 1.75 - 2.3 - 3.6) / 5
     fixed(vt, [1.75, c, c, 2.3, c, c, c, 3.6])
     spacer(doc, 2)
     table(doc, [1.6, w - 1.6], [
         [[("b", "RWMA")], B("No", "A / AL / AS", "I / IL / IS", "GLVH", "Apical")],
-        [[("b", "Diastology")], [("t", "DD grade "), ("line", 5), ("t", "      AVPG "), ("line", 5), ("t", " mmHg")]],
-    ], box=BOX1, lab=9, h=0.5)
+    ], box=BOX1, lab=9.5, h=0.7)
     heading(doc, "Blood Investigation :", before=2)
     t = doc.add_table(rows=4, cols=8); borders(t); cell_margins(t)
     cols = [("Hb", "TLC", "Platelets", ""), ("BUN", "Sr. Creat", "Sr. Na/K", ""), ("TC", "TG", "LDL", "RBS/FBS"), ("HIV", "HBsAg", "HCV", "")]
@@ -332,8 +334,9 @@ def compose_page1(gen_pdf, out_pdf):
     res["/XObject"]["/OrigTop"] = fx; page.obj["/Resources"] = res
     H = 841.89; x0, top, x1, bot = P1_BAND
     d = (tb + P1_BAND_GAP) - top                 # move the band up by -d pt
-    clip = ("q 1 0 0 1 0 %.2f cm %.2f %.2f %.2f %.2f re W n /OrigTop Do Q\n" %
-            (-d, x0, H - bot, x1 - x0, bot - top)).encode()
+    dx = P1_LEFT - 81.1                          # and left, to the new content column
+    clip = ("q 1 0 0 1 %.2f %.2f cm %.2f %.2f %.2f %.2f re W n /OrigTop Do Q\n" %
+            (dx, -d, x0, H - bot, x1 - x0, bot - top)).encode()
     page.contents_add(dst.make_stream(clip), prepend=False)
     dst.save(out_pdf)
     print("page 1: table bottom %.1f pt, band moved %.1f pt" % (tb, d))
@@ -349,8 +352,8 @@ def page2(doc):
         [[("b", "Supervised by")], [("t", "Dr. P. J. Nathani (Professor & Head)")]],
     ], box=BOXV)
     spacer(doc, 6)
-    vessel_grid(doc, "Lt. Main", B("Normal", "Short", "Separate LAD LCx origin", "Anterior dot", "Posterior dot", "Eye sign") +
-                [("br",)] + B("Anomalous origin from") + [("line", 16)], ["Ostial", "Distal"], no_bridge=True)
+    vessel_grid(doc, "Lt. Main", B("Normal", "Short", "Separate LAD LCx origin", "Anterior dot") + [("br",)] +
+                B("Posterior dot", "Eye sign", "Anomalous origin from") + [("line", 16)], ["Ostial", "Distal"], no_bridge=True)
     notes_lines(doc, 1)
     spacer(doc, 6)
     vessel_grid(doc, "LAD", [("t", "Type ")] + B("I", "II", "III") + [("t", "     TIMI ")] + B("I", "II", "III") + [("t", "flow")],
@@ -361,13 +364,13 @@ def page2(doc):
 def page3(doc):
     vessel_grid(doc, "LCx", B("Dominant", "Non dominant", "Co-dominant") + [("t", "  TIMI ")] + B("I", "II", "III") + [("t", "flow"), ("br",)] +
                 B("Normal origin", "Anomalous origin from") + [("line", 16)],
-                ["Ostial", "Proximal", "Mid", "Distal"], branch=("OM", B("Major", "Minor", "Normal")))
+                ["Ostial", "Proximal", "Mid", "Distal"], branch=("OM", B("Major", "Minor", "Normal")), row=1.4, brow=0.9)
     notes_lines(doc, 2)
     spacer(doc, 8)
     vessel_grid(doc, "RCA", B("Dominant", "Non dominant", "Co-dominant") + [("t", "  TIMI ")] + B("I", "II", "III") + [("t", "flow"), ("br",)] +
                 B("Normal origin", "Anomalous origin from") + [("line", 16)],
-                ["Ostial", "Proximal", "Mid", "Distal"])
-    notes_lines(doc, 2)
+                ["Ostial", "Proximal", "Mid", "Distal"], row=1.4)
+    notes_lines(doc, 1)
 
 def branch_table(doc, rows):
     """PDA / PLV / ramus — each one row of the vessel grid under its own line"""
@@ -375,7 +378,7 @@ def branch_table(doc, rows):
 
 def page4(doc):
     heading(doc, "PDA, PLV & Ramus :", before=0)
-    vessel_grid(doc, "", None, [], branches=[(nm, B("Major", "Minor", "Normal")) for nm in ("PDA", "PLV", "Ramus")])
+    vessel_grid(doc, "", None, [], branches=[(nm, B("Major", "Minor", "Normal")) for nm in ("PDA", "PLV", "Ramus")], row=1.65, brow=1.0)
     notes_lines(doc, 2)
     heading(doc, "Collaterals, grafts & renals :", before=6)
     table(doc, [2.9, 15.7], [
@@ -384,15 +387,15 @@ def page4(doc):
         [[("b", "Grafts")], [("t", "LIMA ")] + B("Normal") + [("t", "  RIMA ")] + B("Normal") + [("t", "  Grafts "), ("line", 34)]],
         [[("b", "Left renal")], B("Normal") + [("t", "Ostial "), ("line", 5), ("t", "% stenosis   ")] + B("Stent")],
         [[("b", "Right renal")], B("Normal") + [("t", "Ostial "), ("line", 5), ("t", "% stenosis   ")] + B("Stent")],
-    ], box=BOXV)
+    ], box=BOXV, h=1.05)
     heading(doc, "Final Diagnosis & Plan :", before=6)
     GAP[0] = "  "        # nine vessels on one line
     table(doc, [2.9, 15.7], [
         [[("b", "Final diagnosis")], B("LM", "LAD", "D1", "LCx", "OM", "RCA", "PDA", "PLV", "Ramus") + [("br",)] + B("Non obstructive CAD", "Non-anginal chest pain")],
         [[("b", "Plan")], B("MMM") + [("t", "  PTCA to ")] + B("LM", "LAD", "D1", "LCx", "OM", "RCA", "Ramus") + [("br",), ("t", "with ")] + B("IVUS", "Rota", "CABG", "DCB")],
         [[("b", "Advice")], [("t", "Continued medical management. Aggressive control of risk factors.")]],
-    ], box=BOXV)
-    GAP[0] = "     "
+    ], box=BOXV, heights={0: 1.9, 1: 1.9}, h=0.9)
+    GAP[0] = "      "
     p = para(doc); p.paragraph_format.space_before = Pt(6); run(p, "Duplicate report won’t be issued", 9, italic=True)
 
 def footer(section):
@@ -412,7 +415,7 @@ def build(out):
     doc = Document()
     sec = doc.sections[0]
     sec.page_width, sec.page_height = Cm(21.0), Cm(29.7)
-    sec.left_margin = sec.right_margin = Cm(1.2); sec.top_margin = Cm(1.0); sec.bottom_margin = Cm(1.1)
+    sec.left_margin = sec.right_margin = Cm(1.2); sec.top_margin = Cm(1.7); sec.bottom_margin = Cm(1.7)
     sec.footer_distance = Cm(0.5); sec.header_distance = Cm(0.4)
     pg = OxmlElement("w:pgNumType"); pg.set(qn("w:start"), "2"); sec._sectPr.append(pg)     # these are pages 2–4
     st = doc.styles["Normal"]; st.font.name = FONT; st.font.size = Pt(9.5)
