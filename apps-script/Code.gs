@@ -417,10 +417,11 @@ function handle(e) {
     // 13.50 — costs: a phone's scans are logged with either key; the list and the prices need the edit key
     if (action === "costLog" && !canEdit && !techAllowed(req.tkey)) return out({ ok: false, error: "no key to log costs" });
     if (action === "accLog" && !canEdit) return out({ ok: false, error: "no edit key to log the scan accuracy" });
-    if ((action === "costList" || action === "costPricesSet" || action === "thinkSet" || action === "accList") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
+    if ((action === "costList" || action === "costPricesSet" || action === "thinkSet" || action === "accList" || action === "trainFolderSet") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
     switch (action) {
       case "costLog": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, costLog_(req)));
       case "accLog": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, accLog_(req)));
+      case "trainFolderSet": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, trainFolderSet_(req)));
       case "accList": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, accList_(req)));
       case "costList": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, costList_(req)));
       case "thinkSet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, thinkSet_(req)));
@@ -7382,8 +7383,25 @@ function accLog_(req) {
    rewrites labels.json only. Script property TRAIN_OFF = 1 stops it. */
 var TRAIN_DIR = "Scan training data";
 function trainRoot_() {
+  // a folder chosen in the app (e.g. in someone's own Drive, shared with this
+  // script's account as Editor); else CAG Inbox / Scan training data
+  var id = PropertiesService.getScriptProperties().getProperty("TRAIN_FOLDER_ID");
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
   var inbox = batchFolders_().inbox, it = inbox.getFoldersByName(TRAIN_DIR);
   return it.hasNext() ? it.next() : inbox.createFolder(TRAIN_DIR);
+}
+/* app: set (or clear) the training folder from its Drive link; checked by writing a test file */
+function trainFolderSet_(req) {
+  var props = PropertiesService.getScriptProperties(), link = String(req.link || "").trim();
+  if (!link) { props.deleteProperty("TRAIN_FOLDER_ID"); return Object.assign({ set: false }, trainCount_()); }
+  var m = link.match(/folders\/([A-Za-z0-9_\-]{20,})/) || link.match(/[?&]id=([A-Za-z0-9_\-]{20,})/) || link.match(/^([A-Za-z0-9_\-]{20,})$/);
+  if (!m) throw new Error("that is not a Drive folder link");
+  var f;
+  try { f = DriveApp.getFolderById(m[1]); } catch (e) { throw new Error("this script's account (" + Session.getEffectiveUser().getEmail() + ") cannot open that folder - share it with that account as Editor first"); }
+  try { var t = f.createFile("write-test.txt", "ok"); t.setTrashed(true); }
+  catch (e) { throw new Error("the folder opens but cannot be written to - share it with " + Session.getEffectiveUser().getEmail() + " as Editor"); }
+  props.setProperty("TRAIN_FOLDER_ID", m[1]);
+  return Object.assign({ set: true, name: f.getName() }, trainCount_());
 }
 function trainSave_(id, req) {
   var key = id.replace(/[^A-Za-z0-9_\-]+/g, "_");
@@ -7429,11 +7447,14 @@ function trainSave_(id, req) {
   return { ok: true, folder: key, pages: pages.length, copied: copied };
 }
 function trainCount_() {
-  var inbox = batchFolders_().inbox, it = inbox.getFoldersByName(TRAIN_DIR);
-  if (!it.hasNext()) return { cases: 0 };
-  var n = 0, f = it.next(), sub = f.getFolders();
+  var acct = ""; try { acct = Session.getEffectiveUser().getEmail(); } catch (e) {}
+  var id = PropertiesService.getScriptProperties().getProperty("TRAIN_FOLDER_ID"), f = null;
+  if (id) { try { f = DriveApp.getFolderById(id); } catch (e) {} }
+  if (!f) { var inbox = batchFolders_().inbox, it = inbox.getFoldersByName(TRAIN_DIR); f = it.hasNext() ? it.next() : null; }
+  if (!f) return { cases: 0, account: acct, custom: !!id };
+  var n = 0, sub = f.getFolders();
   while (sub.hasNext()) { sub.next(); n++; }
-  return { cases: n, url: f.getUrl(), off: PropertiesService.getScriptProperties().getProperty("TRAIN_OFF") === "1" };
+  return { cases: n, url: f.getUrl(), name: f.getName(), custom: !!id, account: acct, off: PropertiesService.getScriptProperties().getProperty("TRAIN_OFF") === "1" };
 }
 function accList_(req) {
   var days = Math.max(1, Math.min(400, Number(req.days) || 95));
