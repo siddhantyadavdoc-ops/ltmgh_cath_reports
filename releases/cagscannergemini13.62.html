@@ -6616,6 +6616,10 @@ function editBanner() {
 }
 
 /* ============================ prompts ============================ */
+/* 13.62: the corner markers printed from CAG proforma v2.8 / PTCA v2.7 on */
+const MARKER_NOTE = `PRINTED CORNER MARKERS: newer printings carry a small black-and-white square pattern in each of the four page corners. They are alignment marks for software, never data — not ticks, not handwriting, not part of any field. Ignore them.
+
+`;
 const UNSURE_RULE = `
 WHAT YOU WERE UNSURE OF
 - Besides the fields, return "unsure": a list of the fields you read only tentatively — where a careful reader would want to look at the sheet again. Flag a field when: a tick sits between two boxes or could be the tail of a tick from the row above or below; a mark is faint or partial and may be a smudge, fold or printing artefact rather than ink; a box lies in a scribbled-out or corrected area; a handwritten figure has two plausible readings (6 / 0, 7 / 1, 70 / 90) and you chose the likelier; a word or name you could read only in part; the area is blurred, cut off, at an angle or under glare.
@@ -6842,19 +6846,19 @@ Return ONLY minified JSON of this shape, omitting empty keys:
 
 const SLOTS = [
   { slot: "p1", title: "Sheet 1 — Clinical proforma",
-    hint: "Name, diagnosis, ECG, echo, bloods", prompt: PROMPT_P1 },
+    hint: "Name, diagnosis, ECG, echo, bloods", prompt: MARKER_NOTE + PROMPT_P1 },
   { slot: "a1", title: "Sheet 2 — Angiogram, page 1",
-    hint: "Catheter, LM, LAD + D1", prompt: PROMPT_A1 },
+    hint: "Catheter, LM, LAD + D1", prompt: MARKER_NOTE + PROMPT_A1 },
   { slot: "a2", title: "Sheet 3 — Angiogram, page 2",
-    hint: "LCx, OM, RCA", prompt: PROMPT_A2 },
+    hint: "LCx, OM, RCA", prompt: MARKER_NOTE + PROMPT_A2 },
   { slot: "a3", title: "Sheet 4 — Angiogram, page 3",
-    hint: "PDA, PLV, Ramus, collaterals, LIMA/RIMA, renals, final diagnosis, plan", prompt: PROMPT_A3 },
+    hint: "PDA, PLV, Ramus, collaterals, LIMA/RIMA, renals, final diagnosis, plan", prompt: MARKER_NOTE + PROMPT_A3 },
   // diagram:true marks the slot whose reading is a second source, compared
   // with the ticks rather than merged into them. A PTCA diagram sheet goes
   // into PSLOTS the same way (slot id starting with "q", e.g. "qd").
   { slot: "d1", title: "Sheet 5 — Coronary diagram",
     hint: "The drawn tree: % labels, occlusions, stents, and which vessel feeds the PDA/PLV. Cross-checked against the ticks; optional",
-    prompt: PROMPT_D, diagram: true },
+    prompt: MARKER_NOTE + PROMPT_D, diagram: true },
 ];
 
 /* ============================ PTCA prompts ============================ */
@@ -7053,20 +7057,20 @@ Shape (omit empty keys):
 
 const PSLOTS = [
   { slot: "q1", title: "PTCA Sheet 1 — Front page",
-    hint: "Patient, diagnosis, approval boxes, LVIDd/LVIDs/EF/Creat/K+", prompt: PROMPT_Q1 },
+    hint: "Patient, diagnosis, approval boxes, LVIDd/LVIDs/EF/Creat/K+", prompt: MARKER_NOTE + PROMPT_Q1 },
   { slot: "q2", title: "PTCA Sheet 2 — Investigations",
-    hint: "Examination, bloods (At CAG / Repeat), ECG, echo", prompt: PROMPT_Q2 },
+    hint: "Examination, bloods (At CAG / Repeat), ECG, echo", prompt: MARKER_NOTE + PROMPT_Q2 },
   { slot: "q3", title: "PTCA Sheet 3 — Procedure & technique",
-    hint: "CAG reference, access, strategy, PTCA-to segments, wiring & supports", prompt: PROMPT_Q3 },
+    hint: "CAG reference, access, strategy, PTCA-to segments, wiring & supports", prompt: MARKER_NOTE + PROMPT_Q3 },
   { slot: "q4", title: "PTCA Sheet 4 — Bif / thrombus / calcium",
-    hint: "Bifurcation, thrombus & calcium Mx, complications, recommendations", prompt: PROMPT_Q4 },
+    hint: "Bifurcation, thrombus & calcium Mx, complications, recommendations", prompt: MARKER_NOTE + PROMPT_Q4 },
   { slot: "qu", title: "Utilization sheet (technician's)",
-    hint: "Per-vessel hardware grid — guides, wires, balloons, stents, adjuncts", prompt: PROMPT_U },
+    hint: "Per-vessel hardware grid — guides, wires, balloons, stents, adjuncts", prompt: MARKER_NOTE + PROMPT_U },
   // 13.52: the heart drawing with the stent marked and its sticker pasted —
   // a second source, checked against the other sheets; optional
   { slot: "qd", title: "Diagram stent sheet",
     hint: "Heart drawing with the stent marked, its sticker, name, Cath No. and date — cross-checked against the other sheets; optional",
-    prompt: PROMPT_QD, diagram: true },
+    prompt: MARKER_NOTE + PROMPT_QD, diagram: true },
 ];
 
 /* The sheets, sorter prompt and case shape the capture screen is working
