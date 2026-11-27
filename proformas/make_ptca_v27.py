@@ -251,10 +251,12 @@ def build(out, ptca_ticks=(), poba_ticks=()):
     pp = copy.deepcopy(first._p); t2._tbl.addnext(pp)
     pb = Paragraph(pp, first._parent)
     for r in pb.runs: r._r.getparent().remove(r._r)
-    pb.paragraph_format.space_before = Pt(8); pb.paragraph_format.space_after = Pt(2)
+    pb.paragraph_format.space_before = Pt(10); pb.paragraph_format.space_after = Pt(8)
+    pb.paragraph_format.line_spacing = Pt(32); pb.paragraph_format.line_spacing_rule = 4   # exactly: room to write
     run(pb, "POBA to :  ", bold=True)
     run(pb, "_" * 46, 11)
     run(pb, "   plain balloon angioplasty, no stent \u2014 write the segment, e.g. mid LAD", 8, italic=True)
+    pb.add_run().add_break(); run(pb, "_" * 80, 11)          # a second line for more than one segment
     # tighter spacing on page 3 below the Technician line, so the page keeps all its rows
     allp = d.paragraphs
     a0 = [n for n, q in enumerate(allp) if q.text.startswith("Technician")][0]

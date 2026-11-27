@@ -222,7 +222,29 @@ def notes_lines(doc, n=1, label="Notes"):
 P1_SRC = os.path.join(HERE, "CAG_Proforma_v2_7.pdf")
 P1_CUT = 556.5       # pt from the top: just above the "Echocardiogram :" heading
 P1_STRIP = (0, 79, 592)   # the left-margin checklist strip (x0, x1, down to y pt from the top) — "Consent" ends at 585
-P1_LEFT, P1_RIGHT = 81.1, 478.0   # the page's content column, pt
+P1_LEFT, P1_RIGHT = 81.1, 576.0   # the page's content column, pt (the original band reaches x 572.5)
+P1_BAND = (79.0, 228.0, 595.3, P1_CUT)   # the original band kept: "Clinical Diagnosis" .. CST (x0, top, x1, bottom; pt from the top)
+P1_BAND_GAP = 3.0
+P1_ECHO_ROW, P1_BLOOD_ROW = 0.72, 0.68    # cm — room to write LA / Ao / ... and the blood values                         # pt between the new patient table and the band
+
+def page1_top(doc):
+    """title only (no emblem / hospital details) + the patient table, Name / Age / Sex row taller"""
+    w = (P1_RIGHT - P1_LEFT) / 28.3465
+    p = para(doc); p.alignment = WD_ALIGN_PARAGRAPH.CENTER; p.paragraph_format.space_after = Pt(5)
+    run(p, "CORONARY ANGIOGRAPHY REPORT", 14, bold=True, color="1F3A93")
+    t = table(doc, [2.0, 7.3, 2.0, w - 11.3], [
+        [[("b", "Name")], [("line", 40)], [("b", "Age")], [("line", 6), ("t", "    "), ("b", "Sex "), ("line", 6)]],
+        [[("b", "CAG No.")], [("digits", 5), ("sep", " / "), ("digits", 4)], [("b", "IPD No.")], [("digits", 7)]],
+        [[("b", "Date")], [("digits", 2), ("sep", "/"), ("digits", 2), ("sep", "/"), ("digits", 2), ("t", "  "), ("i", "DD/MM/YY")], [("b", "OPD No.")], [("digits", 7)]],
+        [[("b", "Height")], [("line", 8), ("t", " cm      "), ("b", "Weight "), ("line", 8), ("t", " kg")], [("b", "Checklist")], B("RG", "R", "DP", "PT") + [("br",)] + B("Local", "Consent")],
+    ], box=BOX1, heights={0: 1.15, 1: 0.85, 2: 0.85, 3: 0.9}, h=0.52)
+    for r in t.rows: shade(r.cells[2])
+    for r in (0, 3):
+        for c in t.rows[r].cells: c.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    # the room the original band is drawn into
+    band = para(doc); band.paragraph_format.line_spacing = Pt(P1_BAND[3] - P1_BAND[1] + 2 * P1_BAND_GAP)
+    band.paragraph_format.line_spacing_rule = 4   # exactly
+    run(band, " ", 2)
 
 def page1_bottom(doc):
     GAP[0] = "   "
@@ -230,7 +252,7 @@ def page1_bottom(doc):
     heading(doc, "Echocardiogram :", before=0)
     t = doc.add_table(rows=3, cols=6); borders(t); cell_margins(t)
     for r, trip in enumerate([("LA", "IVSDd", "LVIDd"), ("Aorta", "PWDd", "LVIDs"), ("PASP", "RA/RV", "LVEF")]):
-        row_h(t.rows[r], 0.43, exact=True)
+        row_h(t.rows[r], P1_ECHO_ROW, exact=True)
         for k, lab in enumerate(trip):
             fill(t.rows[r].cells[2 * k], [("b", lab)], lab=9); shade(t.rows[r].cells[2 * k])
             fill(t.rows[r].cells[2 * k + 1], [("t", "%" if lab == "LVEF" else "")], lab=9)
@@ -243,7 +265,7 @@ def page1_bottom(doc):
         fill(vt.rows[0].cells[i], [("b", h)], lab=8.5, center=True); shade(vt.rows[0].cells[i])
     row_h(vt.rows[0], 0.42)
     for r, sev in enumerate(["Mild", "Moderate", "Severe"]):
-        tr = vt.rows[r + 1]; row_h(tr, 0.68, exact=True)
+        tr = vt.rows[r + 1]; row_h(tr, 0.67, exact=True)
         fill(tr.cells[0], [("b", sev)], lab=8.5); shade(tr.cells[0])
         for i in range(1, 7):
             if heads[i] == "MVA": fill(tr.cells[i], [("t", "____ sq cm")] if r == 0 else [], lab=8, center=True)
@@ -257,46 +279,68 @@ def page1_bottom(doc):
         [[("b", "Diastology")], [("t", "DD grade "), ("line", 5), ("t", "      AVPG "), ("line", 5), ("t", " mmHg")]],
     ], box=BOX1, lab=9, h=0.5)
     heading(doc, "Blood Investigation :", before=2)
-    t = doc.add_table(rows=5, cols=6); borders(t); cell_margins(t)
-    cols = [("Hb", "TLC", "Platelets", "TC", ""), ("BUN", "Sr. Creat", "Sr. Na/K", "TG", ""), ("HIV", "HBsAg", "HCV", "RBS/FBS", "LDL")]
-    for r in range(5):
-        row_h(t.rows[r], 0.43, exact=True)
-        for k in range(3):
+    t = doc.add_table(rows=4, cols=8); borders(t); cell_margins(t)
+    cols = [("Hb", "TLC", "Platelets", ""), ("BUN", "Sr. Creat", "Sr. Na/K", ""), ("TC", "TG", "LDL", "RBS/FBS"), ("HIV", "HBsAg", "HCV", "")]
+    for r in range(4):
+        row_h(t.rows[r], P1_BLOOD_ROW, exact=True)
+        for k in range(4):
             lab = cols[k][r]
             fill(t.rows[r].cells[2 * k], [("b", lab)] if lab else [], lab=9)
             if lab: shade(t.rows[r].cells[2 * k])
             fill(t.rows[r].cells[2 * k + 1], [])
-    fixed(t, [1.6, a, 1.6, a, 1.6, a])
+    b = (w - 4 * 1.6) / 4
+    fixed(t, [1.6, b] * 4)
 
 def build_page1_bottom(out):
     doc = Document(); sec = doc.sections[0]
     sec.page_width, sec.page_height = Cm(21.0), Cm(29.7)
     sec.left_margin = Cm(P1_LEFT / 28.3465); sec.right_margin = Cm((595.3 - P1_RIGHT) / 28.3465)
-    sec.top_margin = Cm(P1_CUT / 28.3465); sec.bottom_margin = Cm(0.75); sec.footer_distance = Cm(0.45)
+    sec.top_margin = Cm(0.7); sec.bottom_margin = Cm(0.6); sec.footer_distance = Cm(0.35)
     st = doc.styles["Normal"]; st.font.name = FONT; st.font.size = Pt(9.5)
     st.paragraph_format.space_after = Pt(0); st.paragraph_format.space_before = Pt(0)
     if doc.paragraphs: doc.paragraphs[0]._p.getparent().remove(doc.paragraphs[0]._p)
     p = sec.footer.paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.CENTER; run(p, "Page 1 of 4", 9)
+    page1_top(doc)
     page1_bottom(doc)
     doc.save(out)
 
-def compose_page1(bottom_pdf, out_pdf):
-    """the bottom page with the original page's top half (and margin strip) drawn in, clipped"""
+def table_bottom(pdf):
+    """pt from the top of the generated page 1's patient-table bottom border (the 4th long rule)"""
+    import subprocess
+    from PIL import Image
+    base = pdf[:-4] + "_r"
+    subprocess.run(["pdftoppm", "-r", "144", "-gray", "-f", "1", "-l", "1", pdf, base], check=True)
+    f = [x for x in os.listdir(os.path.dirname(base)) if x.startswith(os.path.basename(base))][0]
+    im = Image.open(os.path.join(os.path.dirname(base), f)); W, H = im.size; P = im.load()
+    rules = []
+    for y in range(H // 2):
+        if sum(1 for x in range(0, W, 2) if P[x, y] < 120) > W * 0.3:
+            if not rules or y - rules[-1][-1] > 2: rules.append([y])
+            else: rules[-1].append(y)
+    os.remove(os.path.join(os.path.dirname(base), f))
+    return max(rules[4]) / 2.0          # 5 horizontal borders: top + 4 rows; the last is the bottom
+
+def compose_page1(gen_pdf, out_pdf):
+    """the generated page 1 with the original page's band (Clinical Diagnosis .. CST) drawn into the room under the patient table"""
     import pikepdf
-    dst = pikepdf.open(bottom_pdf); src = pikepdf.open(P1_SRC)
+    tb = table_bottom(gen_pdf)
+    dst = pikepdf.open(gen_pdf); src = pikepdf.open(P1_SRC)
     page = dst.pages[0]
     fx = dst.copy_foreign(src.pages[0].as_form_xobject())
     res = page.obj.get("/Resources") or pikepdf.Dictionary()
     if "/XObject" not in res: res["/XObject"] = pikepdf.Dictionary()
     res["/XObject"]["/OrigTop"] = fx; page.obj["/Resources"] = res
-    H = 841.89; x0, x1, ybot = P1_STRIP
-    clip = ("q 0 %.2f 595.3 %.2f re %.2f %.2f %.2f %.2f re W n /OrigTop Do Q\n" %
-            (H - P1_CUT, P1_CUT, x0, H - ybot, x1 - x0, ybot - P1_CUT)).encode()
+    H = 841.89; x0, top, x1, bot = P1_BAND
+    d = (tb + P1_BAND_GAP) - top                 # move the band up by -d pt
+    clip = ("q 1 0 0 1 0 %.2f cm %.2f %.2f %.2f %.2f re W n /OrigTop Do Q\n" %
+            (-d, x0, H - bot, x1 - x0, bot - top)).encode()
     page.contents_add(dst.make_stream(clip), prepend=False)
     dst.save(out_pdf)
+    print("page 1: table bottom %.1f pt, band moved %.1f pt" % (tb, d))
 
 def page2(doc):
-    letterhead(doc, "Angiogram")
+    p = para(doc); p.alignment = WD_ALIGN_PARAGRAPH.CENTER; p.paragraph_format.space_after = Pt(2)
+    run(p, "Angiogram", 14, bold=True)
     spacer(doc, 4)
     table(doc, [3.0, 15.6], [
         [[("b", "CAG No")], [("line", 24)]],
