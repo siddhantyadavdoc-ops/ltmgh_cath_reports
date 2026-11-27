@@ -5,8 +5,9 @@ proformas, so a photo can be straightened onto the printed template without
 Gemini, and the page recognised from the marker ids alone.
 
   marker id = page_code * 4 + corner   (corner: 0 TL, 1 TR, 2 BR, 3 BL)
-  page_code: 0-3 CAG sheets 1-4, 4 CAG coronary diagram (later),
-             5-8 PTCA sheets 1-4, 9 utilization report, 10 PTCA diagram (later)
+  page_code: 0-3 CAG sheets 1-4 (v2.8), 4 CAG coronary diagram (later),
+             5-8 PTCA sheets 1-4 (v2.7), 9 utilization report, 10 PTCA diagram (later),
+             11-14 CAG sheets 1-4 of the v3.0 tables printing (ids 44-59: DICT_4X4_100)
 
 Each marker is SIZE pt square (6 x 6 cells incl. its black border), INSET pt
 from the paper edge. Positions are written to markers.json for the
@@ -21,7 +22,7 @@ from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 
 SIZE, INSET = 18.0, 11.0
-DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)   # its first 50 are DICT_4X4_50 exactly, so older PDFs are unchanged
 
 def cells(mid):
     img = cv2.aruco.generateImageMarker(DICT, mid, 60)      # 6 cells x 10 px

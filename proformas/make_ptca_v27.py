@@ -19,6 +19,7 @@ from docx.text.paragraph import Paragraph
 
 SRC = "PTCA_Proforma_v2_6.docx"
 BOX, TICK = "☐", "☒"
+PAGE12_BOX = 18     # pages 1–2 (v2.6 printed them at 16 pt)
 BOXPT = 20          # the grids and tables: 20 pt ≈ 5.1 mm (pages 1–2 keep the v2.6 16 pt ≈ 4.1 mm)
 INK = RGBColor(0x1F, 0x3F, 0xBF)
 
@@ -259,6 +260,22 @@ def build(out, ptca_ticks=(), poba_ticks=()):
     while n > 0 and not allp[n].text.strip() and not allp[n].text.startswith("Technician") and n > a0 + 1:
         allp[n]._p.getparent().remove(allp[n]._p); n -= 1
     technique_tables(d)
+    # page 2's QRS / ST-T line: shorter blanks, so the bigger boxes keep it on one line
+    for q in d.paragraphs:
+        if q.text.startswith("QRS / ST-T"):
+            for r in q.runs:
+                if "______" in r.text: r.text = r.text.replace("______", "____")
+    # pages 1–2: the v2.6 boxes from 16 pt up to PAGE12_BOX (only where a box is its own run)
+    stop = [n for n, q in enumerate(d.paragraphs) if q.text.startswith("CAG Reference")][0]
+    for q in d.paragraphs[:stop]:
+        for r in q.runs:
+            if r.text.strip() and set(r.text.strip()) <= {BOX} and r.font.size and r.font.size.pt == 16: r.font.size = Pt(PAGE12_BOX)
+    for t in d.tables:
+        for row in t.rows:
+            for c in row.cells:
+                for q in c.paragraphs:
+                    for r in q.runs:
+                        if r.text.strip() and set(r.text.strip()) <= {BOX} and r.font.size and r.font.size.pt == 16: r.font.size = Pt(PAGE12_BOX)
     # page 4 starts on its own page: the blank lines that used to pad page 3
     # down to its end are replaced by a page break before page 4's Name line
     # (page 3 is taller now, so the padding spilled onto page 4)
