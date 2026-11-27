@@ -11974,13 +11974,36 @@ async function costFlush() {
 window.addEventListener("online", function () { setTimeout(costFlush, 3000); });
 setTimeout(costFlush, 15000);
 
+/* 13.62: the accuracy page's own time bracket (its own choice, not the Costs page's) */
+const ACC_PERIODS = [["24h", "Last 24 h"], ["3", "3 days"], ["7", "7 days"], ["30", "30 days"], ["month", "This month"], ["last", "Last month"], ["custom", "Custom dates"]];
+function accPeriodIso(back) { const x = new Date(Date.now() - back * 864e5); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); }
+function accPeriod() {
+  const A = S.acc = S.acc || {}, k = A.period || "30";
+  const d = new Date(), pad = function (n) { return String(n).padStart(2, "0"); };
+  const iso = function (x) { return x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate()); };
+  if (k === "24h") { const x = new Date(Date.now() - 864e5); return { from: iso(x) + " " + pad(x.getHours()) + ":" + pad(x.getMinutes()) + ":00", to: "9999", word: "the last 24 hours" }; }
+  if (k === "month") return { from: iso(new Date(d.getFullYear(), d.getMonth(), 1)), to: "9999", word: "this month" };
+  if (k === "last") return { from: iso(new Date(d.getFullYear(), d.getMonth() - 1, 1)), to: iso(new Date(d.getFullYear(), d.getMonth(), 1)), word: "last month" };
+  if (k === "custom") {
+    const f = A.from || accPeriodIso(6), t = A.to || accPeriodIso(0);
+    const lo = f <= t ? f : t, hi = f <= t ? t : f, nx = new Date(hi + "T00:00:00"); nx.setDate(nx.getDate() + 1);
+    return { from: lo, to: iso(nx), word: lo === hi ? lo : lo + " to " + hi, custom: true, f: f, t: t };
+  }
+  const n = Number(k) || 30;
+  return { from: iso(new Date(Date.now() - (n - 1) * 864e5)), to: "9999", word: "the last " + n + (n === 1 ? " day" : " days") };
+}
+function accSetPeriod(k) { const A = S.acc = S.acc || {}; A.period = k; if (k === "custom" && !A.from) { A.from = accPeriodIso(6); A.to = accPeriodIso(0); } render(); if (k === "custom" || k === "last") accLoad(true); }
+function accSetDate(which, v) { const A = S.acc = S.acc || {}; if (!/^\d{4}-\d\d-\d\d$/.test(v)) return; A[which] = v; render(); accLoad(true); }
 function openAcc() { S.step = "accuracy"; S.navMore = false; S.costs = S.costs || {}; S.acc = S.acc || {}; render(); accLoad(false); }
 function viewAcc() {
-  const A = S.acc || {}, C = S.costs || {}, per = costPeriod();
-  const pick = function (k, t) { return `<button type="button" class="b${(C.period || "30") === k ? " on" : ""}" onclick="S.costs.period='${k}';render()">${t}</button>`; };
+  const A = S.acc || {}, per = accPeriod(), cur = A.period || "30";
+  const pick = function (k, t) { return `<button type="button" class="b${cur === k ? " on" : ""}" onclick="accSetPeriod('${k}')">${t}</button>`; };
   return `<div class="card costs"><h2>Scan accuracy</h2>
-    <div class="btns">${pick("7", "7 days")}${pick("30", "30 days")}${pick("month", "This month")}${pick("last", "Last month")}
+    <div class="btns">${ACC_PERIODS.map(function (x) { return pick(x[0], x[1]); }).join("")}
       <button class="b" onclick="accLoad(true)" ${A.busy ? "disabled" : ""}>${A.busy ? "Loading…" : "Refresh"}</button></div>
+    ${per.custom ? `<div class="row" style="margin:4px 0 8px"><label class="fld" style="flex:1 1 140px"><span>From</span><input type="date" value="${esc2(per.f)}" max="${accPeriodIso(0)}" onchange="accSetDate('from',this.value)"></label>
+      <label class="fld" style="flex:1 1 140px"><span>To</span><input type="date" value="${esc2(per.t)}" max="${accPeriodIso(0)}" onchange="accSetDate('to',this.value)"></label></div>` : ""}
+    <p class="hint" style="margin:0 0 6px">Showing ${esc2(per.word)}.</p>
     ${accHtml(per)}</div>`;
 }
 function openCosts() { S.step = "costs"; S.navMore = false; S.costs = S.costs || {}; render(); costLoad(false); }
@@ -12137,7 +12160,7 @@ async function accLoad(force) {
   const A = S.acc = S.acc || {};
   if (A.busy || (!force && A.rows && Date.now() - A.at < 60000)) return;
   A.busy = true; A.err = "";
-  try { const r = await sheetApi("accList", { days: 95 }, 60000); A.rows = r.rows || []; A.at = Date.now(); }
+  try { const pe = accPeriod(), back = Math.ceil((Date.now() - new Date(pe.from.slice(0, 10) + "T00:00:00").getTime()) / 864e5) + 2; const r = await sheetApi("accList", { days: Math.max(95, Math.min(400, back)) }, 60000); A.rows = r.rows || []; A.at = Date.now(); }
   catch (e) { A.err = /unknown action/i.test(String(e && e.message)) ? "The shared sheet's script is older than 13.62 — the accuracy log needs it." : String(e.message || e); A.rows = A.rows || null; }
   A.busy = false; render();
 }
@@ -12149,7 +12172,7 @@ function accHtml(per) {
   let h = `<p class="hint">Each saved case is compared with the report as scanned. <b>Wrong</b>: a scanned value the resident corrected or deleted. <b>Missed</b>: a value the scan left empty that the resident filled in. Counted over the filled values of both versions; sheets are credited to the model and thinking level that read them. A case saved again updates its own count.</p>`;
   if (A.err) return h + `<div class="warn err">${esc2(A.err)}</div>`;
   if (!A.rows) return h + `<p class="hint">${A.busy ? "Loading…" : "Not loaded."}</p>`;
-  const rows = A.rows.filter(function (r) { return r.at.slice(0, 10) >= per.from && r.at.slice(0, 10) < per.to; });
+  const rows = A.rows.filter(function (r) { return r.at >= per.from && r.at < per.to; });
   if (!rows.length) return h + `<p class="hint">No scanned case saved in ${esc2(per.word)} yet. Counting starts with cases built from scans on app 13.62.</p>`;
   const T = rows.reduce(function (t, r) { t.n += r.n; t.w += r.w; t.a += r.a; return t; }, { n: 0, w: 0, a: 0 });
   h += `<div class="costtiles">
