@@ -19,6 +19,7 @@ from docx.text.paragraph import Paragraph
 
 SRC = "PTCA_Proforma_v2_6.docx"
 BOX, TICK = "☐", "☒"
+BOXPT = 16          # the same box size as the rest of the proforma (16 pt ≈ 4.1 mm)
 INK = RGBColor(0x1F, 0x3F, 0xBF)
 
 SEGS = ["Ostial", "Proximal", "Mid", "Distal"]
@@ -51,7 +52,7 @@ def borders(t):
 def grid(doc, kind, ticks):
     """kind "PTCA" or "POBA"; ticks = set of "Vessel:Segment" / "Vessel:Other" ticked in the example"""
     t = doc.add_table(rows=1 + len(ROWS), cols=6); borders(t)
-    widths = [1.4, 1.7, 2.6, 2.9, 3.2, 6.8]
+    widths = [1.3, 1.6, 2.6, 3.3, 3.2, 6.6]
     head = ["", "Ostial", "Proximal", "Mid", "Distal", "Branch / over"]
     for i, h in enumerate(head):
         p = t.rows[0].cells[i].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -66,12 +67,12 @@ def grid(doc, kind, ticks):
             if lab is None:
                 run(p, "—", 9, color=RGBColor(0x99, 0x99, 0x99)); continue
             on = (v + ":" + SEGS[si]) in ticks
-            run(p, TICK if on else BOX, 13, font="Segoe UI Symbol", color=INK if on else None)
+            run(p, TICK if on else BOX, BOXPT, font="Segoe UI Symbol", color=INK if on else None)
             if lab: run(p, " " + lab, 7.5, italic=True)
         c = row.cells[5]; p = c.paragraphs[0]; p.paragraph_format.space_after = Pt(0)
         for o in other:
             on = (v + ":" + o) in ticks
-            run(p, (TICK if on else BOX) + " ", 12, font="Segoe UI Symbol", color=INK if on else None)
+            run(p, (TICK if on else BOX) + " ", BOXPT, font="Segoe UI Symbol", color=INK if on else None)
             run(p, o.replace(" ", " ") + "   ", 9)
     t.autofit = False
     lay = OxmlElement("w:tblLayout"); lay.set(qn("w:type"), "fixed"); t._tbl.tblPr.append(lay)
@@ -102,7 +103,7 @@ def fill_cell(cell, parts, center=False):
         elif k == "t": run(p, part[1], 9)
         elif k == "i": run(p, part[1], 7.5, italic=True)
         elif k == "box":
-            run(p, BOX, 12, font="Segoe UI Symbol")
+            run(p, BOX, BOXPT, font="Segoe UI Symbol")
             if part[1]: run(p, " " + part[1] + "   ", 9)
         elif k == "line": run(p, "_" * part[1] + " ", 9)
         elif k == "br":
