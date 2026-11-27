@@ -6711,6 +6711,11 @@ ECHO / BLOOD TABLES
 - Read the handwritten value in the cell to the right of each printed label. LVEF may read like "20-25"; drop the "%" sign.
 - REVISED LVEF: newer printings carry "Revised LVEF ____ %" to the right of the valve table (above the two free echo lines). A figure written there is the senior reviewer's corrected EF — return it as echo.lvef2 (digits, a range like "40-45" is fine); the table's own LVEF stays in echo.lvef. Omit lvef2 when blank or absent. A struck-through table value with a new figure written beside it is the same thing: the original into lvef, the new one into lvef2.
 
+RWMA BOXES — LOOK TWICE WHERE THE MI POINTS
+- The RWMA boxes (No, A / AL / AS, I / IL / IS, GLVH, Apical) are small and the ticks in them are often faint or partly outside the box. Read each one with the TICK RULES above.
+- In an anterior wall MI (the AWMI diagnosis box ticked, or ST elevation / Q waves written for leads V1–V4) the A / AL / AS box is usually the one ticked; in an inferior wall MI (IW ticked, or ST elevation / Q waves in II, III, aVF) the I / IL / IS box usually is. When the diagnosis or the ECG on this sheet points to one wall, look at that wall's RWMA box a second time before leaving it out.
+- This is a reason to look again, not a rule: return only what is actually marked. If after looking again you still cannot tell whether that box is ticked, leave it out and add its path ("rwma.aAlAs" or "rwma.iIlIs") to "unsure".
+
 DD GRADE AND AVPG — ON THE RWMA LINE
 - Newer printings carry, to the RIGHT of the RWMA boxes on the same line, two blanks: "DD Grade ____" and "AVPG ____ mmHg". Read the handwriting after "DD Grade" into echo.ddGrade (as written: "I", "II", "III", "1", "2" …) and the number after "AVPG" into echo.avpg (digits only, no "mmHg"). Omit either when blank or when the printing has no such blanks. A grade of DD or an AVPG written on the free-text echo lines instead stays in "doppler" as before.
 
@@ -6921,7 +6926,8 @@ ECG
 ECHOCARDIOGRAM
 - The value grid: LA, IVSDd, LVIDd, Aorta, PWDd, LVIDs, PASP, RA/RV, LVEF (drop the % sign).
 - The valve grid (columns MR, MS, MVA, AS, AR, TR; rows Mild / Moderate / Severe): a marked cell gives that valve that row's severity, exactly "Mild", "Moderate" or "Severe"; the MVA number (only meaningful when MS is marked) as valves.mva.
-- RWMA boxes: No, A / AL / AS, I / IL / IS, GLVH, Apical. Newer printings add, to the right on the same line, "DD Grade ____" and "AVPG ____ mmHg": the grade as written into echo.ddGrade ("I", "II", "III" …) and the AVPG number (digits only) into echo.avpg; omit when blank or absent.
+- RWMA boxes: No, A / AL / AS, I / IL / IS, GLVH, Apical. The ticks are small and often faint. When the ECG on this page shows ST elevation or Q waves in V1–V4 (anterior), look at the A / AL / AS box a second time; in II, III, aVF (inferior), the I / IL / IS box. Return only what is actually marked — if still not sure about that box, leave it out and add "rwma.aAlAs" or "rwma.iIlIs" to "unsure".
+- (RWMA line, continued) Newer printings add, to the right on the same line, "DD Grade ____" and "AVPG ____ mmHg": the grade as written into echo.ddGrade ("I", "II", "III" …) and the AVPG number (digits only) into echo.avpg; omit when blank or absent.
 - The ruled "2D Echo & Doppler" lines: read all the handwriting as ONE note into "doppler", joining lines with a space.
 
 Shape:
@@ -9086,6 +9092,7 @@ function cagMergeOf(have) {
   });
   merged.readBy = readByOfSession();
   cagNumbersFill(merged, S.res);
+  rwmaFlag(merged);
   adoptDiagramFindings(merged, { a1: !!S.res.a1, a2: !!S.res.a2, a3: !!S.res.a3 });
   const dropped = pruneUnsupportedPlan(merged);
   return { D: merged, badSheets: badSheets, dropped: dropped };
@@ -9541,6 +9548,48 @@ function cagProformaNoWarns(D) {
   return out;
 }
 function cagNumbersFlag(D) { if (cagProformaNoWarns(D).length) D.unsure = unsureUnion(D.unsure, ["cagNo"]); }
+/* 13.62 — RWMA vs the infarct wall. Most AWMI have A / AL / AS hypokinesia
+   and most IWMI I / IL / IS. Not a rule, so nothing is ticked for the
+   resident: a missing box is flagged (amber) when the case is built, and the
+   echo section shows a note with a one-tap fix while the mismatch lasts.
+   The wall comes from the diagnosis boxes, else the ECG leads. */
+const RWMA_WALL = {
+  aAlAs: { mi: "AWMI", box: "A / AL / AS", dx: "awmi", leads: /\bV\s*[1-4]\b|\bV1\s*-\s*V?\s*[2-6]\b|anterior/i },
+  iIlIs: { mi: "IWMI", box: "I / IL / IS", dx: "iw", leads: /\bIII\b|\baVF\b|\bII\b|inferior/i },
+};
+function rwmaEchoDone(o) {
+  const e = o.echo || {}, r = o.rwma || {};
+  return ["lvef", "lvef2", "lvidd", "lvids", "la", "ivsdd"].some(function (k) { return has(e[k]); }) ||
+    Object.keys(r).some(function (k) { return r[k]; }) || (o.quick && has(o.quick.ef));
+}
+function rwmaWallChecks(o) {
+  if (!o || !o.rwma || !rwmaEchoDone(o)) return [];
+  const r = o.rwma, dx = o.dx || {}, ecg = o.ecg || {}, out = [];
+  if (r.glvh) return [];                         // global hypokinesia covers every wall
+  const leads = [ecg.stElev ? ecg.stElevLeads : "", ecg.qWaves ? ecg.qWavesLeads : ""].join(" ");
+  Object.keys(RWMA_WALL).forEach(function (k) {
+    const W = RWMA_WALL[k];
+    const byDx = !!dx[W.dx], byEcg = !byDx && W.leads.test(leads);
+    if (!(byDx || byEcg) || r[k]) return;
+    out.push({ key: k, why: byDx ? W.mi + " is ticked" : "the ECG shows " + (W.mi === "AWMI" ? "anterior" : "inferior") + " changes (" + leads.trim() + ")",
+      box: W.box, no: !!r.no });
+  });
+  return out;
+}
+/* at build: mark the box to look at (amber) */
+function rwmaFlag(o) { const w = rwmaWallChecks(o); if (w.length) o.unsure = unsureUnion(o.unsure, w.map(function (x) { return "rwma." + x.key; })); }
+function rwmaPanel(o, pre) {
+  return rwmaWallChecks(o).map(function (x) {
+    return `<div class="warn amber" style="margin:6px 0"><b>Check RWMA</b> — ${esc2(x.why)}, but ${x.no ? "“No RWMA” is ticked and " : ""}${esc2(x.box)} is not. Usually this wall is hypokinetic — not always: look at the box on the sheet.
+      <div class="btns" style="margin-top:6px"><button class="b" onclick="rwmaTick('${pre}','${x.key}')">Tick ${esc2(x.box)}${x.no ? " (and untick No RWMA)" : ""}</button></div></div>`;
+  }).join("");
+}
+function rwmaTick(pre, k) {
+  const o = pre ? S.P : S.D; if (!o || !o.rwma) return;
+  o.rwma[k] = true; o.rwma.no = false;
+  unsureClear((pre ? "P." : "") + "rwma." + k);
+  render();
+}
 function cagNumberPanel(D) {
   const w = cagProformaNoWarns(D);
   return w.length ? `<div class="warn amber"><b>Check the CAG number</b> \u2014 ${w.map(esc2).join("; ")}.</div>` : "";
@@ -9559,6 +9608,7 @@ function ptcaMergeOf(have) {
   ptcaAfterMerge(merged);
   ptcaNumbersFill(merged, S.res);
   ptcaDateFill(merged, S.res);
+  rwmaFlag(merged);
   // the target-vessel plan: which balloon predilated which lesion, which
   // stent went where, which balloon postdilated which stent — derived from
   // the PTCA-to boxes, the technique ticks and the utilization grid
@@ -12018,7 +12068,7 @@ function openCosts() { S.step = "costs"; S.navMore = false; S.costs = S.costs ||
    Fields = filled in either version; Wrong = a scanned value corrected or
    removed; Missed = a value the scan left empty and a resident filled. */
 const ACC_STORE = "cagAccSnaps", ACC_KEEP = 25, ACC_DAYS = 30;
-const ACC_SKIP_KEY = /^(_.*|readBy|where|diagramUrl|utilUrl|photo|thumb|url|b64|hash|savedAt|editedAt)$/;
+const ACC_SKIP_KEY = /^(_.*|unsure|cagNoFrom|cagNoFromV|cagNoDiag|readBy|where|diagramUrl|utilUrl|photo|thumb|url|b64|hash|savedAt|editedAt)$/;
 /* what applyCagToPtca fills from the CAG: left out of a PTCA whose as-scanned
    copy had to be rebuilt without it (an inbox draft opened on another phone) */
 const ACC_CAG_FILLED = /^(name|age|height|weight|sex|ipdOpdNo|ipdNo|opdNo|cagNo|cagDate|cagFinding|blood|echo|valves|rwma|doppler|dx|past|rf|quick|cagr)$/;
@@ -13145,6 +13195,7 @@ function viewReview() {
     `<div class="row">${SEGB("AS", "valves.as", VALVE_OPTS, "setSegStr")}${SEGB("AR", "valves.ar", VALVE_OPTS, "setSegStr")}${SEGB("TR", "valves.tr", VALVE_OPTS, "setSegStr")}</div>` +
     (has(valveText(D.valves)) ? `<div class="preview"><span>Valve disease prints as</span><b>${esc2(valveText(D.valves))}</b></div>` : "") +
     `<div class="chips">${CK("No RWMA", "rwma.no")}${CK("A / AL / AS", "rwma.aAlAs")}${CK("I / IL / IS", "rwma.iIlIs")}${CK("GLVH", "rwma.glvh")}${CK("Apical", "rwma.apical")}</div>` +
+    rwmaPanel(D, "") +
     (rwmaText(D.rwma) ? `<div class="preview"><span>RWMA prints as</span><b>${esc2(rwmaText(D.rwma))}</b></div>` : "") +
     ROW(F("DD grade (I / II / III)", "echo.ddGrade", "1 1 150px") + F("AVPG (mmHg)", "echo.avpg", "1 1 120px")) +
     (ddAvpgText(D.echo) ? `<div class="preview"><span>Prints as</span><b>${esc2(ddAvpgText(D.echo))}</b></div>` : ""));
@@ -13600,6 +13651,7 @@ function viewPtcaReview() {
     (has(P.valves.ms) ? ROW(F("Mitral valve area (sq cm)", "P.valves.mva", "1 1 160px")) : "") +
     `<div class="row">${SEGB("AS", "P.valves.as", VALVE_OPTS, "setSegStr")}${SEGB("AR", "P.valves.ar", VALVE_OPTS, "setSegStr")}${SEGB("TR", "P.valves.tr", VALVE_OPTS, "setSegStr")}</div>` +
     `<div class="chips">${CK("No RWMA", "P.rwma.no")}${CK("A / AL / AS", "P.rwma.aAlAs")}${CK("I / IL / IS", "P.rwma.iIlIs")}${CK("GLVH", "P.rwma.glvh")}${CK("Apical", "P.rwma.apical")}</div>` +
+    rwmaPanel(P, "P") +
     ROW(F("DD grade (I / II / III)", "P.echo.ddGrade", "1 1 150px") + F("AVPG (mmHg)", "P.echo.avpg", "1 1 120px")) +
     (ddAvpgText(P.echo) ? `<div class="preview"><span>Prints as</span><b>${esc2(ddAvpgText(P.echo))}</b></div>` : "") +
     `<textarea rows="3" placeholder="2D Echo & Doppler note — optional"
