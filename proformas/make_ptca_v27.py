@@ -51,7 +51,7 @@ def borders(t):
 
 
 def grid(doc, kind, ticks):
-    """kind "PTCA" or "POBA"; ticks = set of "Vessel:Segment" / "Vessel:Other" ticked in the example"""
+    """kind "PTCA" or "DEB"; ticks = set of "Vessel:Segment" / "Vessel:Other" ticked in the example"""
     t = doc.add_table(rows=1 + len(ROWS), cols=6); borders(t)
     widths = [1.3, 1.6, 2.6, 3.3, 3.2, 6.6]
     head = ["", "Ostial", "Proximal", "Mid", "Distal", "Branch / over"]
@@ -165,6 +165,7 @@ def technique_tables(d):
         [[("b", "Support")], BOXES("Balloon support", "Microcatheter support", "Grenadoplasty", "Carlino", "HDR", "STAR")],
     ])
     p._p.addnext(t._tbl)
+    wir_head, wir_tbl = p, t          # placed on page 4, above Balloon & stent (below)
     drop(find(d, "Support (For wire)"))
     # the rule between wire support and the balloon rows
     ps = d.paragraphs; stop = [n for n, q in enumerate(ps) if q.text.startswith("Support (For Pre balloon)")][0]
@@ -183,6 +184,7 @@ def technique_tables(d):
     bal_head, bal_tbl = p, t          # placed on page 4, above Bifurcation (below)
     # Bifurcation (page 4)
     p = find(d, "Bif techniques")
+    p._p.addprevious(wir_head._p); wir_head._p.addnext(wir_tbl._tbl)
     p._p.addprevious(bal_head._p); bal_head._p.addnext(bal_tbl._tbl)
     heading_before(p, "Bifurcation :")
     t1 = table(d, [3.4, 15.2], [
@@ -216,7 +218,7 @@ def technique_tables(d):
         [[("b", "Rotablation")], [("box", ""), ("t", " Burr "), ("line", 5), ("t", " mm    RPM "), ("line", 8), ("t", "    Runs "), ("line", 4), ("t", "    ")] + BOXES("Polishing run")],
         [[("b", "Laser")], BOXES("ELCA", "With contrast") + [("t", "Runs "), ("line", 4), ("t", "   Fluence "), ("line", 4), ("t", "   Hz "), ("line", 4), ("t", "   ns "), ("line", 4)]],
         [[("b", "IVL")], [("box", ""), ("t", " Balloon size & brand "), ("line", 20), ("t", "    Pulses "), ("line", 6)]],
-        [[("b", "OPN balloon")], [("box", ""), ("t", " Size "), ("line", 14), ("t", "    atm "), ("line", 6)]],
+        [[("b", "OPN balloon")], [("box", ""), ("t", " Size "), ("line", 12), ("t", "   atm "), ("line", 5), ("t", "   used for  ")] + BOXES("Predilation", "Postdilation")],
     ])
     p._p.addnext(t._tbl)
 
@@ -236,16 +238,23 @@ def build(out, ptca_ticks=(), poba_ticks=()):
     first.paragraph_format.space_after = Pt(2)
     t1 = grid(d, "PTCA", set(ptca_ticks))
     anchor.addnext(t1._tbl)
-    # "POBA to :" heading and its grid
+    # "DEB to :" heading and its grid (drug-eluting balloon), the same shape
     hp = copy.deepcopy(first._p); t1._tbl.addnext(hp)
     h = Paragraph(hp, first._parent)
     for r in h.runs: r._r.getparent().remove(r._r)
     h.paragraph_format.space_before = Pt(6); h.paragraph_format.space_after = Pt(2)
-    run(h, "POBA to :", bold=True)
-    run(h, "   plain balloon angioplasty, no stent", 8, italic=True)
-    t2 = grid(d, "POBA", set(poba_ticks))
+    run(h, "DEB to :", bold=True)
+    run(h, "   drug-eluting balloon \u2014 tick every segment treated", 8, italic=True)
+    t2 = grid(d, "DEB", set(poba_ticks))
     hp.addnext(t2._tbl)
-    sp = OxmlElement("w:p"); t2._tbl.addnext(sp)
+    # "POBA to :" — one line the residents write the segment on
+    pp = copy.deepcopy(first._p); t2._tbl.addnext(pp)
+    pb = Paragraph(pp, first._parent)
+    for r in pb.runs: r._r.getparent().remove(r._r)
+    pb.paragraph_format.space_before = Pt(8); pb.paragraph_format.space_after = Pt(2)
+    run(pb, "POBA to :  ", bold=True)
+    run(pb, "_" * 46, 11)
+    run(pb, "   plain balloon angioplasty, no stent \u2014 write the segment, e.g. mid LAD", 8, italic=True)
     # tighter spacing on page 3 below the Technician line, so the page keeps all its rows
     allp = d.paragraphs
     a0 = [n for n, q in enumerate(allp) if q.text.startswith("Technician")][0]
@@ -280,17 +289,23 @@ def build(out, ptca_ticks=(), poba_ticks=()):
     # down to its end are replaced by a page break before page 4's Name line
     # (page 3 is taller now, so the padding spilled onto page 4)
     allp = d.paragraphs
-    pd = [n for n, q in enumerate(allp) if q.text.startswith("Wiring")][0]
+    pd = [n for n, q in enumerate(allp) if q.text.startswith("POBA to")][0]
     nm = [n for n, q in enumerate(allp) if n > pd and q.text.startswith("Name")][0]
     for q in allp[pd + 1:nm]:
         if not q.text.strip(): q._p.getparent().remove(q._p)
     allp[nm].paragraph_format.page_break_before = True
+    # page 4 is fuller now (Wiring and Balloon & stent moved there): keep one blank line above Complications
+    allp = d.paragraphs
+    ca = [n for n, q in enumerate(allp) if q.text.startswith("Calcium management")][0]
+    co = [n for n, q in enumerate(allp) if q.text.startswith("Complications")][0]
+    blanks = [q for q in allp[ca + 1:co] if not q.text.strip()]
+    for q in blanks[1:]: q._p.getparent().remove(q._p)
     d.save(out)
     print("wrote", out)
 
 
 if __name__ == "__main__":
     build("PTCA_Proforma_v2_7.docx")
-    # the example: PTCA to proximal-mid LAD and the RCA (ostial), POBA to the D1
+    # the example: PTCA to proximal-mid LAD and the RCA (ostial), DEB to the D1
     build("PTCA_Proforma_v2_7_example.docx",
           ptca_ticks=["LAD:Proximal", "LAD:Mid", "RCA:Ostial"], poba_ticks=["LAD:D1"])
