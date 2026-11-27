@@ -19,7 +19,7 @@ from docx.text.paragraph import Paragraph
 
 SRC = "PTCA_Proforma_v2_6.docx"
 BOX, TICK = "☐", "☒"
-BOXPT = 16          # the same box size as the rest of the proforma (16 pt ≈ 4.1 mm)
+BOXPT = 20          # the grids and tables: 20 pt ≈ 5.1 mm (pages 1–2 keep the v2.6 16 pt ≈ 4.1 mm)
 INK = RGBColor(0x1F, 0x3F, 0xBF)
 
 SEGS = ["Ostial", "Proximal", "Mid", "Distal"]
@@ -175,13 +175,15 @@ def technique_tables(d):
     t = table(d, [2.3, 8.3, 2.0, 2.0, 2.0, 2.0], [
         [[("b", "Pre balloon")], [("t", "Predilation ")] + BOXES("Simple", "Sequential") + [("line", 8)], [("box", "")], [("box", "")], [("box", "")], [("box", "")]],
         [[("b", "Stent")], [("t", "Position ")] + BOXES("Floating wire", "Szabo") + [("line", 6)], [("box", "")], [("box", "")], [("box", "")], [("box", "")]],
-        [[("b", "Post balloon")], [("t", "Post dilation ")] + BOXES("Simple", "Differential", "POT") + [("line", 4)], [("box", "")], [("box", "")], [("box", "")], [("box", "")]],
+        [[("b", "Post balloon")], [("t", "Post dilation ")] + BOXES("Simple", "Differential", "POT"), [("box", "")], [("box", "")], [("box", "")], [("box", "")]],
     ], head=["Step", "Technique", "Buddy wire", "Deep engagement", "Balloon anchor", "Guide extension"])
-    p._p.addnext(t._tbl)
     for pre in ("Predilation:", "Support (For Stent)", "Stent position", "Support (For Post balloon)", "Post dilation"):
         drop(find(d, pre))
+    bal_head, bal_tbl = p, t          # placed on page 4, above Bifurcation (below)
     # Bifurcation (page 4)
-    p = find(d, "Bif techniques"); heading_before(p, "Bifurcation :")
+    p = find(d, "Bif techniques")
+    p._p.addprevious(bal_head._p); bal_head._p.addnext(bal_tbl._tbl)
+    heading_before(p, "Bifurcation :")
     t1 = table(d, [3.4, 15.2], [
         [[("b", "Technique")], BOXES("Provisional", "Provisional switched to true bif") + [("br",)] + BOXES("DK crush", "Mini crush", "Culotte", "T stenting", "TAP", "Direct crush", "JSBT")],
     ])
@@ -212,6 +214,8 @@ def technique_tables(d):
         [[("b", "Cutting balloon")], [("box", ""), ("t", " Size & brand "), ("line", 22), ("t", "    ")] + BOXES("Dissection")],
         [[("b", "Rotablation")], [("box", ""), ("t", " Burr "), ("line", 5), ("t", " mm    RPM "), ("line", 8), ("t", "    Runs "), ("line", 4), ("t", "    ")] + BOXES("Polishing run")],
         [[("b", "Laser")], BOXES("ELCA", "With contrast") + [("t", "Runs "), ("line", 4), ("t", "   Fluence "), ("line", 4), ("t", "   Hz "), ("line", 4), ("t", "   ns "), ("line", 4)]],
+        [[("b", "IVL")], [("box", ""), ("t", " Balloon size & brand "), ("line", 20), ("t", "    Pulses "), ("line", 6)]],
+        [[("b", "OPN balloon")], [("box", ""), ("t", " Size "), ("line", 14), ("t", "    atm "), ("line", 6)]],
     ])
     p._p.addnext(t._tbl)
 
@@ -259,7 +263,7 @@ def build(out, ptca_ticks=(), poba_ticks=()):
     # down to its end are replaced by a page break before page 4's Name line
     # (page 3 is taller now, so the padding spilled onto page 4)
     allp = d.paragraphs
-    pd = [n for n, q in enumerate(allp) if q.text.startswith("Balloon & stent")][0]
+    pd = [n for n, q in enumerate(allp) if q.text.startswith("Wiring")][0]
     nm = [n for n, q in enumerate(allp) if n > pd and q.text.startswith("Name")][0]
     for q in allp[pd + 1:nm]:
         if not q.text.strip(): q._p.getparent().remove(q._p)

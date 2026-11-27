@@ -3851,7 +3851,10 @@ function PBLANK() {
          and the laser settings, which print at their defaults when blank */
       calcium: { cutting: false, cuttingName: "", cuttingAtm: "", cuttingSec: "", dissection: false,
         rota: false, rotaName: "", rpm: "", runs: "", runSec: "", polish: false,
-        elca: false, elcaContrast: false, elcaRuns: "", elcaRunSec: "", elcaFluence: "", elcaFreq: "", elcaPulse: "" },
+        elca: false, elcaContrast: false, elcaRuns: "", elcaRunSec: "", elcaFluence: "", elcaFreq: "", elcaPulse: "",
+        /* 13.62 (proforma v2.7): intravascular lithotripsy and the OPN NC
+           super-high-pressure balloon */
+        ivl: false, ivlName: "", ivlPulses: "", opn: false, opnName: "", opnAtm: "" },
     },
     /* the technicians' PTCA UTILIZATION REPORT — the per-vessel hardware grid
        stapled to the front of the report. Balloon/stent sizes, brand names and
@@ -5078,6 +5081,21 @@ function deriveRota(P) {
   return true;
 }
 var ELCA_DEFAULTS = { fluence: "45", freq: "25", pulse: "135" };
+/* 13.62: IVL and the OPN balloon, as the v2.7 proforma's Calcium management rows give them */
+function ivlText(P) {
+  const cal = (P.tech || {}).calcium || {};
+  if (!cal.ivl && !has(cal.ivlName)) return "";
+  const pulses = has(cal.ivlPulses) ? String(cal.ivlPulses).replace(/[^\d]/g, "") : "";
+  return "Intravascular lithotripsy (IVL) was done with " + (has(cal.ivlName) ? cal.ivlName.trim() + " IVL balloon" : "an IVL balloon") +
+    (pulses ? ", delivering " + pulses + " pulses" : "") + ".";
+}
+function opnText(P) {
+  const cal = (P.tech || {}).calcium || {};
+  if (!cal.opn && !has(cal.opnName)) return "";
+  const atm = has(cal.opnAtm) ? String(cal.opnAtm).replace(/[^\d.]/g, "") : "";
+  return "The lesion was dilated with " + (has(cal.opnName) ? cal.opnName.trim() + " OPN NC super high-pressure balloon" : "an OPN NC super high-pressure balloon") +
+    (atm ? " at " + atm + " atm" : "") + ".";
+}
 function cuttingText(P) {
   var cal = (P.tech || {}).calcium || {};
   if (!cal.cutting && !has(cal.cuttingName)) return "";
@@ -5399,12 +5417,14 @@ function ptcaNarrativeParas(P) {
       else if (has(t.sb)) s += " A second guide wire placed in the " + sbName + " to protect it.";
     }
     if (ti === 0) {
-      const asp = thrombusAspirationText(P), dot = thrombusDotterText(P), rt = rotaText(P), el = elcaText(P), ct = cuttingText(P);
+      const asp = thrombusAspirationText(P), dot = thrombusDotterText(P), rt = rotaText(P), el = elcaText(P), ct = cuttingText(P), iv = ivlText(P), op = opnText(P);
       if (asp) s += " " + asp;
       if (dot) s += " " + dot;
       if (rt) s += " " + rt;
       if (el) s += " " + el;
       if (ct) s += " " + ct;
+      if (iv) s += " " + iv;
+      if (op) s += " " + op;
     }
     if (bif && has(t.sbPre) && !dkCrush) {
       s += " The " + (sbName || "side branch") + " was predilated with " + t.sbPre.trim() + " at " +
@@ -5876,6 +5896,8 @@ function ptcaRecord(P) {
     (has(tt.calcium.cuttingAtm) ? " @ " + tt.calcium.cuttingAtm + " atm" : "") + (tt.calcium.dissection ? ", dissection" : ", no dissection"));
   if ((tt.calcium || {}).rota || has((tt.calcium || {}).rotaName)) calBits.push("Rota" + (has(tt.calcium.rotaName) ? " " + tt.calcium.rotaName.trim() + " mm" : "") +
     (has(tt.calcium.rpm) ? " @ " + tt.calcium.rpm + " rpm" : "") + (has(tt.calcium.runs) ? ", " + tt.calcium.runs + " runs" : "") + (tt.calcium.polish ? ", polishing run" : ""));
+  if ((tt.calcium || {}).ivl || has((tt.calcium || {}).ivlName)) calBits.push("IVL" + (has(tt.calcium.ivlName) ? " " + tt.calcium.ivlName.trim() : "") + (has(tt.calcium.ivlPulses) ? ", " + tt.calcium.ivlPulses + " pulses" : ""));
+  if ((tt.calcium || {}).opn || has((tt.calcium || {}).opnName)) calBits.push("OPN balloon" + (has(tt.calcium.opnName) ? " " + tt.calcium.opnName.trim() : "") + (has(tt.calcium.opnAtm) ? " at " + tt.calcium.opnAtm + " atm" : ""));
   if ((tt.calcium || {}).elca) calBits.push("ELCA " + (tt.calcium.elcaContrast ? "with" : "without") + " contrast" + (has(tt.calcium.elcaRuns) ? ", " + tt.calcium.elcaRuns + " runs" : ""));
   fields.push(
     ["LMCA finding", P.cagr.lm], ["LAD finding", P.cagr.lad], ["LCx finding", P.cagr.lcx], ["RCA finding", P.cagr.rca],
@@ -7002,7 +7024,7 @@ PROCEDURE HEADER
 
 TWO PRINTINGS OF THIS PAGE — look at the layout first and return "layout":
 - "lines" (v2.6 and older): the checklists below the procedure header are lines of boxes in running text ("Wiring technique: ☐ Simple ☐ Parallel …", "Support (For Pre balloon): …").
-- "tables" (v2.7, with small black-and-white squares in the page corners): the same checklists are bordered tables — a "Strategy" table, a "PTCA to" GRID and a "POBA to" GRID (rows LM / LAD / LCx / RCA, columns Ostial / Proximal / Mid / Distal / Branch-over), a "Wiring" table and a "Balloon & stent" grid.
+- "tables" (v2.7, with small black-and-white squares in the page corners): the same checklists are bordered tables — a "Strategy" table, a "PTCA to" GRID and a "POBA to" GRID (rows LM / LAD / LCx / RCA, columns Ostial / Proximal / Mid / Distal / Branch-over) and a "Wiring" table. (Its "Balloon & stent" grid is on page 4.)
 Both printings fill the SAME fields below; read whichever this page is.
 
 STRATEGY
@@ -7032,11 +7054,7 @@ WIRING
 
 BALLOON & STENT — per step: its technique and the support used at that step.
 - lines printing, one line each: "Support (For Pre balloon)": Buddy wire / Deep engagement / Balloon anchor / Guide extension → tech.preSupport; "Predilation": Simple / Sequential → tech.predilation (one value), its blank → tech.predilationNote; "Support (For Stent)": the same four → tech.stentSupport, its blank → tech.stentSupportNote; "Stent position": Floating wire / Szabo → tech.stentPosition (array); "Support (For Post balloon)": the same four → tech.postSupport; "Post dilation": Simple / Differential / POT → tech.postDilation (one value), its blank → tech.postDilationNote.
-- tables printing, the "Balloon & stent" grid: rows Pre balloon / Stent / Post balloon; the "Technique" column holds that step's own boxes and blank, then four columns Buddy wire / Deep engagement / Balloon anchor / Guide extension, one box per row.
-  - Pre balloon row: Technique "Predilation ☐ Simple ☐ Sequential ____" → tech.predilation, the blank → tech.predilationNote; its ticks in the four support columns → tech.preSupport.
-  - Stent row: Technique "Position ☐ Floating wire ☐ Szabo ____" → tech.stentPosition, the blank → tech.stentSupportNote; support columns → tech.stentSupport.
-  - Post balloon row: Technique "Post dilation ☐ Simple ☐ Differential ☐ POT ____" → tech.postDilation, the blank → tech.postDilationNote; support columns → tech.postSupport.
-  - Keep each tick in ITS row: a tick in the Stent row's Guide extension column is stentSupport, never preSupport. Name the support by its column header.
+- tables printing: the "Balloon & stent" grid is at the top of PAGE 4, not on this page — return none of these fields from this page.
 
 Shape:
 {"layout":"lines|tables","cagr":{"lm":"","lad":"","lcx":"","rca":""},"proc":{"side":"Right|Left","route":"Femoral|Radial","sheath":"","akNo":"","fluoroTime":"","heparin":"","act":"","performedBy":["",""],"technician":"","to":["Prox LAD","Mid LAD"],"poba":["D1"]},"tech":{"strategy":"PrD-Stent-PoD","overlap":{"count":"","order":"Distal first|Prox first","vessels":["LAD"]},"wiring":["Simple"],"wireSupport":[""],"wireSupportNote":"","preSupport":[""],"predilation":"Simple|Sequential","predilationNote":"","stentSupport":[""],"stentSupportNote":"","stentPosition":[""],"postSupport":[""],"postDilation":"Simple|Differential|POT","postDilationNote":""}}`;
@@ -7052,6 +7070,12 @@ TWO PRINTINGS OF THIS PAGE — look at the layout first and return "layout":
 - "tables" (v2.7, with small black-and-white squares in the page corners): bordered tables headed "Bifurcation", "Thrombus management" and "Calcium management", each row labelled in a grey first column.
 Both printings fill the SAME fields; report each marked box under tech, spelling the option exactly as listed; omit anything unmarked.
 
+BALLOON & STENT (tables printing only — on the lines printing these lines are on page 3, not here): the "Balloon & stent" grid at the TOP of this page — rows Pre balloon / Stent / Post balloon; the "Technique" column holds that step's own boxes and blank, then four columns Buddy wire / Deep engagement / Balloon anchor / Guide extension, one box per row.
+- Pre balloon row: "Predilation ☐ Simple ☐ Sequential ____" → tech.predilation (one value), the blank → tech.predilationNote; its ticks in the four support columns → tech.preSupport (array).
+- Stent row: "Position ☐ Floating wire ☐ Szabo ____" → tech.stentPosition (array), the blank → tech.stentSupportNote; support columns → tech.stentSupport.
+- Post balloon row: "Post dilation ☐ Simple ☐ Differential ☐ POT" → tech.postDilation (one value); support columns → tech.postSupport.
+- Keep each tick in ITS row; name the support by its column header.
+
 BIFURCATION
 - Techniques (lines: "Bif techniques", two lines of boxes; tables: the "Technique" row, also two lines): "Provisional" and "Provisional switched to true Bif" — the second box → tech.bifSwitched: true when ticked (a provisional case converted to two stents during the procedure); return "Provisional" in tech.bifTechniques when either is ticked. Then DK Crush / Mini Crush / Culotte / T stenting / TAP / Direct crush / JSBT → also into tech.bifTechniques. Return EVERY ticked box, Provisional first. Spell them exactly so whichever printing (e.g. "DK Crush", "Mini Crush").
 - Vessels: lines — TWO rows of the same boxes LM / LAD / LCX / Diagonal / OM / PDA / PLV, the row labelled "MB :" (main branch) and the row labelled "SB :" (side branch). tables — a small grid: column headers LM / LAD / LCx / Diagonal / OM / PDA / PLV, rows "Main branch" and "Side branch", one box per cell. Main branch ticks → tech.bifMb (array), side branch → tech.bifSb (array), using the names LM, LAD, LCX, Diagonal, OM, PDA, PLV. Keep the rows apart; never merge them. Also return their union in tech.bifVessels.
@@ -7066,6 +7090,7 @@ CALCIUM MANAGEMENT
 - lines, older printings: one line "Calcium Mx: ☐ Cutting balloon ____ ☐ Rota ____ ☐ ELCA" — the boxes → tech.calcium.cutting / rota / elca true; the cutting-balloon blank → tech.calcium.cuttingName (size and brand, verbatim); the Rota blank is the burr size → tech.calcium.rotaName (digits only, no "mm").
 - lines, a fuller printing has three lines: "☐ Cutting balloon ____, ☐ Dissection"; "☐ Rota, ______ Burr size, ______ RPM, ______ No of runs, ☐ Polishing run"; "☐ ELCA, ☐ Contrast ______ No of runs, ______ Fluence, ______ Hz, ______ ns" — each blank is labelled AFTER it.
 - tables: row "Cutting balloon": ☐, "Size & brand ____", ☐ Dissection; row "Rotablation": ☐, "Burr ____ mm", "RPM ____", "Runs ____", ☐ Polishing run; row "Laser": ☐ ELCA, ☐ With contrast, "Runs ____", "Fluence ____", "Hz ____", "ns ____" — each blank is labelled BEFORE it.
+- tables only, two more rows: "IVL": ☐, "Balloon size & brand ____", "Pulses ____" → tech.calcium.ivl true, tech.calcium.ivlName (verbatim), tech.calcium.ivlPulses (digits only); "OPN balloon": ☐, "Size ____", "atm ____" → tech.calcium.opn true, tech.calcium.opnName (verbatim), tech.calcium.opnAtm (digits only).
 - Fields: cutting-balloon box → tech.calcium.cutting true, its size/brand → tech.calcium.cuttingName, the Dissection box → tech.calcium.dissection: true; Rota / Rotablation box → tech.calcium.rota true, the burr size (e.g. "1.5") → tech.calcium.rotaName (digits only, no "mm"), the RPM (e.g. "160000", digits only, no commas) → tech.calcium.rpm, the number of runs → tech.calcium.runs (digits), the Polishing run box → tech.calcium.polish: true ONLY when it carries a deliberate tick; ELCA box → tech.calcium.elca true, the "Contrast" / "With contrast" box → tech.calcium.elcaContrast: true when ticked, then runs / fluence / Hz / ns → tech.calcium.elcaRuns, elcaFluence, elcaFreq, elcaPulse (digits only). Omit any blank left empty (the report prints the department's standard laser settings for them).
 
 RULED LINES
@@ -7074,7 +7099,7 @@ RULED LINES
 - "Recommendations (in addition to standard)" line → recommendationsExtra.
 
 Shape:
-{"layout":"lines|tables","tech":{"bifTechniques":["Provisional","TAP"],"bifSwitched":true,"bifMb":["LAD"],"bifSb":["Diagonal"],"bifVessels":["LAD","Diagonal"],"bifRecross1":"","bifRecross2":"","bifPot1":true,"bifPot2":true,"thrombusMx":["Aspiration"],"thrombus":{"runs":"3","timi":"III","failed":false},"calcium":{"cutting":true,"cuttingName":"2.5*10 Wolverine","dissection":false,"rota":true,"rotaName":"1.5","rpm":"160000","runs":"3","polish":true,"elca":true,"elcaContrast":false,"elcaRuns":"4"}},"proc":{"complications":"","otherHardware":""},"recommendationsExtra":""}`;
+{"layout":"lines|tables","tech":{"bifTechniques":["Provisional","TAP"],"bifSwitched":true,"bifMb":["LAD"],"bifSb":["Diagonal"],"bifVessels":["LAD","Diagonal"],"bifRecross1":"","bifRecross2":"","bifPot1":true,"bifPot2":true,"thrombusMx":["Aspiration"],"thrombus":{"runs":"3","timi":"III","failed":false},"calcium":{"cutting":true,"cuttingName":"2.5*10 Wolverine","dissection":false,"rota":true,"rotaName":"1.5","rpm":"160000","runs":"3","polish":true,"elca":true,"elcaContrast":false,"elcaRuns":"4","ivl":true,"ivlName":"3.0*12 Shockwave C2","ivlPulses":"80","opn":true,"opnName":"3.0*10","opnAtm":"30"},"predilation":"Simple","preSupport":[""],"stentPosition":[""],"stentSupport":[""],"stentSupportNote":"","postDilation":"POT","postSupport":[""]},"proc":{"complications":"","otherHardware":""},"recommendationsExtra":""}`;
 
 const PROMPT_U = `You are reading a photograph of the PTCA UTILIZATION REPORT of the Department of Cardiology, LTMG Hospital, Sion, Mumbai — the one-page grid the cath-lab technician fills with the hardware used, stapled to the front of the PTCA report. It has no page-number footer. Everything on it is handwritten into printed table cells.
 
@@ -13962,7 +13987,9 @@ function viewPtcaReview() {
       `<div class="chips">${CK("Polishing run done", "P.tech.calcium.polish")}</div></div>` : "") +
     ((P.tech.calcium || {}).elca ? `<div class="row"><div class="chips">${CK("ELCA with contrast", "P.tech.calcium.elcaContrast")}</div>` +
       F("ELCA runs", "P.tech.calcium.elcaRuns", "1 1 70px") + F("sec/run", "P.tech.calcium.elcaRunSec", "1 1 60px") +
-      F("Fluence mJ/mm\u00b2 (45)", "P.tech.calcium.elcaFluence", "1 1 90px") + F("Hz (25)", "P.tech.calcium.elcaFreq", "1 1 60px") + F("Pulse ns (135)", "P.tech.calcium.elcaPulse", "1 1 80px") + `</div>` : "");
+      F("Fluence mJ/mm\u00b2 (45)", "P.tech.calcium.elcaFluence", "1 1 90px") + F("Hz (25)", "P.tech.calcium.elcaFreq", "1 1 60px") + F("Pulse ns (135)", "P.tech.calcium.elcaPulse", "1 1 80px") + `</div>` : "") +
+    `<div class="row alignend"><div class="chips">${CK("IVL", "P.tech.calcium.ivl")}</div>` + F("IVL balloon size & brand", "P.tech.calcium.ivlName", "2 1 150px") + F("Pulses", "P.tech.calcium.ivlPulses", "1 1 70px") +
+      `<div class="chips">${CK("OPN balloon", "P.tech.calcium.opn")}</div>` + F("OPN size", "P.tech.calcium.opnName", "1 1 110px") + F("atm", "P.tech.calcium.opnAtm", "1 1 55px") + `</div>`;
   h += SECT("Technique (pages 3–4 checklists)", tq);
 
   const segChips = function (path) {
