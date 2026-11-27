@@ -313,7 +313,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov; a sticker photo's barcodes (read on the phone) are given to its stickers ("Scanned barcode", the LOT corrected by them) and every sticker — stent or any other device — marks its very box used (own number (91)/(93)/(21), serial, else LOT among boxes photographed by then); a barcode naming a box not in stock is flagged; a removed sticker gives its box back; the "Devices used" tab — every sticker (with its barcode and own number), every utilization-sheet line of every device, every device taken off by hand or matched on a used-instruments photo — kept for ever (never deleted: a record that goes is marked removed), with a filter, and searched from the app (devSearch). 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.62: the scan accuracy log - the "Scan accuracy" tab (accLog / accList): what the residents changed between the scanned report and the saved one, per sheet with its model and thinking level; each sheet the inbox scanner reads keeps the thinking level it was sent with and its route (Read by _think / _path). 13.61: no script change (scan screen redesign). 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov; a sticker photo's barcodes (read on the phone) are given to its stickers ("Scanned barcode", the LOT corrected by them) and every sticker — stent or any other device — marks its very box used (own number (91)/(93)/(21), serial, else LOT among boxes photographed by then); a barcode naming a box not in stock is flagged; a removed sticker gives its box back; the "Devices used" tab — every sticker (with its barcode and own number), every utilization-sheet line of every device, every device taken off by hand or matched on a used-instruments photo — kept for ever (never deleted: a record that goes is marked removed), with a filter, and searched from the app (devSearch). 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -416,9 +416,12 @@ function handle(e) {
     if (needTech[action] && !techAllowed(req.tkey)) return out({ ok: false, error: techRefused_(), canTech: false });
     // 13.50 — costs: a phone's scans are logged with either key; the list and the prices need the edit key
     if (action === "costLog" && !canEdit && !techAllowed(req.tkey)) return out({ ok: false, error: "no key to log costs" });
-    if ((action === "costList" || action === "costPricesSet" || action === "thinkSet") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
+    if (action === "accLog" && !canEdit) return out({ ok: false, error: "no edit key to log the scan accuracy" });
+    if ((action === "costList" || action === "costPricesSet" || action === "thinkSet" || action === "accList") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
     switch (action) {
       case "costLog": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, costLog_(req)));
+      case "accLog": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, accLog_(req)));
+      case "accList": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, accList_(req)));
       case "costList": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, costList_(req)));
       case "thinkSet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, thinkSet_(req)));
       case "costPricesSet": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, costPricesSet_(req)));
@@ -2012,6 +2015,7 @@ function batchProcessCase0_(c, f, prompts, models, key, runStart, runId) {
     } else {
       c.results[slot] = rr.json;
       c.readBy = c.readBy || {}; c.readBy[slot] = rr.model || (models.readChain || [models.read])[0];
+      batchThinkNote_(c, slot, c.readBy[slot], "sheet");
       var hdr = rr.json && typeof rr.json === "object" ? rr.json : {};
       if (slot === "p1") { c.name = String(hdr.name || ""); c.cagNo = String(hdr.cagNo || ""); }
       else if (slot === "q1") { c.name = String(hdr.name || ""); c.cagNo = String(hdr.ptcaNo || hdr.cathNo || hdr.cagNo || ""); }
@@ -2541,6 +2545,23 @@ function thinkConfig_(model) {
   return { thinkingLevel: lv };
 }
 
+/* 13.62 - the thinking level a request to this model is actually sent with
+   ("auto" = the model's own, "none" = the model refuses the setting) */
+function thinkUsed_(model) {
+  var t = thinkConfig_(model);
+  return t ? t.thinkingLevel : (thinkLevel_() === "auto" ? "auto" : "none");
+}
+/* 13.62 - kept beside the model on the case's Read by: the thinking level each
+   sheet was read with (taken when the request went out) and how it was read
+   ("sheet" = read at once by the script, full price; "night" = the half-price queue) */
+function batchThinkNote_(c, slot, model, path, think) {
+  c.readBy = c.readBy || {};
+  if (!c.readBy._think || typeof c.readBy._think !== "object") c.readBy._think = {};
+  if (!c.readBy._path || typeof c.readBy._path !== "object") c.readBy._path = {};
+  c.readBy._think[slot] = think || thinkUsed_(model);
+  c.readBy._path[slot] = path;
+}
+
 /* the request for one page: { body, asImage } or { ok:false, reason, retry } */
 function batchBody_(model, prompt, item, pdfPage) {
   // the file's bytes, read from Drive once per run
@@ -2842,6 +2863,7 @@ function batchQueueStep_(c, items, prompts, models, key, runId) {
       if (!rp.ok) { miss.push(BATCH_SLOT_WORD[sl.slot] + " (" + rp.reason + ")"); return; }
       c.results[sl.slot] = rp.json;
       c.readBy = c.readBy || {}; c.readBy[sl.slot] = job.model;
+      batchThinkNote_(c, sl.slot, job.model, "night", job.think);
       var hdr = rp.json && typeof rp.json === "object" ? rp.json : {};
       if (sl.slot === "p1") { c.name = String(hdr.name || ""); c.cagNo = String(hdr.cagNo || ""); }
       else if (sl.slot === "q1") { c.name = String(hdr.name || ""); c.cagNo = String(hdr.ptcaNo || hdr.cathNo || hdr.cagNo || ""); }
@@ -2891,7 +2913,7 @@ function batchQueueStep_(c, items, prompts, models, key, runId) {
     batchWriteRow_(c);
     return "live";
   }
-  c.results._job = { name: sub.name, model: model, at: Date.now(), slots: slots };
+  c.results._job = { name: sub.name, model: model, at: Date.now(), slots: slots, think: thinkUsed_(model) };
   batchQueueOpenSet_(true);
   batchNote_(c, runId, "", "half-price queue", "sent", slots.length + " sheet(s) sent to Google's batch queue on " + model + " (half price) — usually back within minutes to a few hours; read directly if not back in " + batchQueueHours_() + " h");
   batchWriteRow_(c);
@@ -3109,6 +3131,8 @@ function batchReadBy_(r) {
     }
     if (got) out[slot] = got;
   });
+  if (have._think && typeof have._think === "object") out._think = have._think;
+  if (have._path && typeof have._path === "object") out._path = have._path;
   return out;
 }
 function batchGet_(req) {
@@ -7317,6 +7341,47 @@ function invFix24Nov_(runId) {
    bill, the daily model check, a scan on a phone), the case or photo, the
    model and whether it went at the batch queue's half price. The app's Costs
    page adds these up with the prices set there (₹ per million tokens). */
+/* ==== 13.62 - Scan accuracy ====
+   One row per case built from scanned sheets: what the residents changed
+   between the report as scanned and the report as saved. The app works the
+   counts out at each save and sends them; a later save of the same case
+   replaces its row (Accuracy id). Fields = filled in either version; Wrong =
+   a scanned value corrected or removed; Missed = a value the scan left empty. */
+var ACC_TAB = "Scan accuracy";
+var ACC_HEAD = ["Saved", "Accuracy id", "Type", "Case no", "Route", "Thinking", "Models", "Fields", "Wrong", "Missed", "Changed %", "Per sheet", "Changes", "Saved by", "Built", "Saves", "App"];
+function accLog_(req) {
+  var id = cathStr_(req.id, 80);
+  if (!id) throw new Error("no accuracy id");
+  var sh = sheet(ACC_TAB, ACC_HEAD);
+  var n = Number(req.n) || 0, w = Number(req.w) || 0, a = Number(req.a) || 0;
+  var row = [cathNow_(), id, req.type === "PTCA" ? "PTCA" : "CAG", cathStr_(req.no, 60), cathStr_(req.route, 60), cathStr_(req.think, 60), cathStr_(req.models, 200),
+    n, w, a, n ? Math.round((w + a) * 1000 / n) / 10 : 0, String(JSON.stringify(req.perSheet || {})).slice(0, 4000), String(req.changes || "").slice(0, 20000),
+    cathStr_(req.by, 60), cathStr_(req.built, 30), 1, cathStr_(req.app, 20)];
+  var last = sh.getLastRow(), at = 0;
+  if (last > 1) {
+    var ids = sh.getRange(2, 2, last - 1, 1).getValues();
+    for (var i = ids.length - 1; i >= 0; i--) if (String(ids[i][0]) === id) { at = i + 2; break; }
+  }
+  if (at) { row[15] = (Number(sh.getRange(at, 16).getValue()) || 1) + 1; sh.getRange(at, 1, 1, ACC_HEAD.length).setValues([row]); }
+  else sh.getRange(last + 1, 1, 1, ACC_HEAD.length).setValues([row]);
+  return { logged: true, replaced: !!at };
+}
+function accList_(req) {
+  var days = Math.max(1, Math.min(400, Number(req.days) || 95));
+  var from = Utilities.formatDate(new Date(Date.now() - days * 86400000), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ACC_TAB), rows = [];
+  if (sh && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, ACC_HEAD.length).getValues().forEach(function (r) {
+      var t = r[0] instanceof Date ? Utilities.formatDate(r[0], Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss") : String(r[0]);
+      if (t.slice(0, 10) < from) return;
+      var per = {}; try { per = JSON.parse(String(r[11] || "{}")) || {}; } catch (e) {}
+      rows.push({ at: t, id: String(r[1]), type: String(r[2]), no: String(r[3]), route: String(r[4]), think: String(r[5]), models: String(r[6]),
+        n: Number(r[7]) || 0, w: Number(r[8]) || 0, a: Number(r[9]) || 0, per: per, changes: String(r[12] || ""), by: String(r[13]), saves: Number(r[15]) || 1 });
+    });
+  }
+  return { rows: rows };
+}
+
 var COSTS_TAB = "Costs";
 var COST_HEAD = ["Time", "What", "Case / photo id", "Name", "Step", "Model", "Price", "Tokens in", "Answer", "Thinking", "Run id"];
 var COST_CTX_ = null;

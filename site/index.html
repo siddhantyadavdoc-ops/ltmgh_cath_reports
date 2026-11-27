@@ -642,6 +642,13 @@ body.hasnav #appnav{display:flex}
 .costtbl input{width:110px}
 .costs .btns .b.on{background:#111;color:#fff}
 .thinkbox{border:1px solid #ddd;border-radius:8px;padding:6px 12px 2px;margin:10px 0 4px}
+/* 13.62 - scan accuracy tables: five columns that fit a phone */
+.acctbl{font-size:12.5px;width:100%}
+.acctbl th{font-size:11px}
+.acctbl td,.acctbl th{padding-left:4px;padding-right:4px}
+.acctbl td:first-child{padding-left:8px}
+.acctbl td:not(:first-child),.acctbl th:not(:first-child){text-align:right;white-space:nowrap}
+.acc2{display:block;font-size:11px;color:var(--dim);margin-top:1px}
 /* 13.60 - scan screen */
 .sc-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:22px 0 12px;padding-bottom:10px;border-bottom:1px solid var(--hair)}
 .sc-eyebrow{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--wine);font-weight:700}
@@ -6291,6 +6298,7 @@ async function fetchCagData(auto) {
     return;
   }
   applyCagToPtca(S.P, D);
+  if (auto) accRefresh(S.P);   // 13.62: the CAG's own data is not the residents' change
   flash("ok", "CAG " + (D.cagNo || q) + " (" + via + "): bloods, echo and angiography findings filled in — everything stays editable.");
   render();
 }
@@ -7734,7 +7742,7 @@ function clearScanSession() {
   S.pdf = { name: "", busy: false, msg: "" };
   S.pool = freshPool();
   S.batchCase = null;
-  S.readBy = {};
+  S.readBy = {}; S.readThink = {}; S.readPath = {};
   if (S.pp) { ppDirty(); S.pp = freshPp(); }
 }
 function newPatient() {
@@ -8806,6 +8814,8 @@ function thinkConfigApp(model) {
   if (/pro/i.test(String(model || ""))) lv = lv === "minimal" ? "low" : lv === "medium" ? "high" : lv;
   return { thinkingLevel: lv };
 }
+/* 13.62: the level a request to this model actually went with */
+function thinkUsedApp(model) { const t = thinkConfigApp(model); return t ? t.thinkingLevel : (thinkLevelApp() === "auto" ? "auto" : "none"); }
 function thinkTake(t) {
   if (!t || !t.level || !THINK_WORD[t.level]) return;
   if (S.cfg.think !== t.level) { S.cfg.think = t.level; saveCfg(); }
@@ -8999,6 +9009,8 @@ async function scanOne(slot) {
     const raw = await callWithRetry(S.imgs[slot].b64, s.prompt, s.title, slotModel(slot));
     S.readBy = S.readBy || {};
     S.readBy[slot] = S.lastModelUsed || slotModel(slot);
+    S.readThink = S.readThink || {}; S.readThink[slot] = thinkUsedApp(S.readBy[slot]);
+    S.readPath = S.readPath || {}; S.readPath[slot] = "phone";
     const where = raw && raw.where;
     S.res[slot] = s.diagram && slot.charAt(0) !== "q" ? normalizeDiagramResult(raw)
       : slot.charAt(0) === "q" ? normalizePtcaResult(raw)
@@ -9040,8 +9052,18 @@ async function scanRemaining() {
 function buildReport() {
   const have = SLOTS.filter(function (s) { return S.res[s.slot]; });
   if (!have.length) { flash("err", "No sheets have been scanned yet."); return; }
-  const merged = BLANK();
   S.edit = null;              // a fresh scan is a new case, not the one being edited
+  const M = cagMergeOf(have);
+  const badSheets = M.badSheets, dropped = M.dropped;
+  S.D = M.D;
+  accStart(S.D, "CAG");      // 13.62: the report as scanned, for the accuracy log
+  const missing = SLOTS.filter(function (s) { return S.imgs[s.slot] && !S.res[s.slot]; });
+  buildReportShow(have, missing, badSheets, dropped);
+}
+/* 13.62: the merge on its own, with no side effects beyond the returned case
+   (also used to rebuild "the report as scanned" for the accuracy log) */
+function cagMergeOf(have) {
+  const merged = BLANK();
   const badSheets = [];
   // merged in sheet order, so later sheets fill in what earlier ones left blank.
   // One sheet with an odd shape must not take down the whole merge.
@@ -9063,11 +9085,12 @@ function buildReport() {
     catch (e) { badSheets.push(s.title + " (" + (e.message || "merge failed") + ")"); }
   });
   merged.readBy = readByOfSession();
-  S.D = merged;
-  cagNumbersFill(S.D, S.res);
-  adoptDiagramFindings(S.D, { a1: !!S.res.a1, a2: !!S.res.a2, a3: !!S.res.a3 });
-  const dropped = pruneUnsupportedPlan(S.D);
-  const missing = SLOTS.filter(function (s) { return S.imgs[s.slot] && !S.res[s.slot]; });
+  cagNumbersFill(merged, S.res);
+  adoptDiagramFindings(merged, { a1: !!S.res.a1, a2: !!S.res.a2, a3: !!S.res.a3 });
+  const dropped = pruneUnsupportedPlan(merged);
+  return { D: merged, badSheets: badSheets, dropped: dropped };
+}
+function buildReportShow(have, missing, badSheets, dropped) {
   S.step = "review";
   const notes = [];
   if (missing.length) {
@@ -9524,25 +9547,31 @@ function cagNumberPanel(D) {
 }
 
 /* Merge the scanned PTCA sheets into one case and open its review screen. */
-function buildPtcaReport() {
-  const have = PSLOTS.filter(function (s) { return S.res[s.slot]; });
-  if (!have.length) { flash("err", "No sheets have been scanned yet."); return; }
+/* 13.62: the PTCA merge on its own (see cagMergeOf) */
+function ptcaMergeOf(have) {
   const merged = PBLANK();
-  S.edit = null;              // a fresh scan is a new case, not the one being edited
   const badSheets = [];
   have.forEach(function (s) {
     try { mergeInto(merged, stripForMerge(s.slot, S.res[s.slot])); }
     catch (e) { badSheets.push(s.title + " (" + (e.message || "merge failed") + ")"); }
   });
   merged.readBy = readByOfSession();
-  S.P = merged;
-  ptcaAfterMerge(S.P);
-  ptcaNumbersFill(S.P, S.res);
-  ptcaDateFill(S.P, S.res);
+  ptcaAfterMerge(merged);
+  ptcaNumbersFill(merged, S.res);
+  ptcaDateFill(merged, S.res);
   // the target-vessel plan: which balloon predilated which lesion, which
   // stent went where, which balloon postdilated which stent — derived from
   // the PTCA-to boxes, the technique ticks and the utilization grid
-  deriveTargets(S.P, false);
+  deriveTargets(merged, false);
+  return { P: merged, badSheets: badSheets };
+}
+function buildPtcaReport() {
+  const have = PSLOTS.filter(function (s) { return S.res[s.slot]; });
+  if (!have.length) { flash("err", "No sheets have been scanned yet."); return; }
+  S.edit = null;              // a fresh scan is a new case, not the one being edited
+  const M = ptcaMergeOf(have), badSheets = M.badSheets;
+  S.P = M.P;
+  accStart(S.P, "PTCA");     // 13.62: the report as scanned (taken again once the CAG data has filled in)
   const missing = PSLOTS.filter(function (s) { return S.imgs[s.slot] && !S.res[s.slot]; });
   S.step = "ptcaReview";
   const notes = [];
@@ -9888,6 +9917,7 @@ function invPayload(rec) {
    files it in Drive and answers with the link, which is kept on the case. */
 function syncToSheet(rec, diagramImg, ed, utilImg) {
   if (!S.cfg.sheetUrl) return;
+  try { accOnSave(rec); } catch (e) {}       // 13.62: the scan accuracy log
   // an edit names the row it was opened from ("orig"): the script replaces
   // that row even if the number, name or year changed (Code6.gs and later)
   const orig = ed ? Object.assign({}, ed.sheetOrig) : null;
@@ -11895,6 +11925,7 @@ function viewSettings() {
     <div class="btns" style="margin-top:16px">
       <button class="b" onclick="S.step='logs';render()">View Debug Log</button>
       <button class="b" onclick="openCosts()" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Gemini costs</button>
+      <button class="b" onclick="openAcc()" ${S.cfg.sheetUrl && S.cfg.editKey ? "" : "disabled"}>Scan accuracy</button>
     </div>
     </div><div>
     <div class="btns" style="margin-top:16px">
@@ -11943,7 +11974,230 @@ async function costFlush() {
 window.addEventListener("online", function () { setTimeout(costFlush, 3000); });
 setTimeout(costFlush, 15000);
 
+function openAcc() { S.step = "accuracy"; S.navMore = false; S.costs = S.costs || {}; S.acc = S.acc || {}; render(); accLoad(false); }
+function viewAcc() {
+  const A = S.acc || {}, C = S.costs || {}, per = costPeriod();
+  const pick = function (k, t) { return `<button type="button" class="b${(C.period || "30") === k ? " on" : ""}" onclick="S.costs.period='${k}';render()">${t}</button>`; };
+  return `<div class="card costs"><h2>Scan accuracy</h2>
+    <div class="btns">${pick("7", "7 days")}${pick("30", "30 days")}${pick("month", "This month")}${pick("last", "Last month")}
+      <button class="b" onclick="accLoad(true)" ${A.busy ? "disabled" : ""}>${A.busy ? "Loading…" : "Refresh"}</button></div>
+    ${accHtml(per)}</div>`;
+}
 function openCosts() { S.step = "costs"; S.navMore = false; S.costs = S.costs || {}; render(); costLoad(false); }
+/* ==== 13.62 — Scan accuracy ====
+   How much the residents change between the report as scanned and the report
+   as saved, per sheet, with the model and the thinking level that read it.
+   When a report is built from scanned sheets its data is kept as read (on this
+   phone, by the id stamped on the case as _accId: "b:<inbox case>" or
+   "p:<…>" for a phone scan). Each save to the shared sheet compares the saved
+   case with it and logs the counts on the sheet's "Scan accuracy" tab — a
+   later save of the same case replaces its row. Only filled values count:
+   Fields = filled in either version; Wrong = a scanned value corrected or
+   removed; Missed = a value the scan left empty and a resident filled. */
+const ACC_STORE = "cagAccSnaps", ACC_KEEP = 25, ACC_DAYS = 30;
+const ACC_SKIP_KEY = /^(_.*|readBy|where|diagramUrl|utilUrl|photo|thumb|url|b64|hash|savedAt|editedAt)$/;
+/* what applyCagToPtca fills from the CAG: left out of a PTCA whose as-scanned
+   copy had to be rebuilt without it (an inbox draft opened on another phone) */
+const ACC_CAG_FILLED = /^(name|age|height|weight|sex|ipdOpdNo|ipdNo|opdNo|cagNo|cagDate|cagFinding|blood|echo|valves|rwma|doppler|dx|past|rf|quick|cagr)$/;
+const ACC_SLOT_WORD = { p1: "CAG sheet 1", a1: "CAG sheet 2", a2: "CAG sheet 3", a3: "CAG sheet 4", d1: "CAG diagram",
+  q1: "PTCA sheet 1", q2: "PTCA sheet 2", q3: "PTCA sheet 3", q4: "PTCA sheet 4", qu: "Utilization sheet", qd: "Diagram stent sheet", _: "Not from one sheet" };
+function accSnaps() { try { const o = JSON.parse(localStorage.getItem(ACC_STORE) || "{}"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } }
+function accSnapsPut(o) {
+  const cut = Date.now() - ACC_DAYS * 864e5;
+  let ids = Object.keys(o).filter(function (k) { return o[k] && o[k].at > cut; }).sort(function (a, b) { return o[b].at - o[a].at; }).slice(0, ACC_KEEP);
+  for (let tries = 0; tries < 6; tries++) {
+    const keep = {}; ids.forEach(function (k) { keep[k] = o[k]; });
+    try { localStorage.setItem(ACC_STORE, JSON.stringify(keep)); return; } catch (e) { ids = ids.slice(0, Math.max(1, Math.floor(ids.length / 2))); }
+  }
+}
+function accCopy(o) { const c = JSON.parse(JSON.stringify(o || {})); delete c._accId; return c; }
+function accNorm(v) { if (v == null || v === false) return ""; if (v === true) return "✓"; return String(v).replace(/\s+/g, " ").trim().toLowerCase(); }
+function accLeaves(o, pre, out) {
+  out = out || {};
+  if (o == null) return out;
+  if (Array.isArray(o)) { o.forEach(function (v, i) { accLeaves(v, pre + "[" + i + "]", out); }); return out; }
+  if (typeof o === "object") { Object.keys(o).forEach(function (k) { if (!ACC_SKIP_KEY.test(k)) accLeaves(o[k], pre ? pre + "." + k : k, out); }); return out; }
+  const v = accNorm(o); if (v !== "") out[pre] = v;
+  return out;
+}
+/* every field a sheet's reading holds, filled or empty: a field left empty is
+   still that sheet's to read */
+function accPaths(o, pre, out) {
+  if (Array.isArray(o)) { o.forEach(function (v, i) { accPaths(v, pre + "[" + i + "]", out); }); return out; }
+  if (o && typeof o === "object") { Object.keys(o).forEach(function (k) { if (!ACC_SKIP_KEY.test(k)) accPaths(o[k], pre ? pre + "." + k : k, out); }); return out; }
+  if (pre) out.push(pre);
+  return out;
+}
+function accSlotsOf(type) { return (type === "PTCA" ? PSLOTS : SLOTS).map(function (s) { return s.slot; }).filter(function (k) { return S.res[k]; }); }
+/* the as-scanned copy of a case, with what each sheet read and how */
+function accSnapOf(obj, type, extra) {
+  const slots = accSlotsOf(type), leaves = {}, filled = {}, rb = {}, th = {}, pa = {};
+  slots.forEach(function (k) {
+    try { leaves[k] = accPaths(S.res[k], "", []); filled[k] = Object.keys(accLeaves(S.res[k], "", {})); } catch (e) { leaves[k] = []; filled[k] = []; }
+    rb[k] = (S.readBy || {})[k] || "?"; th[k] = (S.readThink || {})[k] || "?"; pa[k] = (S.readPath || {})[k] || "?";
+  });
+  return Object.assign({ type: type, at: Date.now(), base: accCopy(obj), slots: slots, leaves: leaves, filled: filled, rb: rb, th: th, pa: pa, saved: 0, app: APP_VERSION }, extra || {});
+}
+function accStart(obj, type) {
+  try {
+    if (!obj) return;
+    const id = S.accBatchId ? "b:" + S.accBatchId : "p:" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    obj._accId = id;
+    const o = accSnaps(); o[id] = accSnapOf(obj, type); accSnapsPut(o);
+  } catch (e) {}
+}
+/* an inbox case opened from a draft or the registry copy: its as-scanned copy
+   is the one kept on this phone, else rebuilt from the readings */
+function accStartRestored(obj, type, idIfNone) {
+  try {
+    if (!obj) return;
+    const id = obj._accId || idIfNone; obj._accId = id;
+    const o = accSnaps();
+    if (o[id]) return;
+    const have = (type === "PTCA" ? PSLOTS : SLOTS).filter(function (s) { return S.res[s.slot]; });
+    if (!have.length) return;
+    const base = type === "PTCA" ? ptcaMergeOf(have).P : cagMergeOf(have).D;
+    o[id] = accSnapOf(base, type, { rebuilt: true }); accSnapsPut(o);
+    // a PTCA's scanned copy also had its CAG's data filled in: look the CAG up again
+    if (type === "PTCA") accCagFor(base).then(function (D) {
+      if (!D) return;
+      applyCagToPtca(base, D);
+      const o2 = accSnaps(), sn = o2[id];
+      if (!sn || sn.saved) return;
+      sn.base = accCopy(base); sn.cagApplied = true; accSnapsPut(o2);
+    }).catch(function () {});
+  } catch (e) {}
+}
+/* the CAG case a PTCA names, as fetchCagData finds it (null when none) */
+async function accCagFor(P) {
+  const q = String(P.cagNo || "").trim() || idNumbers(P)[0] || "";
+  if (!q) return null;
+  let D = findLocalCagCase(q);
+  if (!D && S.cfg.sheetUrl) {
+    const jr = await sheetApi("lookup", { q: q });
+    if (jr && jr.found) { try { D = jr.caseJson ? JSON.parse(jr.caseJson) : null; } catch (e) {} if (!D) D = cagCaseFromFields(jr.fields || [], jr.lesions || []); }
+  }
+  return D || null;
+}
+/* the CAG's own data has just filled the scanned PTCA: take the copy again,
+   unless the case has been saved or the copy is already a few minutes old */
+function accRefresh(obj) {
+  try {
+    const id = obj && obj._accId, o = accSnaps(), sn = id && o[id];
+    if (!sn || sn.saved || Date.now() - sn.at > 180000) return;
+    sn.base = accCopy(obj); sn.at = Date.now(); accSnapsPut(o);
+  } catch (e) {}
+}
+/* the comparison: counts, per sheet, and the changed values */
+function accDiff(sn, fin) {
+  const A = accLeaves(sn.base, "", {}), B = accLeaves(fin, "", {});
+  const keys = Object.keys(A).concat(Object.keys(B).filter(function (k) { return !(k in A); }));
+  const per = {}, changes = [];
+  let n = 0, w = 0, a = 0;
+  const pre2 = function (k) { return k.split(/[.[]/).slice(0, 2).join("."); };
+  const top = function (k) { return k.split(/[.[]/)[0]; };
+  const L = {}; sn.slots.forEach(function (sl) { L[sl] = { got: {}, all: {}, p2: {}, top: {} }; (sn.filled && sn.filled[sl] || []).forEach(function (k) { L[sl].got[k] = 1; }); (sn.leaves[sl] || []).forEach(function (k) { L[sl].all[k] = 1; L[sl].p2[pre2(k)] = 1; L[sl].top[top(k)] = 1; }); });
+  // the sheet that read a value there, else the sheet whose reading holds that field, else the nearest part of it
+  const slotOf = function (k) {
+    const t = [function (sl) { return L[sl].got[k]; }, function (sl) { return L[sl].all[k]; }, function (sl) { return L[sl].p2[pre2(k)]; }, function (sl) { return L[sl].top[top(k)]; }];
+    for (let i = 0; i < t.length; i++) { const hit = sn.slots.filter(t[i])[0]; if (hit) return hit; }
+    return "_";
+  };
+  keys.forEach(function (k) {
+    if (sn.rebuilt && sn.type === "PTCA" && !sn.cagApplied && ACC_CAG_FILLED.test(top(k))) return;
+    const x = A[k] || "", y = B[k] || "";
+    const sl = slotOf(k);
+    const P = per[sl] = per[sl] || { m: sn.rb[sl] || "", t: sn.th[sl] || "", r: sn.pa[sl] || "", n: 0, w: 0, a: 0 };
+    n++; P.n++;
+    if (x === y) return;
+    if (x) { w++; P.w++; } else { a++; P.a++; }
+    changes.push(k + ": " + (x ? x.slice(0, 60) : "(empty)") + " → " + (y ? y.slice(0, 60) : "(empty)"));
+  });
+  return { n: n, w: w, a: a, per: per, changes: changes };
+}
+function accUniq(map, slots) { const v = []; slots.forEach(function (k) { const x = map[k]; if (x && v.indexOf(x) < 0) v.push(x); }); return v.join(" / "); }
+function accOnSave(rec) {
+  let fin = null;
+  try { fin = JSON.parse(rec.caseJson || "null"); } catch (e) { return; }
+  const id = fin && fin._accId; if (!id) return;
+  const o = accSnaps(), sn = o[id]; if (!sn || sn.type !== (rec.type === "PTCA" ? "PTCA" : "CAG")) return;
+  const d = accDiff(sn, fin);
+  sn.saved = (sn.saved || 0) + 1; accSnapsPut(o);
+  const groups = {}; sn.slots.forEach(function (k) { const m = sn.rb[k]; (groups[m] = groups[m] || []).push(READBY_SHEET[k] || k); });
+  const body = { id: id, type: sn.type, no: String((sn.type === "PTCA" ? fin.ptcaNo || fin.cathNo : fin.cagNo) || fin.cagNo || ""),
+    route: accUniq(sn.pa, sn.slots), think: accUniq(sn.th, sn.slots),
+    models: Object.keys(groups).map(function (m) { return (mcLabel(m) || m) + " (" + groups[m].join(", ") + ")"; }).join("; "),
+    n: d.n, w: d.w, a: d.a, perSheet: d.per, changes: (sn.rebuilt ? "[as-scanned copy rebuilt from the readings" + (sn.type === "PTCA" && !sn.cagApplied ? "; the CAG's own data left out (CAG not found)" : "") + "]\n" : "") + d.changes.join("\n"),
+    by: S.cfg.userName || "", built: new Date(sn.at).toISOString().slice(0, 16).replace("T", " "), app: APP_VERSION };
+  sheetApi("accLog", body, 40000).then(function () { if (S.acc) S.acc.at = 0; }).catch(function (e) {
+    if (!/unknown action/i.test(String(e && e.message))) addLog("Notice", "Scan accuracy", "The case was saved, but its accuracy count could not be logged", String(e && e.message || e));
+  });
+}
+async function accLoad(force) {
+  const A = S.acc = S.acc || {};
+  if (A.busy || (!force && A.rows && Date.now() - A.at < 60000)) return;
+  A.busy = true; A.err = "";
+  try { const r = await sheetApi("accList", { days: 95 }, 60000); A.rows = r.rows || []; A.at = Date.now(); }
+  catch (e) { A.err = /unknown action/i.test(String(e && e.message)) ? "The shared sheet's script is older than 13.62 — the accuracy log needs it." : String(e.message || e); A.rows = A.rows || null; }
+  A.busy = false; render();
+}
+function accPct(x, n) { return n ? (Math.round(x * 1000 / n) / 10) + "%" : "—"; }
+const ACC_ROUTE_WORD = { phone: "Phone — read now", sheet: "Inbox — read at once", night: "Inbox — night queue", inbox: "Inbox (before 13.62)" };
+const ACC_THINK_WORD = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", auto: "Model's own", none: "None (refused)", "?": "Not recorded" };
+function accHtml(per) {
+  const A = S.acc || {};
+  let h = `<p class="hint">Each saved case is compared with the report as scanned. <b>Wrong</b>: a scanned value the resident corrected or deleted. <b>Missed</b>: a value the scan left empty that the resident filled in. Counted over the filled values of both versions; sheets are credited to the model and thinking level that read them. A case saved again updates its own count.</p>`;
+  if (A.err) return h + `<div class="warn err">${esc2(A.err)}</div>`;
+  if (!A.rows) return h + `<p class="hint">${A.busy ? "Loading…" : "Not loaded."}</p>`;
+  const rows = A.rows.filter(function (r) { return r.at.slice(0, 10) >= per.from && r.at.slice(0, 10) < per.to; });
+  if (!rows.length) return h + `<p class="hint">No scanned case saved in ${esc2(per.word)} yet. Counting starts with cases built from scans on app 13.62.</p>`;
+  const T = rows.reduce(function (t, r) { t.n += r.n; t.w += r.w; t.a += r.a; return t; }, { n: 0, w: 0, a: 0 });
+  h += `<div class="costtiles">
+    <div><b>${rows.length}</b><span>cases saved (${rows.filter(function (r) { return r.type === "CAG"; }).length} CAG, ${rows.filter(function (r) { return r.type === "PTCA"; }).length} PTCA)</span></div>
+    <div><b>${accPct(T.w + T.a, T.n)}</b><span>of ${T.n} fields changed</span></div>
+    <div><b>${accPct(T.w, T.n)}</b><span>wrong · ${(T.w / rows.length).toFixed(1)} per case</span></div>
+    <div><b>${accPct(T.a, T.n)}</b><span>missed · ${(T.a / rows.length).toFixed(1)} per case</span></div></div>`;
+  // per sheet, grouped by model x thinking, and by route
+  const G = {}, R = {}, SH = {};
+  rows.forEach(function (r) {
+    Object.keys(r.per || {}).forEach(function (sl) {
+      const p = r.per[sl] || {};
+      if (sl === "_") { const u = SH._ = SH._ || { n: 0, w: 0, a: 0, c: 0, type: "" }; u.n += p.n || 0; u.w += p.w || 0; u.a += p.a || 0; u.c++; return; }
+      const gk = r.type + "|" + (p.m || "?") + "|" + (p.t || "?");
+      const g = G[gk] = G[gk] || { type: r.type, m: p.m || "?", t: p.t || "?", n: 0, w: 0, a: 0, sh: 0, cases: {} };
+      g.n += p.n || 0; g.w += p.w || 0; g.a += p.a || 0; g.sh++; g.cases[r.id] = 1;
+      const rk = p.r || "?"; const q = R[rk] = R[rk] || { n: 0, w: 0, a: 0, sh: 0 }; q.n += p.n || 0; q.w += p.w || 0; q.a += p.a || 0; q.sh++;
+      const s = SH[sl] = SH[sl] || { n: 0, w: 0, a: 0, c: 0 }; s.n += p.n || 0; s.w += p.w || 0; s.a += p.a || 0; s.c++;
+    });
+  });
+  const tline = function (cells) { return "<tr>" + cells.map(function (c) { return "<td>" + c + "</td>"; }).join("") + "</tr>"; };
+  const thinkOrder = ["minimal", "low", "medium", "high", "auto", "none", "?"];
+  const gl = Object.keys(G).map(function (k) { return G[k]; }).sort(function (x, y) { return x.type.localeCompare(y.type) || String(x.m).localeCompare(String(y.m)) || thinkOrder.indexOf(x.t) - thinkOrder.indexOf(y.t); });
+  const two = function (a, b) { return a + `<span class="acc2">${b}</span>`; };
+  h += `<h3>By model and thinking</h3><div class="tblwrap"><table class="costtbl acctbl"><tr><th>Read by</th><th>Cases</th><th>Changed</th><th>Wrong</th><th>Missed</th></tr>` +
+    gl.map(function (g) { return tline([two("<b>" + g.type + "</b> · " + esc2(readByShort(g.m)), esc2(ACC_THINK_WORD[g.t] || g.t) + " thinking · " + g.n + " fields"), Object.keys(g.cases).length, "<b>" + accPct(g.w + g.a, g.n) + "</b>", accPct(g.w, g.n), accPct(g.a, g.n)]); }).join("") + `</table></div>
+    <p class="hint">Changes the resident made to text the app writes itself (not read from one sheet) are left out of this table and counted below as “Not from one sheet”.</p>`;
+  h += `<h3>By route</h3><div class="tblwrap"><table class="costtbl acctbl"><tr><th>Read</th><th>Sheets</th><th>Changed</th><th>Wrong</th><th>Missed</th></tr>` +
+    Object.keys(R).map(function (k) { const q = R[k]; return tline([two(esc2(ACC_ROUTE_WORD[k] || k), q.n + " fields"), q.sh, "<b>" + accPct(q.w + q.a, q.n) + "</b>", accPct(q.w, q.n), accPct(q.a, q.n)]); }).join("") + `</table></div>`;
+  const order = ["p1", "a1", "a2", "a3", "d1", "q1", "q2", "q3", "q4", "qu", "qd", "_"];
+  h += `<h3>By sheet</h3><div class="tblwrap"><table class="costtbl acctbl"><tr><th>Sheet</th><th>Cases</th><th>Changed</th><th>Wrong</th><th>Missed</th></tr>` +
+    order.filter(function (k) { return SH[k]; }).map(function (k) { const q = SH[k]; return tline([two(esc2(ACC_SLOT_WORD[k] || k), Math.round(q.n / q.c) + " fields a case"), q.c, "<b>" + accPct(q.w + q.a, q.n) + "</b>", accPct(q.w, q.n), accPct(q.a, q.n)]); }).join("") + `</table></div>`;
+  // the fields changed most often
+  const F = {};
+  rows.forEach(function (r) {
+    const seen = {};
+    String(r.changes || "").split("\n").forEach(function (ln) {
+      if (!ln || ln.charAt(0) === "[") return;
+      const k = ln.split(":")[0].replace(/\[\d+\]/g, "[ ]"); if (seen[k]) return; seen[k] = 1;
+      F[k] = (F[k] || 0) + 1;
+    });
+  });
+  const top = Object.keys(F).sort(function (x, y) { return F[y] - F[x]; }).slice(0, 15);
+  if (top.length) h += `<h3>Fields changed most often</h3><div class="tblwrap"><table class="costtbl"><tr><th>Field</th><th>Cases</th></tr>` +
+    top.map(function (k) { return tline(["<code>" + esc2(k) + "</code>", F[k] + " of " + rows.length]); }).join("") + `</table></div>
+    <p class="hint">The full list of changes for each case — old value → new value — is on the shared sheet's <b>Scan accuracy</b> tab.</p>`;
+  return h;
+}
 async function costLoad(force) {
   const C = S.costs = S.costs || {};
   if (C.busy || (!force && C.rows && Date.now() - C.at < 60000)) return;
@@ -12015,6 +12269,7 @@ function viewCosts() {
       <button class="b" onclick="costCsv()" ${rows.length ? "" : "disabled"}>Download CSV</button></div>`;
   if (C.err) h += `<div class="warn err">${esc2(C.err)}</div>`;
   h += costThinkHtml(rows);
+  h += `<p class="hint" style="margin-top:-4px">How each thinking level and model reads: <a href="#" onclick="openAcc();return false">Scan accuracy</a>.</p>`;
   if (!C.rows) return h + (C.busy ? `<p class="hint">Loading…</p>` : "") + `</div>`;
   if (!U.tot.priced && rows.length) h += `<div class="warn">No price is set for ${esc2(costUnpriced(rows).join(", ") || "these models")} — the token counts are shown; set the prices below to see rupees.</div>`;
   // headline
@@ -12242,7 +12497,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.61", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.62", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
@@ -13708,6 +13963,7 @@ function navOn() {
 }
 const NAV_ICON = {
   cost: "M4 20V11M10 20V5M16 20v-6M21 20H3",
+  acc: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9",
   inbox: "M4 13h4l2 3h4l2-3h4M4 13l2-8h12l2 8v6H4z",
   cam: "M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 100-8 4 4 0 000 8z",
   list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
@@ -13735,6 +13991,7 @@ function navItems() {
   if (techOn()) out.push({ k: "box", t: "Stents & inventory", s: "Stents", on: step === "tech", go: "navGo('tech')" });
   if (sheetWeb) out.push({ k: "sheet", t: "Registry sheet", s: "Sheet", href: sheetWeb });
   if (S.cfg.editKey && S.cfg.sheetUrl) out.push({ k: "cost", t: "Gemini costs", s: "Costs", on: step === "costs", go: "navGo('costs')" });
+  if (S.cfg.editKey && S.cfg.sheetUrl) out.push({ k: "acc", t: "Scan accuracy", s: "Accuracy", on: step === "accuracy", go: "navGo('accuracy')" });
   out.push({ k: "gear", t: "Settings", s: "Settings", on: step === "settings" || step === "logs", go: "navGo('settings')" });
   return out;
 }
@@ -13745,6 +14002,7 @@ function navGo(where) {
   else if (where === "ot") openOt();
   else if (where === "tech") openTech();
   else if (where === "costs") openCosts();
+  else if (where === "accuracy") openAcc();
   else { S.step = where; render(); }
   try { window.scrollTo(0, 0); } catch (e) {}
 }
@@ -14027,8 +14285,13 @@ async function openBatchCase(caseId) {
       if (where && S.res[ks] && !S.res[ks].where) S.res[ks].where = where;
     } catch (e) { S.errs[s === "d" ? "d1" : s] = "stored reading unusable: " + (e.message || e); }
   });
-  S.readBy = {};
-  Object.keys(j.readBy || {}).forEach(function (k) { S.readBy[k === "d" ? "d1" : k] = j.readBy[k]; });
+  S.readBy = {}; S.readThink = {}; S.readPath = {};
+  Object.keys(j.readBy || {}).forEach(function (k) { if (k.charAt(0) !== "_") S.readBy[k === "d" ? "d1" : k] = j.readBy[k]; });
+  // 13.62: the thinking level and route of each sheet (inbox cases read before 13.62 have neither)
+  Object.keys(S.readBy).forEach(function (k) {
+    const o = k === "d1" ? "d" : k, th = (j.readBy && j.readBy._think) || {}, pa = (j.readBy && j.readBy._path) || {};
+    S.readThink[k] = th[o] || th[k] || "?"; S.readPath[k] = pa[o] || pa[k] || "inbox";
+  });
   // a draft or registry copy from before 13.38 has no Read by: it takes the sheet's
   { const o0 = ptca ? S.P : S.D; if (o0 && (!o0.readBy || !Object.keys(o0.readBy).length)) o0.readBy = Object.assign({}, S.readBy); }
   S.batchCase = { caseId: j.caseId, type: ptca ? "PTCA" : "CAG", name: j.name || "", cagNo: j.cagNo || "", grouping: j.grouping || "", errors: j.errors || [],
@@ -14045,13 +14308,18 @@ async function openBatchCase(caseId) {
   S.batch.open = "";
   if (S.batch.canEdit) sheetApi("batchMark", { caseId: caseId, mark: "opened", by: S.cfg.userName || "" }).catch(function () {});
   if (restored) {
+    accStartRestored(ptca ? S.P : S.D, ptca ? "PTCA" : "CAG", "b:" + j.caseId);
     // the draft / registry copy already holds the merged, corrected case
     S.step = ptca ? "ptcaReview" : "review";
     S.err = restored === "draft" ? "Showing this case as you last left it on this phone — the scanner's reading was not reapplied."
       : restored === "shared" ? "Showing the draft saved to the shared sheet" + (draft.when ? " on " + draft.when : "") + (draft.by ? " by " + draft.by : "") + "."
       : "Showing the saved registry copy of this case (with its corrections); downloading the Word report updates that row.";
     render();
-  } else if (ptca) buildPtcaReport(); else buildReport();          // merges the readings and opens the review screen
+  } else {
+    S.accBatchId = j.caseId;            // 13.62: the accuracy log knows this case by its inbox id
+    try { if (ptca) buildPtcaReport(); else buildReport(); }          // merges the readings and opens the review screen
+    finally { S.accBatchId = ""; }
+  }
   try { window.scrollTo(0, 0); } catch (e) {}
   const bc = S.batchCase;
   const slotOf = function (m) { return m.slot === "d" ? "d1" : (need.concat(ptca ? ["qu", "qd"] : []).indexOf(m.slot) >= 0 ? m.slot : ""); };
@@ -16391,6 +16659,7 @@ function render() {
   else if (S.step === "batch") body = viewBatch();
   else if (S.step === "tech") body = viewTech();
   else if (S.step === "costs") body = viewCosts();
+  else if (S.step === "accuracy") body = viewAcc();
   else body = viewCapture();
   const banners = (S.err ? `<div class="warn err">${esc2(S.err)}</div>` : "") +
     (S.ok ? `<div class="warn okmsg">${esc2(S.ok)}</div>` : "");
