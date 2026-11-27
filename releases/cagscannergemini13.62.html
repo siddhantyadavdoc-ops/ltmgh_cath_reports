@@ -12054,7 +12054,7 @@ function viewAcc() {
     ${per.custom ? `<div class="row" style="margin:4px 0 8px"><label class="fld" style="flex:1 1 140px"><span>From</span><input type="date" value="${esc2(per.f)}" max="${accPeriodIso(0)}" onchange="accSetDate('from',this.value)"></label>
       <label class="fld" style="flex:1 1 140px"><span>To</span><input type="date" value="${esc2(per.t)}" max="${accPeriodIso(0)}" onchange="accSetDate('to',this.value)"></label></div>` : ""}
     <p class="hint" style="margin:0 0 6px">Showing ${esc2(per.word)}.</p>
-    ${accHtml(per)}</div>`;
+    ${accHtml(per)}${accTrainHtml(A.train)}</div>`;
 }
 function openCosts() { S.step = "costs"; S.navMore = false; S.costs = S.costs || {}; render(); costLoad(false); }
 /* ==== 13.62 — Scan accuracy ====
@@ -12202,17 +12202,49 @@ function accOnSave(rec) {
     models: Object.keys(groups).map(function (m) { return (mcLabel(m) || m) + " (" + groups[m].join(", ") + ")"; }).join("; "),
     n: d.n, w: d.w, a: d.a, perSheet: d.per, changes: (sn.rebuilt ? "[as-scanned copy rebuilt from the readings" + (sn.type === "PTCA" && !sn.cagApplied ? "; the CAG's own data left out (CAG not found)" : "") + "]\n" : "") + d.changes.join("\n"),
     by: S.cfg.userName || "", built: new Date(sn.at).toISOString().slice(0, 16).replace("T", " "), app: APP_VERSION };
-  sheetApi("accLog", body, 40000).then(function () { if (S.acc) S.acc.at = 0; }).catch(function (e) {
+  // the labelled set for an offline reader later (see the script's trainSave_):
+  // inbox cases - the script copies the inbox files itself; a phone scan sends
+  // its page photos once, downsized
+  body.train = { final: fin, scanned: sn.base };
+  const phone = id.indexOf("p:") === 0;
+  if (phone) {
+    body.train.readBy = sn.rb;
+    body.train.readings = {}; sn.slots.forEach(function (k) { if (S.res[k]) body.train.readings[k] = S.res[k]; });
+  }
+  const send = function () { return sheetApi("accLog", body, phone && body.train.pages ? 120000 : 60000); };
+  (phone && !sn.trainImgs ? accTrainPages(sn.slots).then(function (pages) {
+    if (pages.length) { body.train.pages = pages; const o2 = accSnaps(); if (o2[id]) { o2[id].trainImgs = 1; accSnapsPut(o2); } }
+  }).catch(function () {}) : Promise.resolve()).then(send).then(function () { if (S.acc) S.acc.at = 0; }).catch(function (e) {
     if (!/unknown action/i.test(String(e && e.message))) addLog("Notice", "Scan accuracy", "The case was saved, but its accuracy count could not be logged", String(e && e.message || e));
   });
+}
+/* a phone scan's page photos for the training set: long side 1600 px, JPEG 0.8 */
+async function accTrainPages(slots) {
+  const out = [];
+  for (const k of slots) {
+    const im = S.imgs && S.imgs[k]; if (!im || !im.url) continue;
+    try {
+      const img = await new Promise(function (ok, no) { const x = new Image(); x.onload = function () { ok(x); }; x.onerror = no; x.src = im.url; });
+      const sc = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * sc); cv.height = Math.round(img.naturalHeight * sc);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      out.push({ slot: k, b64: cv.toDataURL("image/jpeg", 0.8).split(",")[1] });
+    } catch (e) {}
+  }
+  return out;
 }
 async function accLoad(force) {
   const A = S.acc = S.acc || {};
   if (A.busy || (!force && A.rows && Date.now() - A.at < 60000)) return;
   A.busy = true; A.err = "";
-  try { const pe = accPeriod(), back = Math.ceil((Date.now() - new Date(pe.from.slice(0, 10) + "T00:00:00").getTime()) / 864e5) + 2; const r = await sheetApi("accList", { days: Math.max(95, Math.min(400, back)) }, 60000); A.rows = r.rows || []; A.at = Date.now(); }
+  try { const pe = accPeriod(), back = Math.ceil((Date.now() - new Date(pe.from.slice(0, 10) + "T00:00:00").getTime()) / 864e5) + 2; const r = await sheetApi("accList", { days: Math.max(95, Math.min(400, back)) }, 60000); A.rows = r.rows || []; A.train = r.train || null; A.at = Date.now(); }
   catch (e) { A.err = /unknown action/i.test(String(e && e.message)) ? "The shared sheet's script is older than 13.62 — the accuracy log needs it." : String(e.message || e); A.rows = A.rows || null; }
   A.busy = false; render();
+}
+function accTrainHtml(t) {
+  if (!t) return "";
+  return `<h3>Training data</h3>
+    <p class="hint">${t.off ? "<b>Turned off</b> (script property TRAIN_OFF). " : ""}<b>${t.cases}</b> saved scanned case${t.cases === 1 ? "" : "s"} kept for training an offline reader: each case's page images with what the scanner read and what the residents saved, in CAG Inbox › <b>Scan training data</b>${t.url ? ` (<a href="${esc2(t.url)}" target="_blank" rel="noopener">open in Drive</a>)` : ""}. Inbox pages are copied there, so they stay after the inbox clears its files.</p>`;
 }
 function accPct(x, n) { return n ? (Math.round(x * 1000 / n) / 10) + "%" : "—"; }
 const ACC_ROUTE_WORD = { phone: "Phone — read now", sheet: "Inbox — read at once", night: "Inbox — night queue", inbox: "Inbox (before 13.62)" };

@@ -313,7 +313,7 @@
  * "OT lists", and now "Batch scans", "Batch log", "Batch prompts".
  */
 
-var SCRIPT_VERSION = 13;   // 13.62: the scan accuracy log - the "Scan accuracy" tab (accLog / accList): what the residents changed between the scanned report and the saved one, per sheet with its model and thinking level; each sheet the inbox scanner reads keeps the thinking level it was sent with and its route (Read by _think / _path). 13.61: no script change (scan screen redesign). 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov; a sticker photo's barcodes (read on the phone) are given to its stickers ("Scanned barcode", the LOT corrected by them) and every sticker — stent or any other device — marks its very box used (own number (91)/(93)/(21), serial, else LOT among boxes photographed by then); a barcode naming a box not in stock is flagged; a removed sticker gives its box back; the "Devices used" tab — every sticker (with its barcode and own number), every utilization-sheet line of every device, every device taken off by hand or matched on a used-instruments photo — kept for ever (never deleted: a record that goes is marked removed), with a filter, and searched from the app (devSearch). 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
+var SCRIPT_VERSION = 13;   // 13.62: the scan accuracy log, and the "Scan training data" folder in the CAG Inbox (page images + labels.json per saved scanned case, inbox files copied before housekeeping removes them; TRAIN_OFF=1 stops it); - the "Scan accuracy" tab (accLog / accList): what the residents changed between the scanned report and the saved one, per sheet with its model and thinking level; each sheet the inbox scanner reads keeps the thinking level it was sent with and its route (Read by _think / _path). 13.61: no script change (scan screen redesign). 13.60: the Ultimaster shelf of 26 Nov (60 boxes) put right once — LOTs of stock_20261120-100045 re-read, a third 3.0 × 28 and a new 2.75 × 15 counted, the boxes of PTCA 2397 and 2411 marked used, Ultimaster uses counted from 20 Nov; a sticker photo's barcodes (read on the phone) are given to its stickers ("Scanned barcode", the LOT corrected by them) and every sticker — stent or any other device — marks its very box used (own number (91)/(93)/(21), serial, else LOT among boxes photographed by then); a barcode naming a box not in stock is flagged; a removed sticker gives its box back; the "Devices used" tab — every sticker (with its barcode and own number), every utilization-sheet line of every device, every device taken off by hand or matched on a used-instruments photo — kept for ever (never deleted: a record that goes is marked removed), with a filter, and searched from the app (devSearch). 13.58: no script change (scan screen: whole-case upload, then the tabs Upload page by page / Scan page by page NOW). 13.57: no script change (the app can upload a whole CAG or PTCA case file straight to Drive). 13.56: no script change (the app keeps photos as taken and sends nothing to Gemini until "Read now"). 13.55: caseUpload takes one PDF holding all of a case's sheets (stored once if sent twice); 13.54: caseUpload - the app's "Upload to Drive - read later" saves a case in the CAG or PTCA inbox folder for the night scan. 13.53: no script change (Dr. Abhinav Anand taken off the printed PTCA report). 13.52: the PTCA diagram sheet (heart drawing with the stent sticker) is its own slot qd — never read as the utilization report — and its Cath No. is one more PTCA-number source; caseStickers gives the review screen a case's technicians' stickers; CAG numbers are stored as number/year (2145/2026), a bare number taking the year of its CAG, the inbox cases flagged only for a missing year put right once. 13.51: a photo whose every box was read by barcode (known products) is read with no Gemini; the barcodes read on the phone (Photo barcodes tab) settle a box's LOT and expiry and, by its own (91)/(93) number, repeat or new; a LOT and expiry that do not fit are kept to check; the 24 Nov barcode corrections, once. 13.50: stock photos read for every instrument (foreground only, each box placed in the photo), per-item "Counts from" date, a folder per instrument. 13.49: a case's files are served without reading every row's readings, and the inbox list carries each case's file ids (the app fetches the pages ahead); a CAG proforma with no CAG number takes it from the diagram sheet, with a note. 13.48: the night runs send each case's sheets to Google's half-price batch queue (BATCH_HALF_PRICE, BATCH_QUEUE_HOURS); a CAG proforma in the PTCA folder (or the reverse) is read as what it is; the PTCA number is checked across the sheets and the CAG proforma's CAG number against its year; each page's token use is logged. 13.47 / 13.46: no script change. 13.45: stents are taken off the inventory from their stickers (a stent on a utilization sheet with no sticker is put to the technicians to accept or reject), IVUS, OCT and contrast have inventory kinds of their own, contrast and other items can be taken off by hand, and the department's hardware list is put on the inventory once. 13.44: the cath lab's technicians — their own key (TECH_KEY), the stent stickers read from the photos in "Stents uploads" (Stents / Stent uploads tabs, photos moved to "Stents scanned", the newest 200 kept), bills read and matched from the app, and the inventory (Inventory / Inventory moves tabs) that every saved PTCA's utilization sheet subtracts from, ox / oxy items excepted. 13.43: every request to a Gemini model has a time limit of its own (90 s; BATCH_FETCH_SEC), a model that does not answer is left alone for 30 minutes and the next one carries on, a run that Google still cuts off leaves its model alone for an hour, each case row is written through at once, and a scan started from the app is told when more work is left (more). 13.42: no script change (the app prints "Rockstar" as NC Rockstar and a stent's site code in words). 13.41: the Rosters tab also keeps the hardware list (key "hardware"). 13.40: the PTCA utilization sheet's copy is filed in Drive and its link kept on the PTCA row ("Utilization sheet image"). 13.39: no script change (white text on the Read by labels). 13.38: reserve 12 by default; the model that read each sheet is kept (Read by) and shown in the app. 13.37: automatic scans only in a night window (default 20:00–04:00 IST), keeping a reserve of requests for scans started from the app; the leftover reserve is spent in the 90 min before Google's daily reset
 var LEGACY_REG = "Registry", LES = "Lesions", OT = "OT lists";
 var OT_HEAD = ["Date", "Order", "Case id", "CAG No", "Name", "IPD/OPD No", "Age", "Sex",
                "Clinical Diagnosis", "Vessel disease", "Type", "Status", "Note", "Updated",
@@ -7364,7 +7364,76 @@ function accLog_(req) {
   }
   if (at) { row[15] = (Number(sh.getRange(at, 16).getValue()) || 1) + 1; sh.getRange(at, 1, 1, ACC_HEAD.length).setValues([row]); }
   else sh.getRange(last + 1, 1, 1, ACC_HEAD.length).setValues([row]);
-  return { logged: true, replaced: !!at };
+  var tr = null;
+  if (req.train && PropertiesService.getScriptProperties().getProperty("TRAIN_OFF") !== "1") {
+    try { tr = trainSave_(id, req); } catch (e) { tr = { ok: false, error: String(e.message || e) }; }
+  }
+  return { logged: true, replaced: !!at, train: tr };
+}
+
+/* ==== 13.62 - Scan training data ====
+   A labelled set kept for training an offline reader later: for every case
+   built from scanned sheets and saved, CAG Inbox / "Scan training data" /
+   <case> holds the page images and labels.json - what the scanner read from
+   each page, the report as scanned, the report as the residents saved it, and
+   the changes between them. Inbox cases: the inbox files are COPIED once
+   (the inbox's own files are removed by its housekeeping; the copies stay).
+   Phone scans: the app sends its page photos once. A later save of the case
+   rewrites labels.json only. Script property TRAIN_OFF = 1 stops it. */
+var TRAIN_DIR = "Scan training data";
+function trainRoot_() {
+  var inbox = batchFolders_().inbox, it = inbox.getFoldersByName(TRAIN_DIR);
+  return it.hasNext() ? it.next() : inbox.createFolder(TRAIN_DIR);
+}
+function trainSave_(id, req) {
+  var key = id.replace(/[^A-Za-z0-9_\-]+/g, "_");
+  var root = trainRoot_(), it = root.getFoldersByName(key);
+  var dir = it.hasNext() ? it.next() : root.createFolder(key);
+  var have = {}, fi = dir.getFiles();
+  while (fi.hasNext()) { var f0 = fi.next(); have[f0.getName()] = f0; }
+  var tr = req.train || {}, pages = [], copied = 0, c = null;
+  if (id.indexOf("b:") === 0) {
+    c = batchTabRows_().byId[id.slice(2)] || null;
+    if (c) {
+      (c.fileIds || []).forEach(function (fid, i) {
+        var nm = "file" + (i + 1) + "_" + String((c.files || [])[i] || fid).replace(/[\/\\]+/g, "_");
+        pages.push({ fileIdx: i, name: nm });
+        if (have[nm]) return;
+        try { var src = DriveApp.getFileById(fid); if (!src.isTrashed()) { src.makeCopy(nm, dir); copied++; } }
+        catch (e) { pages[pages.length - 1].missing = String(e.message || e); }
+      });
+    }
+  } else {
+    (tr.pages || []).forEach(function (pg) {
+      var slot = String(pg.slot || "").replace(/[^a-z0-9]/gi, ""), nm = slot + ".jpg";
+      if (!slot || !pg.b64) return;
+      pages.push({ slot: slot, name: nm });
+      if (have[nm]) return;
+      dir.createFile(Utilities.newBlob(Utilities.base64Decode(String(pg.b64)), "image/jpeg", nm)); copied++;
+    });
+    Object.keys(have).forEach(function (nm) { if (/^[a-z0-9]+\.jpg$/i.test(nm) && !pages.some(function (p) { return p.name === nm; })) pages.push({ slot: nm.replace(/\.jpg$/i, ""), name: nm }); });
+  }
+  var labels = {
+    v: 1, id: id, type: req.type, caseNo: req.no, savedAt: cathNow_(), app: req.app, builtAt: req.built, savedBy: req.by,
+    route: req.route, thinking: req.think, models: req.models,
+    pages: pages,                                       // inbox: the case's files; pageMap says which page of which file is which sheet
+    pageMap: c ? c.pageMap : (tr.pageMap || null),
+    readBy: c ? c.readBy : (tr.readBy || null),
+    readings: c ? c.results : (tr.readings || null),    // what the scanner returned for each sheet
+    scanned: tr.scanned || null,                        // the report as built from those readings
+    final: tr.final || null,                            // the report as the residents saved it
+    perSheet: req.perSheet || null, changes: String(req.changes || "").split("\n").filter(Boolean)
+  };
+  var txt = JSON.stringify(labels, null, 1);
+  if (have["labels.json"]) have["labels.json"].setContent(txt); else dir.createFile("labels.json", txt, "application/json");
+  return { ok: true, folder: key, pages: pages.length, copied: copied };
+}
+function trainCount_() {
+  var inbox = batchFolders_().inbox, it = inbox.getFoldersByName(TRAIN_DIR);
+  if (!it.hasNext()) return { cases: 0 };
+  var n = 0, f = it.next(), sub = f.getFolders();
+  while (sub.hasNext()) { sub.next(); n++; }
+  return { cases: n, url: f.getUrl(), off: PropertiesService.getScriptProperties().getProperty("TRAIN_OFF") === "1" };
 }
 function accList_(req) {
   var days = Math.max(1, Math.min(400, Number(req.days) || 95));
@@ -7379,7 +7448,8 @@ function accList_(req) {
         n: Number(r[7]) || 0, w: Number(r[8]) || 0, a: Number(r[9]) || 0, per: per, changes: String(r[12] || ""), by: String(r[13]), saves: Number(r[15]) || 1 });
     });
   }
-  return { rows: rows };
+  var tc = null; try { tc = trainCount_(); } catch (e) {}
+  return { rows: rows, train: tc };
 }
 
 var COSTS_TAB = "Costs";
