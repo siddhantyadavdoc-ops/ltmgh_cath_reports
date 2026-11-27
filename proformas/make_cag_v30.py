@@ -342,11 +342,13 @@ def page4(doc):
         [[("b", "Right renal")], B("Normal") + [("t", "Ostial "), ("line", 5), ("t", "% stenosis   ")] + B("Stent")],
     ], box=BOXV)
     heading(doc, "Final Diagnosis & Plan :", before=6)
+    GAP[0] = "  "        # nine vessels on one line
     table(doc, [2.9, 15.7], [
         [[("b", "Final diagnosis")], B("LM", "LAD", "D1", "LCx", "OM", "RCA", "PDA", "PLV", "Ramus") + [("br",)] + B("Non obstructive CAD", "Non-anginal chest pain")],
         [[("b", "Plan")], B("MMM") + [("t", "  PTCA to ")] + B("LM", "LAD", "D1", "LCx", "OM", "RCA", "Ramus") + [("br",), ("t", "with ")] + B("IVUS", "Rota", "CABG", "DCB")],
         [[("b", "Advice")], [("t", "Continued medical management. Aggressive control of risk factors.")]],
     ], box=BOXV)
+    GAP[0] = "     "
     p = para(doc); p.paragraph_format.space_before = Pt(6); run(p, "Duplicate report won’t be issued", 9, italic=True)
 
 def footer(section):
