@@ -417,10 +417,11 @@ function handle(e) {
     // 13.50 — costs: a phone's scans are logged with either key; the list and the prices need the edit key
     if (action === "costLog" && !canEdit && !techAllowed(req.tkey)) return out({ ok: false, error: "no key to log costs" });
     if (action === "accLog" && !canEdit) return out({ ok: false, error: "no edit key to log the scan accuracy" });
-    if ((action === "costList" || action === "costPricesSet" || action === "thinkSet" || action === "accList" || action === "trainFolderSet") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
+    if ((action === "costList" || action === "costPricesSet" || action === "thinkSet" || action === "accList" || action === "trainFolderSet" || action === "trainMirrorSet") && !canEdit) return out({ ok: false, error: "This device is view-only. Add the edit key in Settings to see the costs.", canEdit: false });
     switch (action) {
       case "costLog": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, costLog_(req)));
       case "accLog": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, accLog_(req)));
+      case "trainMirrorSet": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, trainMirrorSet_(req)));
       case "trainFolderSet": return out(Object.assign({ ok: true, v: SCRIPT_VERSION }, trainFolderSet_(req)));
       case "accList": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, accList_(req)));
       case "costList": return out(Object.assign({ ok: true, canEdit: true, v: SCRIPT_VERSION }, costList_(req)));
@@ -2145,6 +2146,11 @@ function batchKeepN_() { var v = Number(PropertiesService.getScriptProperties().
 function batchPruneN_() { var v = Number(PropertiesService.getScriptProperties().getProperty("BATCH_PRUNE")); return isFinite(v) && v > 0 ? v : BATCH_PRUNE_DEFAULT; }
 function batchHousekeepOff_() { return PropertiesService.getScriptProperties().getProperty("BATCH_HOUSEKEEP_OFF") === "1"; }
 function batchHousekeep_(f, runId) {
+  var trainHk = ""; try { trainHk = trainHousekeep_(); } catch (e) {}
+  var r0 = batchHousekeep0_(f, runId);
+  return [r0, trainHk].filter(Boolean).join("; ");
+}
+function batchHousekeep0_(f, runId) {
   if (batchHousekeepOff_()) return "";
   var tab = batchTabRows_();
   var withFiles = tab.rows.filter(function (r) { return (r.fileIds || []).length && !r.filesRemoved && r.status !== "queued" && r.status !== "reading"; });
@@ -7446,6 +7452,38 @@ function trainSave_(id, req) {
   if (have["labels.json"]) have["labels.json"].setContent(txt); else dir.createFile("labels.json", txt, "application/json");
   return { ok: true, folder: key, pages: pages.length, copied: copied };
 }
+/* 13.62 - moving the training data into another Google account's storage.
+   A file counts against the account that CREATES it, so pointing this script
+   at someone else's folder would still use this account's space. Instead:
+   this script shares "Scan training data" with that account (Editor), the
+   small "Training mirror" script running as that account (apps-script/
+   TrainingMirror.gs) copies each case into its own Drive and leaves
+   mirrored.txt in the case folder, and trainHousekeep_ here then trashes the
+   case folder once everything in it was copied and a day has passed. */
+function trainMirrorSet_(req) {
+  var props = PropertiesService.getScriptProperties(), email = String(req.email || "").trim().toLowerCase();
+  if (!email) { props.deleteProperty("TRAIN_MIRROR_TO"); return Object.assign({ mirror: "" }, trainCount_()); }
+  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(email)) throw new Error("that is not an email address");
+  var root = trainRoot_();
+  root.addEditor(email);
+  props.setProperty("TRAIN_MIRROR_TO", email);
+  return Object.assign({ mirror: email, sourceId: root.getId() }, trainCount_());
+}
+function trainHousekeep_() {
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty("TRAIN_MIRROR_TO")) return "";
+  var root = trainRoot_(), sub = root.getFolders(), n = 0, now = Date.now();
+  while (sub.hasNext() && n < 40) {
+    var d = sub.next(), files = d.getFiles(), stamp = 0, newest = 0;
+    while (files.hasNext()) {
+      var f = files.next();
+      if (f.getName() === "mirrored.txt") { stamp = Number(String(f.getBlob().getDataAsString()).trim()) || 0; continue; }
+      newest = Math.max(newest, f.getLastUpdated().getTime());
+    }
+    if (stamp && stamp >= newest && now - stamp > 864e5) { d.setTrashed(true); n++; }
+  }
+  return n ? "training data: " + n + " case folder" + (n === 1 ? "" : "s") + " already copied to " + props.getProperty("TRAIN_MIRROR_TO") + " cleared" : "";
+}
 function trainCount_() {
   var acct = ""; try { acct = Session.getEffectiveUser().getEmail(); } catch (e) {}
   var id = PropertiesService.getScriptProperties().getProperty("TRAIN_FOLDER_ID"), f = null;
@@ -7454,7 +7492,7 @@ function trainCount_() {
   if (!f) return { cases: 0, account: acct, custom: !!id };
   var n = 0, sub = f.getFolders();
   while (sub.hasNext()) { sub.next(); n++; }
-  return { cases: n, url: f.getUrl(), name: f.getName(), custom: !!id, account: acct, off: PropertiesService.getScriptProperties().getProperty("TRAIN_OFF") === "1" };
+  return { cases: n, url: f.getUrl(), name: f.getName(), custom: !!id, account: acct, mirror: PropertiesService.getScriptProperties().getProperty("TRAIN_MIRROR_TO") || "", sourceId: f.getId(), off: PropertiesService.getScriptProperties().getProperty("TRAIN_OFF") === "1" };
 }
 function accList_(req) {
   var days = Math.max(1, Math.min(400, Number(req.days) || 95));

@@ -12250,20 +12250,22 @@ function accTrainHtml(t) {
   const A = S.acc || {};
   const where = t.custom ? `the Drive folder <b>${esc2(t.name || "chosen in the app")}</b>` : `CAG Inbox › <b>Scan training data</b>`;
   return `<h3>Training data</h3>
-    <p class="hint">${t.off ? "<b>Turned off</b> (script property TRAIN_OFF). " : ""}<b>${t.cases}</b> saved scanned case${t.cases === 1 ? "" : "s"} kept for training an offline reader: each case's page images with what the scanner read and what the residents saved, in ${where}${t.url ? ` (<a href="${esc2(t.url)}" target="_blank" rel="noopener">open in Drive</a>)` : ""}. Inbox pages are copied there, so they stay after the inbox clears its files.</p>
-    <div class="row" style="margin-top:6px"><label class="fld" style="flex:1 1 220px"><span>Keep it in another Drive folder (paste its link)</span>
-      <input id="trainLink" placeholder="https://drive.google.com/drive/folders/…"></label></div>
-    <div class="btns"><button class="b" onclick="accTrainFolder(document.getElementById('trainLink').value)" ${A.tBusy ? "disabled" : ""}>${A.tBusy ? "Checking…" : "Use this folder"}</button>
-      ${t.custom ? `<button class="b" onclick="accTrainFolder('')" ${A.tBusy ? "disabled" : ""}>Back to the CAG Inbox</button>` : ""}</div>
-    <p class="hint">Share that folder with <b>${esc2(t.account || "the account that runs the shared sheet")}</b> as Editor first. Cases already kept stay where they are.</p>
+    <p class="hint">${t.off ? "<b>Turned off</b> (script property TRAIN_OFF). " : ""}<b>${t.cases}</b> saved scanned case${t.cases === 1 ? "" : "s"} waiting in ${where}${t.url ? ` (<a href="${esc2(t.url)}" target="_blank" rel="noopener">open in Drive</a>)` : ""}: each case's page images with what the scanner read and what the residents saved, for training an offline reader. Inbox pages are copied there, so they stay after the inbox clears its files.</p>
+    ${t.mirror
+      ? `<p class="hint">→ Moved into <b>${esc2(t.mirror)}</b>'s own Drive by its “Training mirror” script, every hour; each case is then cleared here a day after it was copied, so it does not use ${esc2(t.account || "this")} account's space.</p>
+         <div class="btns"><button class="b" onclick="accTrainMirror('')" ${A.tBusy ? "disabled" : ""}>Stop moving it</button></div>`
+      : `<div class="row" style="margin-top:6px"><label class="fld" style="flex:1 1 220px"><span>Move it into another Google account's storage</span>
+           <input id="trainMail" type="email" placeholder="name@gmail.com"></label></div>
+         <div class="btns"><button class="b" onclick="accTrainMirror(document.getElementById('trainMail').value)" ${A.tBusy ? "disabled" : ""}>${A.tBusy ? "Sharing…" : "Share with that account"}</button></div>
+         <p class="hint">Then, signed in as that account on a computer, set up the “Training mirror” script once (the file <b>Training mirror script</b> in its Drive has the steps). Until it runs, nothing is removed here.</p>`}
     ${A.tSaid ? `<p class="sc-note ${A.tBad ? "err" : "ok"}">${esc2(A.tSaid)}</p>` : ""}`;
 }
-async function accTrainFolder(link) {
+async function accTrainMirror(email) {
   const A = S.acc = S.acc || {}; A.tBusy = true; A.tSaid = ""; render();
   try {
-    const r = await sheetApi("trainFolderSet", { link: link }, 60000);
+    const r = await sheetApi("trainMirrorSet", { email: email }, 60000);
     A.train = Object.assign({}, A.train || {}, r);
-    A.tSaid = r.set ? "✓ New cases will be kept in “" + (r.name || "that folder") + "”." : "✓ Back to CAG Inbox › Scan training data."; A.tBad = false;
+    A.tSaid = r.mirror ? "✓ Shared with " + r.mirror + ". Set up its Training mirror script to start the move." : "✓ Stopped — the training data stays in the CAG Inbox."; A.tBad = false;
   } catch (e) { A.tSaid = String(e.message || e); A.tBad = true; }
   A.tBusy = false; render();
 }
