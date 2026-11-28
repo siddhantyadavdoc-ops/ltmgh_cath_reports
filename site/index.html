@@ -12602,10 +12602,12 @@ function accHtml(per) {
 }
 async function costLoad(force) {
   const C = S.costs = S.costs || {};
-  if (C.busy || (!force && C.rows && Date.now() - C.at < 60000)) return;
+  const need = Math.min(400, Math.max(95, costPeriod().days || 95));
+  if (C.busy || (!force && C.rows && (C.loadedDays || 95) >= need && Date.now() - C.at < 60000)) return;
   C.busy = true; C.err = ""; render();
   try {
-    const r = await sheetApi("costList", { days: 95 }, 60000);
+    const r = await sheetApi("costList", { days: need }, 60000);
+    C.loadedDays = need;
     C.rows = r.rows || []; C.prices = r.prices || { models: {}, half: 0.5 }; C.since = r.since || ""; C.at = Date.now();
     if (r.think) { C.think = r.think; thinkTake(r.think); }
     C.edit = null;
@@ -12624,15 +12626,34 @@ function costRupees(r) {
   const half = r[6] === "half" ? (Number(S.costs.prices.half) || 0.5) : 1;
   return ((r[7] * (Number(p.in) || 0)) + ((r[8] + r[9]) * (Number(p.out) || 0))) / 1e6 * half;
 }
+/* 13.63: the Costs page's time bracket — Last 24 h, 3 days, 7, 30, this month, last month, or From/To dates
+   chosen by hand. Rows carry "yyyy-MM-dd HH:mm:ss", so a bracket is a plain string comparison (costInPeriod). */
+const COST_PERIODS = [["24h", "Last 24 h"], ["3", "3 days"], ["7", "7 days"], ["30", "30 days"], ["month", "This month"], ["last", "Last month"], ["custom", "Custom dates"]];
+function costIso(back) { const x = new Date(Date.now() - back * 864e5); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); }
 function costPeriod() {
-  const k = S.costs.period || "30";
+  const C = S.costs = S.costs || {}, k = C.period || "30";
   const d = new Date(), pad = function (n) { return String(n).padStart(2, "0"); };
   const iso = function (x) { return x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate()); };
-  if (k === "month") return { from: iso(new Date(d.getFullYear(), d.getMonth(), 1)), to: "9999", word: "this month" };
-  if (k === "last") return { from: iso(new Date(d.getFullYear(), d.getMonth() - 1, 1)), to: iso(new Date(d.getFullYear(), d.getMonth(), 1)), word: "last month" };
+  if (k === "24h") { const x = new Date(Date.now() - 864e5); return { from: iso(x) + " " + pad(x.getHours()) + ":" + pad(x.getMinutes()) + ":00", to: "9999", word: "the last 24 hours", days: 2 }; }
+  if (k === "month") return { from: iso(new Date(d.getFullYear(), d.getMonth(), 1)), to: "9999", word: "this month", days: 32 };
+  if (k === "last") return { from: iso(new Date(d.getFullYear(), d.getMonth() - 1, 1)), to: iso(new Date(d.getFullYear(), d.getMonth(), 1)), word: "last month", days: 65 };
+  if (k === "custom") {
+    const f = C.from || costIso(6), t = C.to || costIso(0);
+    const lo = f <= t ? f : t, hi = f <= t ? t : f, nx = new Date(hi + "T00:00:00"); nx.setDate(nx.getDate() + 1);
+    const back = Math.ceil((Date.now() - new Date(lo + "T00:00:00").getTime()) / 864e5) + 2;
+    return { from: lo, to: iso(nx), word: lo === hi ? lo : lo + " to " + hi, custom: true, f: f, t: t, days: back };
+  }
   const n = Number(k) || 30;
-  return { from: iso(new Date(Date.now() - (n - 1) * 86400000)), to: "9999", word: "the last " + n + " days" };
+  return { from: iso(new Date(Date.now() - (n - 1) * 864e5)), to: "9999", word: "the last " + n + (n === 1 ? " day" : " days"), days: n + 1 };
 }
+function costInPeriod(r, per) { return r[0] >= per.from && r[0] < per.to; }
+/* the rows are fetched for 95 days; a bracket reaching further back fetches more (the script allows 400) */
+function costSetPeriod(k) {
+  const C = S.costs = S.costs || {}; C.period = k;
+  if (k === "custom" && !C.from) { C.from = costIso(6); C.to = costIso(0); }
+  render(); costLoad(false);
+}
+function costSetDate(which, v) { const C = S.costs = S.costs || {}; if (!/^\d{4}-\d\d-\d\d$/.test(v)) return; C[which] = v; render(); costLoad(false); }
 function costRs(v, dp) { return v == null ? "—" : "₹" + (v >= 100 ? Math.round(v).toLocaleString("en-IN") : v.toFixed(dp == null ? 2 : dp)); }
 function costK(n) { return n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(Math.round(n)); }
 const COST_ORDER = ["CAG case", "PTCA case", "used-stent photo", "stock photo", "day photo (used instruments)", "weekly shelf photo", "bill", "phone scan", "model check", "other"];
@@ -12660,15 +12681,18 @@ function costSumUp(rows) {
 function viewCosts() {
   const C = S.costs || {};
   const per = costPeriod();
-  const rows = (C.rows || []).filter(function (r) { return r[0].slice(0, 10) >= per.from && r[0].slice(0, 10) < per.to; });
+  const rows = (C.rows || []).filter(function (r) { return costInPeriod(r, per); });
   const U = costSumUp(rows);
   const priced = U.tot.priced && rows.length;
-  const pick = function (k, t) { return `<button type="button" class="b${(C.period || "30") === k ? " on" : ""}" onclick="S.costs.period='${k}';render()">${t}</button>`; };
+  const pick = function (k, t) { return `<button type="button" class="b${(C.period || "30") === k ? " on" : ""}" onclick="costSetPeriod('${k}')">${t}</button>`; };
   let h = `<div class="card costs"><h2>Gemini costs</h2>
     <p class="hint">Every request to Gemini, from Google's own token count: the inbox scanner's cases, the technicians' photos and bills, the daily model check, and scans made on a phone. ${C.since ? "Counted since " + esc2(String(C.since).slice(0, 10)) + " (pages read from 19 Nov taken from the scan log)." : ""} Google's bill (AI Studio → Billing) is the final word; costs show there after a few hours.</p>
-    <div class="btns">${pick("7", "7 days")}${pick("30", "30 days")}${pick("month", "This month")}${pick("last", "Last month")}
+    <div class="btns">${COST_PERIODS.map(function (x) { return pick(x[0], x[1]); }).join("")}
       <button class="b" onclick="costLoad(true)" ${C.busy ? "disabled" : ""}>${C.busy ? "Loading…" : "Refresh"}</button>
-      <button class="b" onclick="costCsv()" ${rows.length ? "" : "disabled"}>Download CSV</button></div>`;
+      <button class="b" onclick="costCsv()" ${rows.length ? "" : "disabled"}>Download CSV</button></div>
+    ${per.custom ? `<div class="row" style="margin:4px 0 8px"><label class="fld" style="flex:1 1 140px"><span>From</span><input type="date" value="${esc2(per.f)}" max="${costIso(0)}" onchange="costSetDate('from',this.value)"></label>
+      <label class="fld" style="flex:1 1 140px"><span>To</span><input type="date" value="${esc2(per.t)}" max="${costIso(0)}" onchange="costSetDate('to',this.value)"></label></div>` : ""}
+    <p class="hint" style="margin:0 0 6px">Showing ${esc2(per.word)}.</p>`;
   if (C.err) h += `<div class="warn err">${esc2(C.err)}</div>`;
   h += costThinkHtml(rows);
   h += `<p class="hint" style="margin-top:-4px">How each thinking level and model reads: <a href="#" onclick="openAcc();return false">Scan accuracy</a>.</p>`;
@@ -12750,7 +12774,7 @@ async function costPricesSave() {
 }
 function costCsv() {
   const per = costPeriod();
-  const rows = (S.costs.rows || []).filter(function (r) { return r[0].slice(0, 10) >= per.from && r[0].slice(0, 10) < per.to; });
+  const rows = (S.costs.rows || []).filter(function (r) { return costInPeriod(r, per); });
   const q = function (v) { const t = String(v == null ? "" : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
   const lines = [["Time", "What", "Case / photo id", "Name", "Step", "Model", "Price", "Tokens in", "Answer", "Thinking", "Cost (Rs)"].join(",")].concat(rows.map(function (r) {
     const rs = costRupees(r); return r.slice(0, 10).concat([rs == null ? "" : rs.toFixed(3)]).map(q).join(",");
@@ -12899,7 +12923,7 @@ function sheetUrlProblem(u) {
   if (/script\.google\.com/.test(u)) return "That doesn't look like a web-app URL \u2014 it should be https://script.google.com/macros/s/\u2026/exec.";
   return "";
 }
-const APP_VERSION = "13.62", SCRIPT_WANTED = 13;
+const APP_VERSION = "13.63", SCRIPT_WANTED = 13;
 async function testSheet() {
   const el = document.getElementById("sheetTest");
   const say = function (t, bad) { if (el) { el.textContent = t; el.style.color = bad ? "#c00000" : "var(--live)"; } };
